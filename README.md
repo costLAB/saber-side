@@ -1,7 +1,7 @@
 # saber-side
 Saber Side: a multiplayer lightsaber game with Gorilla Tag-style controls
 
-## Rustball (web prototype)
+## Saber Side (web prototype)
 
 `index.html` is a single-file Three.js game: a rusty ball-bodied robot who lives on Ring Seven, an 800 ft spinning cylinder habitat. Open the file in a browser to play; it loads Three.js r128 and two Google Fonts from CDNs, so it needs an internet connection.
 

@@ -1,15 +1,24 @@
 # Saber Side: Refactor Game Plan
 
-**Goal:** turn the single-file Rustball prototype (`index.html`, about 2,000 lines) into a codebase that can grow. It needs to support four ways to play in one shared multiplayer world:
+**Goal:** turn the single-file prototype (`index.html`, about 2,000 lines) into a codebase that can grow into a **persistent multiplayer shop-and-trade game for a group of friends**, playable on:
 
-| Platform | Session | Primary input |
+| Platform | Session | Input |
 | --- | --- | --- |
-| MacBook (Safari / Chrome / Firefox) | Flat browser | Keyboard + trackpad/mouse, optional gamepad |
-| iPad (Safari) | Flat browser, plus an XR path (see [iPad XR reality check](#ipad-xr-reality-check)) | Touch, optional gyro, Pencil, keyboard, gamepad |
-| VR headsets (Quest browser, Vision Pro Safari) | WebXR `immersive-vr` | Tracked controllers, hand tracking, gaze-and-pinch |
-| Everyone | Multiplayer rooms | Each player uses whichever input they have |
+| Meta Quest (Quest Browser) | WebXR `immersive-vr` | Touch controllers, hand tracking |
+| iPad (Safari) | Flat browser, first-class | Touch, plus keyboard/trackpad or gamepad when connected |
+| MacBook (Safari / Chrome) | Flat browser | Keyboard + trackpad/mouse, optional gamepad |
 
-This plan is ordered so that the decisions that are expensive to undo come first: separating simulation from rendering, the avatar data model, and the network authority model. Visible features come after.
+All three platforms play together in the same world. Rooms hold **10 players**.
+
+**Product decisions from the owner (2026-10-31):**
+
+- Great flat play on iPad. **No AR.** VR is on Meta Quest.
+- The game is called **Saber Side** (formerly Rustball).
+- 10 players per room.
+- VR and flat players interact. **No fighting yet.** The core loop is **running stores and selling things to each other**. It's a fun economy with no real money: store owners get regular revenue, pay rent and other operating costs, and pay to open new stores. The first store is free.
+- Cheap hosting is fine. It's for kids and friends, not production grade, but it should just work.
+- Voice chat would be great (friends only, no moderation needed), but it's lower priority.
+- Stay on WebXR rather than moving to Unity (see [section 9](#9-unity-or-webxr)).
 
 ---
 
@@ -17,138 +26,214 @@ This plan is ordered so that the decisions that are expensive to undo come first
 
 `index.html` is one IIFE with a single global mutable state, `st`. Good things to keep:
 
-- **The ring-bend technique** (`index.html:161-199`). Floor content is simulated on a flat strip (x across, z around, y up) and bent onto the cylinder in the vertex shader. This keeps physics simple and works per eye in XR, because the bend happens in world space before `viewMatrix`. It is the core technical asset, so we keep it and formalize it.
-- **Abstract actions already exist.** Input fills `keys` / `pressed` with action names (`up`, `jump`, `grab`, `use`, ...) instead of key codes (`index.html:1241-1252`), and a touch pad already feeds the same map. This is the starting point for a real input layer.
-- **Blob shadows instead of shadow maps** (`index.html:1019`). This is already the right call for Quest performance.
-- **Instanced and batched static parts** (`part` / `flushParts`), procedural canvas textures, particle pools.
+- **The ring-bend technique** (`index.html:161-199`). Floor content is simulated on a flat strip (x across, z around, y up) and bent onto the cylinder in the vertex shader. This keeps physics simple and works per eye in XR, because the bend happens in world space before `viewMatrix`.
+- **Procedural shops already exist** (`buildShop`, `makeSign`, `index.html:675-809`). They become the rentable storefronts.
+- **Crates labeled "BOLTS"** and grabbable items (sabers, blaster, carrot). These become the starter money source and the first merchandise.
+- **Abstract actions:** input fills `keys` / `pressed` with action names, and there's a touch pad that feeds the same map (`index.html:1241-1294`).
+- **Blob shadows instead of shadow maps**, plus instanced and batched static parts. Both are right for Quest performance.
 
-Problems that block scale, XR, or multiplayer:
+Problems that block scale, VR, or multiplayer:
 
 | # | Problem | Where | Why it matters |
 | --- | --- | --- | --- |
-| P1 | **The scene graph is the simulation state.** `bot.root.position` is the player's authoritative position, and crates and items store state on their meshes. | `update()` `index.html:1412+`, `updateCrates`, `updateItems` | You can't run the simulation headless on a server or in tests, and you can't have N players without N copies of the Three.js graph. |
-| P2 | **One player, hard-wired.** `bot`, `st`, `held`, `cam`, and `camPos` are singletons. | throughout | Multiplayer needs N avatars, of which one is local. |
-| P3 | **Simulation, input, animation, camera, and FX are interleaved in one 300-line `update()`.** | `index.html:1412-1705` | You can't swap in a different controller (VR) or camera (XR rig). |
-| P4 | **Variable timestep:** `dt = min(getDelta, 1/30)`. | `frame()` `index.html:1757` | Network reconciliation and reproducible tests need a fixed tick. |
-| P5 | **25 `Math.random()` calls, mixing cosmetic and gameplay randomness.** Crate knockback (`:1485-1487`) and item tumble (`:1155`) change game state. | throughout | Clients will disagree about crate positions. |
-| P6 | **One PointLight per saber** (`:1097`), plus the eye light and axis light. | `makeSaber` | In three.js, the light count is part of the shader program key, and every lit fragment pays for every light. Twenty sabers in a room would mean 20 lights, shader recompiles, and a Quest frame-rate collapse. |
-| P7 | **Units:** 1 scene unit = 1.19 ft (0.364 m), so the 4 ft robot is 3.35 units tall. | `FT` `index.html:155` | WebXR reference spaces are in meters. A mismatched scale breaks hand sizes, saber length, and comfort. |
-| P8 | **"Real space" via a height sentinel:** anything with y > 5000 is drawn unbent (`REAL_OFF`). | `:572`, bend GLSL | It works, but it's an invisible coupling. It needs to live behind one API. |
-| P9 | **Three.js r128 from a CDN** (2021). | `<script>` `:128` | Modern WebXR features (hand models, layers, foveation, multiview, `transient-pointer`) need a current three.js. Color and lighting APIs changed in r152 and r155. |
-| P10 | **No build, types, tests, or CI.** The `.gitignore` is a Unity template for a project that isn't Unity. | repo root | Several people can't work on it safely. |
+| P1 | **The scene graph is the simulation state.** `bot.root.position` is the player position, and crates and items store state on their meshes. | `update()` `:1412+`, `updateCrates`, `updateItems` | You can't run the game on a server or in tests, and you can't have more than one player. |
+| P2 | **One player, hard-wired.** `bot`, `st`, `held`, and `cam` are singletons. | throughout | Multiplayer needs up to 10 avatars, of which one is local. |
+| P3 | **Simulation, input, animation, camera, and FX are interleaved in one 300-line `update()`.** | `:1412-1705` | You can't swap in a VR controller or camera rig. |
+| P4 | **Variable timestep.** | `frame()` `:1757` | Networking and reproducible tests need a fixed tick. |
+| P5 | **25 `Math.random()` calls**, some of which change game state (crate knockback `:1485`, item tumble `:1155`). | throughout | Different players' screens would disagree about where things are. |
+| P6 | **One PointLight per saber** (`:1097`). | `makeSaber` | Sabers will be merchandise, so there will be many of them. Every light costs every lit pixel, and a changing light count forces shader recompiles. Quest frame rate would collapse. |
+| P7 | **Units:** 1 scene unit = 0.364 m. | `FT` `:155` | WebXR works in meters. |
+| P8 | **"Real space" via a height sentinel:** anything with y > 5000 is drawn unbent (`REAL_OFF`). | `:572` | An invisible coupling that should live behind one API. |
+| P9 | **three.js r128 from a CDN** (2021). | `:128` | Hand tracking, foveation, and multiview need a current three.js. |
+| P10 | **No build, types, tests, CI, or persistence.** The `.gitignore` is a Unity template. | repo root | A persistent economy needs a database and a safety net. |
 
 ---
 
 ## 2. Key decisions
 
-These are recommendations. Each one is cheap to change now and expensive later.
-
 ### D1. Monorepo: TypeScript + Vite + pnpm workspaces
 
-- `apps/client`: Vite, TypeScript (strict), three.js pinned to an exact current release.
-- `apps/server`: Node + TypeScript.
-- `packages/shared`: pure TypeScript simulation, constants, ring math, and network protocol. It must not import the DOM or the three.js scene graph (three's *math* classes are fine) so it runs in the browser, on the server, and in tests.
+- `apps/client`: Vite, strict TypeScript, three.js pinned to an exact current release, `WebGLRenderer`.
+- `apps/server`: Node + TypeScript + Colyseus + SQLite.
+- `packages/shared`: pure TypeScript game rules, constants, ring math, economy rules, and network protocol. No DOM and no scene graph (three's math classes are fine), so it runs in the browser, on the server, and in tests.
 - Tooling: Biome (lint + format), Vitest, Playwright, GitHub Actions.
-- Stay on `WebGLRenderer`. WebXR support under `WebGPURenderer` is still not something to bet on.
 
 ### D2. The simulation owns the state, rendering only reads it
 
-- A fixed-tick simulation (60 Hz) over plain data. Rendering interpolates between the last two ticks.
-- Entities are plain objects grouped by component (`transform`, `body`, `holdable`, `crate`, `avatar`, ...), and systems are functions over them. Start with hand-rolled structures. A small ECS such as miniplex or koota can come later if the entity count demands it, since the data shape won't change.
-- The render layer keeps a `Map<entityId, Object3D>` and syncs it each frame. Gameplay never touches meshes.
-- **Randomness:** a seeded RNG for anything that affects state (`sim.rng`). Cosmetic FX may use any RNG, but it is injected so tests can pin it.
+- A fixed 60 Hz tick over plain data. Rendering interpolates between ticks.
+- Entities are plain objects grouped by component, and systems are functions over them. Hand-rolled to start; a small ECS library only if needed later.
+- The render layer maps `entityId → Object3D` and syncs every frame. Gameplay never touches meshes.
+- A seeded RNG for anything that changes game state. Cosmetic effects use an injected RNG so tests can pin it.
 
-### D3. Meters everywhere, player scale on the rig
+### D3. Meters everywhere, player scale on the VR rig
 
-- Canonical unit: **1 unit = 1 meter**. `FT` becomes `0.3048`, and every constant is converted once (gravity of 28 u/s² is about 10.2 m/s², which checks out).
-- The robot is 1.22 m tall. In VR, the XR rig is scaled so the headset's eye height maps to the robot's eye height, which gives a slightly smaller-than-life, Gorilla Tag-like scale that feels intentional. The scale is a single `playerScale` setting.
-- Saber blade length (currently 1.3 units = 0.47 m) gets re-tuned against that scale so it reads as a real saber in VR.
+- **1 unit = 1 meter.** Every constant is converted once (gravity of 28 u/s² is about 10.2 m/s², which checks out).
+- The robot is 1.22 m tall. In VR, the rig scales headset eye height to robot eye height, using one `playerScale` setting. Kids are already close to that height.
 
-### D4. Formalize ring space in one module (`shared/ring-space.ts`)
+### D4. All ring math lives in one module (`shared/ring-space.ts`)
 
-- Every entity is in one of two frames: `strip` (floor-bound, simulated flat, rendered bent) or `real` (tubes, hub, end caps, simulated in true 3D).
-- The module owns `bendPoint`, `bendUp`, `unbend`, `wrapD`, frame conversions, and the GLSL chunk. The `REAL_OFF` sentinel becomes an implementation detail of the renderer, behind `RingSpace.attach(object, frame)`.
-- The network sends frame-tagged positions, and each client converts. A player riding a lift switches frames at a defined tick, just as `boardLift` / `landLift` do now.
+- Every entity is in one of two frames: `strip` (floor, simulated flat, drawn bent) or `real` (lift tubes, hub, end caps).
+- The module owns `bendPoint` / `unbend` / `wrapD`, frame conversions, and the GLSL chunk. `REAL_OFF` becomes a renderer detail.
 
 ### D5. One avatar format for every platform
 
-This decision makes cross-play work. **Every avatar is networked as an embodied pose:** root (frame + position + yaw), head pose, left and right hand poses, and per-hand state (grip, holding entity id, trigger).
+Every avatar is networked as an **embodied pose**: root (frame + position + yaw), head, left hand, right hand, and per-hand state (gripping, holding item id).
 
-- **VR players** fill it directly from the headset and controllers or hands.
-- **Flat players** (MacBook, iPad) drive the root with sticks or keys, and an animation layer *synthesizes* head and hand poses from actions: swing arcs, a carry pose, the spin attack.
-- Remote players render the same way whatever device they're on. A VR player and a MacBook player see each other's sabers in the same place.
+- **Quest players** fill it from the headset and controllers or hands.
+- **iPad and MacBook players** drive the root with stick or keys, and an animation layer generates head and hand poses from what they're doing (carrying, waving, placing an item on a shelf).
+- Everyone renders the same way, so a VR kid handing a carrot to an iPad kid looks right on both screens.
 
 ### D6. Controllers are separate from input devices
 
 ```
-devices (keyboard, mouse, touch, gamepad, xr-controller, xr-hand, transient-pointer)
-   → action map / pose stream   (per-profile bindings, rebindable)
-   → controller                 (PilotedController | EmbodiedController | SpectatorController)
+devices (keyboard, mouse/trackpad, touch, gamepad, xr-controller, xr-hand)
+   → action map / pose stream   (per-profile bindings)
+   → controller                 (PilotedController | EmbodiedController)
    → avatar intent              (written into the sim each tick)
 ```
 
-- `PilotedController` is today's behavior: tank or camera-relative rolling, jump, spin, and grab, with a third-person camera.
-- `EmbodiedController` is VR: head tracking, hand colliders, Gorilla-style arm locomotion, and direct-grab items.
-- Profiles hot-swap. Pressing a key on an iPad hides the touch UI (the current code already does this), connecting a gamepad switches bindings, and entering VR swaps controllers *without* dropping the network connection.
+Profiles hot-swap: a keyboard on the iPad hides the touch UI, a gamepad switches bindings, and entering VR swaps controllers without dropping the connection.
 
-### D7. Multiplayer: clients own their bodies, the server owns the world
+### D7. Multiplayer: clients own their bodies, the server owns the world and every Bolt
 
-- **Movement:** each client simulates and owns its own avatar. Gorilla-style VR locomotion can't be predicted well by a server. Clients stream poses at about 30 Hz, and the server sanity-checks them (speed caps, teleport detection, frame-switch validity).
-- **The server is authoritative** for item ownership (pickup is a request the server grants), crate physics, hits and damage, scores, lifts, and room state. It runs the same `packages/shared` systems.
-- **Hits:** the attacker's client detects a hit with swept blade segments and sends a claim with a timestamp. The server validates it against about 250 ms of pose history (lag compensation) with a tolerance.
-- **Remote avatars** render about 100 ms in the past from an interpolation buffer. Hands get a little extra smoothing.
-- **Stack:** Node + **Colyseus** (rooms, matchmaking, reconnection, binary state sync) over WebSocket. Pose streams use a compact custom message: quantized positions relative to the frame, and smallest-three quaternions. WebTransport and WebRTC data channels are possible later optimizations behind the same `net/transport` interface. WebSocket is the baseline because it works everywhere, including Safari.
-- **Rooms:** about 10-16 players per ring instance, public matchmaking plus private room codes.
+- **Movement is client-owned.** VR arm locomotion can't be predicted well by a server. Clients stream poses at about 30 Hz, and the server applies light sanity checks.
+- **The server is authoritative** for item ownership, crates, lifts, stores, inventory, prices, and **every currency change**. Clients *request* ("buy item 812 for 40 Bolts"), and the server validates, applies, and broadcasts the result.
+- Remote avatars render about 100 ms behind, from an interpolation buffer.
+- **Stack:** Node + **Colyseus** (rooms, reconnection, binary state sync) over WebSocket, which works everywhere including Quest Browser and Safari. Colyseus also has a Unity/C# client SDK, which keeps a future native Quest client possible against the same server.
 
-### D8. Lights budget: emissive, not lights
+### D8. Persistent worlds, one per friend group
 
-- Saber blades become emissive cores plus additive glow sprites (`glowTex` already exists), with **no PointLight per saber**.
-- If dynamic saber light is wanted, use a fixed pool of 2-4 lights assigned to the sabers nearest the camera each frame. A fixed count means no shader recompiles.
+- A **world** is one Ring Seven with its own storefronts and economy, identified by a short **world code** (for example `BOLT-42`). Up to 10 players are online in it at once.
+- **SQLite** on the server's disk stores the state. A world loads when the first player joins and saves continuously (the ledger is append-only) and on the last player leaving.
+- **Identity, kept simple:** the first visit creates a profile (display name + robot color) held as a device token. To use the same profile on another device (Quest *and* iPad), show a 6-digit **link code** on one device and type it on the other. The world owner (you) can re-issue a code if a device gets wiped.
+- An **owner panel** for the world creator: tweak economy multipliers, grant Bolts, reset a store. Useful when a kid gets stuck or broke.
+
+### D9. Lights budget: emissive, not lights
+
+Sabers get emissive cores plus additive glow sprites, with **no light per saber**. If dynamic glow is wanted, use a fixed pool of 2-4 lights assigned to the nearest lit sabers.
 
 ---
 
-## 3. Target repository layout
+## 3. The economy (core game loop)
+
+### Loop
+
+> Bash crates for starter Bolts → lease your free first store → buy stock at the Depot → set prices and stock shelves → earn from robot shoppers and friends → pay rent and bills each day → save up → open a second store or upgrade.
+
+### Money
+
+- **Currency: Bolts.** New players start with about 200.
+- **Every change is a ledger entry**: who, to whom, how much, why, and on which game day. Balances are derived from the ledger. This rules out duplication bugs and makes daily statements trivial.
+- **Money comes in from:**
+  - robot (NPC) shoppers buying from stores
+  - bashing crates (tiny amounts)
+  - odd jobs, such as delivery runs between stores (later)
+  - a small daily allowance so nobody is stuck at zero
+- **Money goes out on:**
+  - rent
+  - clerk wages
+  - utilities
+  - wholesale stock
+  - store build-out and upgrades (capex)
+
+  Player-to-player sales just move Bolts between players.
+
+### Storefronts
+
+- Each shop slot on the promenade is a **lot** with a size (S/M/L) and a **foot-traffic score**. Lots near the lifts and the welcome arch get more traffic.
+- **Rent per game day** = base × size × traffic. Busy spots earn more and cost more. That's the core decision.
+- Vacant lots show a "FOR LEASE" sign. Walk up and lease from the kiosk.
+- **First store: no build-out cost**, plus 3 rent-free days. **Each additional store costs capex** (a build-out fee scaled by size, rising with each store you already own, so one kid can't buy the whole ring).
+- **Upgrades are capex too:** more shelf slots, a better sign, display lighting (raises appeal), and a **clerk bot**. The clerk costs wages but keeps the store selling while you're offline.
+
+### Goods
+
+- **Launch catalog:**
+  - sabers (in colors)
+  - blasters
+  - carrots
+  - robot cosmetics: hats, paint, antenna toppers
+  - store decorations
+- **The Depot** is the NPC wholesaler, located at the hub so the lifts matter. Owners buy stock at wholesale and choose retail prices.
+- **Stocking:** in VR you physically place items on shelf slots, where they snap into place. On flat devices you tap a slot, then pick an item from your inventory.
+- **Buying:**
+  - Flat: tap or click an item to see its price card, then Buy.
+  - VR: grab it off the shelf (its tag glows "unpaid") and set it on the register pad, or press Buy on your wrist.
+- **Later:** crafting (combine parts into new goods) and direct player-to-player trades with a confirm step.
+
+### Revenue from robot shoppers
+
+- The server runs a **demand simulation**. Each game hour, every open, stocked store gets visits = traffic × appeal × (number of shoppers on the ring). Each visitor buys with a probability that falls as price rises above the item's reference price.
+- This is the **regular revenue stream**, and it rewards good spots, good stock, and fair prices.
+- A handful of cosmetic robot shoppers wander the promenade and walk out of stores carrying what they "bought". Clients render them from server events. They're cheap and fun.
+
+### Time
+
+- **Online:** the world clock runs **1 game day per 20 real minutes** (tunable). At closing time a bell rings and each owner gets a **daily statement**: sales, rent, wages, utilities, profit.
+- **Offline:** the world is frozen, so kids aren't punished for going to school. Stores **with a clerk** keep trading during "away time", capped at 3 game days, and on return the owner sees a "While you were away" summary. This is computed when the world loads, so no server has to run 24/7.
+
+### Kid-friendly guardrails
+
+- Balances can't go below zero. A store that can't pay rent goes "Closed for repairs" (no sales) until it's paid. After 5 unpaid days it's returned to vacant, and its stock goes back to the owner's inventory, never lost.
+- A daily allowance and crate bashing guarantee a way back from zero.
+- Every number (rent, prices, demand, day length) lives in one config file and can be tuned in the owner panel.
+
+### Data model (SQLite)
+
+```
+worlds(id, code, name, owner_player_id, game_day, game_time, settings_json)
+players(id, display_name, color, created_at)
+devices(token_hash, player_id)             link_codes(code, player_id, expires_at)
+world_members(world_id, player_id, joined_at)
+lots(world_id, lot_id, size, traffic)      -- seeded from shared/content
+stores(id, world_id, lot_id, owner_id, name, sign_json, status, upgrades_json, opened_day)
+items(id, world_id, type, owner_id, location_kind, location_ref, price)
+ledger(id, world_id, ts, game_day, from_acct, to_acct, amount, reason, ref)
+```
+
+---
+
+## 4. Target repository layout
 
 ```
 saber-side/
-├─ package.json            pnpm workspaces, scripts: dev, build, test, lint, e2e
+├─ package.json            pnpm workspaces: dev, build, test, lint, e2e
 ├─ tsconfig.base.json      biome.json      .github/workflows/ci.yml
 ├─ apps/
 │  ├─ client/
 │  │  ├─ index.html        HUD markup only
 │  │  └─ src/
-│  │     ├─ main.ts        boot: detect capabilities → pick profile → start app state machine
-│  │     ├─ app/           loop (fixed tick + render interp), states: boot/title/lobby/play/xr, settings
-│  │     ├─ platform/      capability detection, profiles: desktop | touch | xr-vr | xr-ar
-│  │     ├─ input/
-│  │     │  ├─ actions.ts  action + pose schema
-│  │     │  ├─ devices/    keyboard, mouse, trackpad, touch, gamepad, xr-controller, xr-hand, transient-pointer, gyro
-│  │     │  └─ bindings/   default bindings per profile (data), rebinding + persistence
-│  │     ├─ controllers/   piloted.ts, embodied.ts (arm locomotion), spectator.ts
-│  │     ├─ render/
-│  │     │  ├─ renderer.ts WebGLRenderer + WebXR setup, foveation, DPR policy
-│  │     │  ├─ ring/       bend material patch, RingSpace.attach, real-space group
-│  │     │  ├─ cameras/    third-person orbit, xr rig, tabletop rig
-│  │     │  ├─ textures/   procedural canvas textures (paintTex, crateTex, signs...)
-│  │     │  └─ fx/         particle pools, glow sprites, saber trails
-│  │     ├─ world/         scene builders from level data: shell, promenade, shops, lifts, hub, end caps
+│  │     ├─ main.ts        boot: detect capabilities → pick profile → app state machine
+│  │     ├─ app/           loop (fixed tick + interp), states: boot/title/world-select/play/vr, settings
+│  │     ├─ platform/      profiles: desktop | touch | vr
+│  │     ├─ input/         actions.ts, devices/*, bindings/*
+│  │     ├─ controllers/   piloted.ts, embodied.ts (arm locomotion)
+│  │     ├─ render/        renderer + WebXR, ring/ (bend), cameras/, textures/, fx/
+│  │     ├─ world/         scene builders from level data: shell, promenade, lots, lifts, hub, Depot
 │  │     ├─ avatar/        robot model, procedural animation, hand IK, remote interpolation
-│  │     ├─ items/         saber / blaster / carrot visuals
-│  │     ├─ ui/            DOM HUD (flat), in-world panels (XR), menus, room-code entry
-│  │     ├─ net/           connection, transport, interpolation buffer, clock sync
-│  │     └─ audio/         WebAudio: hum, clash, ambience (spatialized)
+│  │     ├─ items/         item visuals (sabers, blasters, carrots, cosmetics, decor)
+│  │     ├─ shop/          shelves, price tags, register, store management UI (DOM + in-world)
+│  │     ├─ ui/            HUD, menus, world code entry, link code, daily statement, wrist panel (VR)
+│  │     ├─ net/           connection, interpolation buffer, clock sync
+│  │     ├─ voice/         WebRTC mesh + spatial audio (later)
+│  │     └─ audio/         hum, cha-ching, closing bell, ambience
 │  └─ server/
-│     └─ src/              rooms/RingRoom.ts, authority/ (items, crates, hits), validation, history buffer
-├─ packages/
-│  └─ shared/
 │     └─ src/
-│        ├─ constants.ts   habitat dimensions, OMEGA, units (meters)
-│        ├─ ring-space.ts  bend/unbend/wrap, frames
-│        ├─ sim/           world, entities, systems: movement, collision, lifts, zero-g, crates, items, combat
-│        ├─ content/       level layout as data: shops, lifts, crate stacks, table, spawn points
-│        ├─ protocol/      message types, versioning, quantization codecs
-│        └─ rng.ts
-└─ docs/                   this plan, ARCHITECTURE.md, CONTROLS.md, NETCODE.md
+│        ├─ index.ts       one process: serves the built client + Colyseus + SQLite
+│        ├─ rooms/WorldRoom.ts
+│        ├─ economy/       ledger, stores, demand sim, daily close, away catch-up
+│        ├─ db/            schema, migrations, backups
+│        └─ auth/          device tokens, link codes
+├─ packages/
+│  └─ shared/src/
+│     ├─ constants.ts      habitat dimensions in meters
+│     ├─ ring-space.ts     bend / unbend / wrap / frames
+│     ├─ sim/              movement, collision, lifts, zero-g, crates, items
+│     ├─ economy/          pure rules: rent, demand curve, prices, statements (no I/O)
+│     ├─ content/          level data: lots, Depot catalog, crate stacks, spawn points
+│     ├─ protocol/         messages, versioning, pose codecs
+│     └─ rng.ts
+└─ docs/
 ```
 
 Where today's code goes:
@@ -159,196 +244,253 @@ Where today's code goes:
 | renderer / scene (140-150) | `render/renderer.ts` |
 | habitat scale + bend (151-212) | `shared/constants.ts`, `shared/ring-space.ts`, `render/ring/` |
 | procedural textures, materials (213-413) | `render/textures/`, `render/materials.ts` |
-| robot (414-567) | `avatar/robot.ts` (the model only; animation goes to `avatar/animate.ts`) |
-| habitat, shops, landmarks, end caps (568-1057) | `shared/content/` (data) + `world/` (builders) |
-| weapon table + items (1058-1168) | `shared/sim/items.ts` + `items/` visuals |
-| crates (1169-1200), crate update (1706-1754) | `shared/sim/crates.ts` + `world/crates.ts` |
+| robot (414-567) | `avatar/robot.ts` + `avatar/animate.ts` |
+| habitat, shops, landmarks, end caps (568-1057) | `shared/content/` (lot and layout data) + `world/` (builders) |
+| weapon table + items (1058-1168) | `shared/sim/items.ts` + `items/` |
+| crates (1169-1200, 1706-1754) | `shared/sim/crates.ts` + `world/crates.ts` |
 | particles (1201-1239) | `render/fx/` |
 | input (1240-1295) | `input/devices/*`, `input/bindings/` |
-| simulation `update()` (1296-1705) | split into `shared/sim/movement.ts`, `controllers/piloted.ts`, `avatar/animate.ts`, `cameras/third-person.ts` |
+| `update()` (1296-1705) | `shared/sim/movement.ts`, `controllers/piloted.ts`, `avatar/animate.ts`, `render/cameras/third-person.ts` |
 | lifts, hub, `updateReal` (1769-1995) | `shared/sim/lifts.ts`, `shared/sim/zero-g.ts`, `world/lifts.ts` |
 
 ---
 
-## 4. Controls by platform
+## 5. Controls by platform
+
+### iPad (flat, first-class)
+
+- **Movement and camera:** a floating left-thumb joystick replaces the d-pad. Dragging on the right half looks around, and pinch zooms.
+- **Interacting:** tap an item, shelf slot, kiosk, or register to interact. Context buttons appear (Buy, Stock, Lease, Pick up).
+- **Buttons:** large thumb buttons for jump and grab, inside the safe areas.
+- **Panels:** store management opens as a full-screen sheet with prices, stock, upgrades, and the daily statement.
+- **Other input:** a Magic Keyboard, trackpad, or gamepad switches automatically to that profile.
 
 ### MacBook (flat)
 
-| Action | Keyboard + trackpad / mouse | Notes |
-| --- | --- | --- |
-| Move | WASD / arrows | Camera-relative by default; tank steering available as an option (today's behavior) |
-| Look / orbit | Two-finger drag or mouse drag; optional pointer lock | Trackpad first: never *require* right-click |
-| Zoom | Pinch or scroll | Mac trackpad pinch arrives as `wheel` with `ctrlKey` in Chrome/Firefox and as `gesturechange` in Safari; handle both |
-| Swing saber | Click-drag: the drag direction picks the strike arc | Gives flat players directional strokes that map onto the synthesized hand pose (D5) |
-| Block | Hold Shift+drag, or a dedicated key | Boost moves to a different key once combat exists |
-| Jump / spin / grab / use | Space / X / G / F | Same as today |
-| Gamepad | Left stick move, right stick look, triggers swing/block | Comes free through the Gamepad API |
+| Action | Input |
+| --- | --- |
+| Move | WASD / arrows (camera-relative by default, tank steering as an option) |
+| Look / orbit | Two-finger drag or mouse drag; never requires right-click |
+| Zoom | Pinch or scroll (Chrome sends pinch as `wheel` + `ctrlKey`; Safari sends `gesturechange`, so handle both) |
+| Interact | Click the object, or E when the prompt shows |
+| Jump / grab / use | Space / G / F, same as today |
+| Gamepad | Left stick move, right stick look, A interact |
 
-### iPad (flat)
+### Meta Quest (VR)
 
-- **A floating left-thumb joystick** replaces the d-pad. Dragging on the right half looks around. Pinch zooms.
-- **Saber:** swiping on the right half while holding a saber strikes along the swipe direction. Holding a two-finger press blocks.
-- **Buttons:** jump, grab, use, and spin stay as large thumb targets inside the safe areas.
-- **Optional gyro aim:** a "magic window" look mode using `DeviceOrientationEvent`. This needs `requestPermission()` from a user gesture on iOS.
-- **Apple Pencil (stretch):** `pointerType: 'pen'` with tilt and azimuth drives saber angle directly.
-- **Magic Keyboard / trackpad / gamepad** connected to an iPad switch automatically to the MacBook or gamepad profile.
-
-### VR (`immersive-vr`)
-
-- **Session:** request `local-floor` with `hand-tracking` and `layers` as optional features. Show an Enter VR button only when `navigator.xr.isSessionSupported('immersive-vr')` says yes.
-- **Rig placement:** the rig sits in real space at the bend frame of the player's strip position (rotation about the ring axis by θ = −z/R). Room-scale motion is converted back to strip coordinates every tick. "Up" follows the floor as you travel around the ring.
-- **Locomotion, Gorilla-style:** the robot has no legs, so arm locomotion fits naturally. Hands are sphere colliders. When a hand is in contact with a surface, the body moves opposite to the hand. On release, the body takes the recent hand velocity (multiplied, then capped). Floor gravity applies on the promenade. **The zero-g hub** uses the same mechanic with no gravity, so you push off walls and tubes.
-- **Optional smooth locomotion:** thumbstick movement for comfort, with snap turn, a vignette, and a seated mode.
-- **Items:** grip to grab, trigger to ignite or fire. A held saber is a capsule tracked 1:1. Hits use swept segments between ticks so fast swings register. When sabers clash, the rendered blade stops at the contact point (a "ghost hand"), with sparks and controller haptics.
-- **Input sources:**
-  - Quest controllers: `tracked-pointer` + `xr-standard` gamepad
-  - Hand tracking: pinch / grip thresholds from joint poses
-  - Vision Pro: hands, plus `transient-pointer` (gaze-and-pinch) for UI
-- **UI:** in-world panels (canvas textures) attached to the left wrist and the lobby.
+- **Session:** `immersive-vr` with `local-floor`, and `hand-tracking` as optional. The Enter VR button shows only when it's supported.
+- **Rig placement:** the rig sits at the bend frame of the player's strip position, so "up" follows the floor around the ring. Room-scale motion is converted back to strip coordinates every tick.
+- **Locomotion:**
+  - **Arm locomotion** in the Gorilla Tag style. Hands are sphere colliders. Pushing a surface moves the body the opposite way, and releasing carries the hand's velocity forward (capped).
+  - **The zero-g hub** uses the same mechanic with no gravity.
+  - **Comfort options:** thumbstick smooth locomotion, snap turn, vignette, seated mode.
+- **Shopping, natively:** grab goods off shelves, put stock on shelf slots (they snap in), set an item on the register to pay, and use a **wrist panel** for Bolts, inventory, and the daily statement.
+- **Store management** on a wall panel in your store's back room (a canvas texture with pointer interaction).
 - **Performance budget (Quest 2/3):**
-  - Frame rate: 72-90 Hz, with fixed foveation and dynamic resolution
+  - Frame rate: 72-90 Hz, with fixed foveation
   - Draw calls: at most about 150
   - Triangles: at most about 500k
-  - Lights: no shadow maps, a fixed light count (D8)
-  - Glass: minimal transparent overdraw (the hub and lift glass need care)
-  - Verify that the bend chunk still compiles and renders correctly under multiview
-
-### iPad XR reality check
-
-**As of late 2026, Safari on iPadOS does not ship WebXR (neither `immersive-vr` nor `immersive-ar`) by default, and every iPad browser uses WebKit.** Apple's WebXR is on visionOS Safari. Most sources found while writing this plan agree, and the few that claim iPad support looked unreliable. Re-check the WebKit release notes before committing to anything. Options:
-
-1. **(Recommended to start)** Make iPad flat play excellent (above), and add gyro "magic window" look as the XR-adjacent feel.
-2. **Build the AR "tabletop" mode against the standard WebXR AR APIs** (`immersive-ar`, `hit-test`, `anchors`, `dom-overlay`). The ring becomes a diorama on your table that you play with touch. It runs today on Android Chrome and switches on for iPad automatically if Safari ships WebXR AR.
-3. **Bridge to native AR on iPad** through a native wrapper app (WKWebView + ARKit bridge) or a commercial App Clip bridge. This is real work plus distribution overhead, so only do it if iPad AR is a hard requirement.
-4. **If "Apple XR" was the intent, Vision Pro Safari already supports `immersive-vr`** and is covered by the VR profile.
+  - Lights: no shadow maps, a fixed light count (D9)
+  - Glass: minimal transparent overdraw (hub and lift glass)
+  - Verify the bend chunk under multiview
 
 ---
 
-## 5. Phases
+## 6. Hosting (simple, cheap, just works)
 
-Each phase ends with something runnable. After Phase 3, VR (Phase 4) and the AR/iPad work (Phase 5) can proceed in parallel. Sizes are relative (S/M/L).
+- **One process does everything:** the Node server serves the built client files, runs Colyseus, and writes SQLite to a persistent volume. That means one deploy, one URL, and HTTPS from the host. WebXR requires HTTPS.
+- **What to look for in a host:**
+  - WebSocket support
+  - a **persistent disk/volume**
+  - automatic HTTPS
+  - deploy-on-push from GitHub
+  - an **always-on** small instance
 
-```
-P0 Groundwork ─► P1 Decompose + sim split ─► P2 Input + avatar model ─► P3 Multiplayer presence ─┬─► P4 WebXR VR ─────┐
-                                                                                                └─► P5 iPad / AR ────┼─► P6 Combat + netcode ─► P7 Scale & ops
-```
-
-### Phase 0: Groundwork (S)
-
-- Set up the pnpm workspace, Vite client, strict TypeScript, Biome, Vitest, and Playwright.
-- Replace the Unity `.gitignore` with a Node/Vite one.
-- Move the current script into `apps/client/src/legacy.js` **unchanged** (no logic edits) and serve it through Vite.
-- Add a deterministic mode (fixed clock, seeded RNG shim for `Math.random`).
-- Add Playwright screenshot baselines of a few fixed camera views at desktop and iPad viewports. These guard every later refactor.
-- CI: lint, typecheck, unit tests, build, e2e screenshots.
-- HTTPS preview deploys on each branch (a static host). WebXR requires a secure context.
-- Local device testing: `vite --host` over HTTPS (basic-ssl or mkcert), and `adb reverse` for Quest.
-
-**Exit:** the game looks and plays identically, is built by Vite, and is deployed from CI.
-
-### Phase 1: Decompose and separate simulation from rendering (L)
-
-- Extract modules in the order of section 3's mapping, keeping the screenshots green after each extraction (strangler pattern).
-- Create `packages/shared`: constants in meters (D3), `ring-space.ts` (D4), level layout as data (`content/`).
-- Introduce the entity/world model (D2) and move the authoritative state (player, crates, items, lifts) out of meshes. Add a render sync layer.
-- Fixed 60 Hz tick with render interpolation (fixes P4). Seeded RNG for gameplay randomness (fixes P5).
-- Saber lighting moves to emissive + glow (D8, fixes P6).
-- **Upgrade three.js** to the latest stable release, pinned exactly (fixes P9). Port `outputEncoding` → `outputColorSpace`, re-tune light intensities for physically correct lighting, and re-verify the `onBeforeCompile` chunk replacements (`project_vertex`, normal transform, sprite path).
-- Unit tests: bend/unbend round-trips, wrap, lift frame switches, movement integration, crate collisions. **Run the sim headless in Node.**
-
-**Exit:** gameplay is the same, `shared/sim` runs in Vitest with no DOM, and screenshot diffs are within tolerance.
-
-### Phase 2: Input layer and the embodied avatar model (M)
-
-- Action schema, device adapters, per-profile bindings as data, rebinding UI with local persistence, and hot-swapping profiles (D6).
-- `PilotedController` extracted from today's `update()`. Camera-relative movement as the default.
-- The avatar becomes the embodied pose (D5): root + head + hands + hand state. Add procedural hand IK and synthesized poses for flat players. Sabers are held *in a hand*, not attached to the body.
-- Rework MacBook trackpad and iPad touch controls (section 4), plus gamepad.
-
-**Exit:** single player plays well on MacBook and iPad, with directional saber strokes. Input mapping is unit tested.
-
-### Phase 3: Multiplayer presence (M)
-
-- `apps/server` with Colyseus and a `RingRoom`. Join by public matchmaking or room code.
-- Protocol v1 in `shared/protocol` with version negotiation and quantized pose codecs (D7).
-- Clients own their avatars and stream them at 30 Hz. Interpolation buffer, clock sync, reconnection.
-- Server-authoritative item pickup/drop and lifts. Crates are server-simulated with the shared systems, and clients interpolate them, with local visual prediction on hit.
-- Headless bot clients for testing (scripted walkers).
-
-**Exit:** eight people across MacBook and iPad see each other move, pass sabers around, and knock crates around consistently.
-
-### Phase 4: WebXR VR (L), parallel with Phase 5
-
-- XR session management, rig placement in the bend frame (section 4), and the meter / `playerScale` scaling.
-- `EmbodiedController`: arm locomotion on the floor and in zero-g, an optional smooth-locomotion comfort mode, snap turn, vignette.
-- Controller and hand-tracking device adapters, `transient-pointer` for Vision Pro, haptics.
-- In-world UI: wrist menu, lobby panel, room-code entry.
-- Performance pass against the Quest budget, including an on-device performance HUD.
-- Automated testing with IWER (Meta's Immersive Web Emulation Runtime) in Playwright, plus a manual device checklist (Quest 3, Quest 2, Vision Pro).
-
-**Exit:** VR and flat players share a room, and VR players can climb, fling themselves, float in the hub, and wield sabers at a stable frame rate.
-
-### Phase 5: iPad XR-adjacent and AR (M), parallel with Phase 4
-
-- Start with option 1 from the iPad section: gyro magic window, plus Pencil if it's wanted.
-- Optionally add option 2: an `immersive-ar` tabletop rig with hit-test placement and touch play through `dom-overlay`. Validate on Android Chrome. It will light up on iPad if Safari ships WebXR AR.
-- Revisit option 3 only on an explicit decision.
-
-**Exit:** the iPad has a first-class experience. The AR mode is feature-detected and degrades cleanly.
-
-### Phase 6: Combat and netcode hardening (L)
-
-- Combat rules in `shared/sim/combat.ts`: blade-vs-body, blade-vs-blade clash, blaster bolts vs saber deflection, damage, knockback, respawn.
-- Lag-compensated hit validation on the server (pose history buffer), with rate limits and plausibility checks.
-- **Cross-play fairness:** decide how flat strokes and VR swings compete. Options include matchmaking by input type, stroke assist for flat players, and mode-specific rules.
-- Game modes: free play (today's sandbox), saber duels, and a tag variant suited to arm locomotion.
-- Spatial audio (hum, clash, impacts).
-
-**Exit:** competitive play feels fair at about 100 ms latency in a 10-player room.
-
-### Phase 7: Scale and operations (M, ongoing)
-
-- **Server ops:** hosting with sticky room routing, metrics (rooms, CCU, tick time, bandwidth per player), error reporting on client and server, and load tests with bot swarms.
-- **Content pipeline:** glTF assets alongside the procedural ones (gltf-transform, KTX2 textures, meshopt), lazy-loaded zones.
-- **Identity:** anonymous guests with display names first, accounts later.
-- **Safety:** if proximity voice chat is added (WebRTC through an SFU such as LiveKit), it needs moderation, mute/report/block, and age-appropriate defaults. Players of Gorilla Tag-style games skew young.
-- **Docs:** `ARCHITECTURE.md`, `NETCODE.md`, `CONTROLS.md`, and contribution guidelines.
+  Railway, Render, and Fly.io all fit, typically on their cheapest paid tier. Avoid free tiers that sleep: a cold start drops everyone's connection and takes ages to wake.
+- **Backups:** a nightly copy of the SQLite file to cheap object storage, with Litestream for continuous backups if you want to go further. Losing their stores would be the worst bug for kids.
+- **For the Quest:** bookmark the URL in Quest Browser. If the kids use parent-managed Meta accounts, make sure the Browser app is allowed.
+- **Dev testing on devices:** `vite --host` with HTTPS for the iPad on the same Wi-Fi, and `adb reverse` for a Quest over USB.
 
 ---
 
-## 6. Testing strategy
+## 7. Voice chat (later phase)
+
+- **Peer-to-peer WebRTC mesh**, with signaling over the existing Colyseus room. With 10 players that's 9 outgoing Opus streams at about 32 kbps, roughly 0.3 Mbps up per player, which is fine.
+- **Proximity audio:** each remote voice goes through a WebAudio `PannerNode` attached to that avatar's head, with distance falloff. Mute and push-to-talk toggles.
+- **Connectivity:** public STUN only to start. Add a cheap managed TURN server only if a friend's network can't connect.
+- **Gotchas to test:**
+  - Chrome sometimes needs a remote WebRTC stream attached to a (muted) `<audio>` element before WebAudio receives sound.
+  - iPad Safari requires the mic request to come from a tap.
+  - Check for echo on Quest speakers.
+
+---
+
+## 8. Phases
+
+Each phase ends with something playable and deployed. Sizes are relative (S/M/L).
+
+```
+P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online foundation ─┬─► P4 Quest VR ──┐
+                                                                            └─► P5 Economy v1 ┴─► P6 Economy v2 + social ─► P7 Later
+```
+
+P4 and P5 can go in either order. Do P5 first if the kids mostly play on iPad.
+
+### P0: Groundwork (S)
+
+- pnpm workspace, Vite, strict TypeScript, Biome, Vitest, Playwright.
+- Replace the Unity `.gitignore` with a Node one.
+- Move the current script into Vite **unchanged**. Add a deterministic mode (fixed clock, seeded `Math.random`) and Playwright screenshot baselines at MacBook and iPad viewports.
+- CI: lint, typecheck, unit tests, build, screenshots. Preview deploys.
+- *(Done ahead of time: rename to Saber Side.)*
+
+**Exit:** identical game, built by Vite, deployed from CI.
+
+### P1: Decompose and separate simulation from rendering (L)
+
+- Extract modules per section 4 behind the screenshot tests (the strangler pattern: the game stays playable after every PR).
+- `packages/shared`: meters (D3), `ring-space` (D4), level data with **lots defined as data**.
+- The entity/world model (D2): player, crates, items, and lifts move out of meshes. Fixed tick and seeded RNG.
+- Saber lighting moves to emissive + glow (D9).
+- **Upgrade three.js** and re-verify the bend shader patches, color management, and light intensities.
+- Unit tests for ring math, lifts, movement, and crates. The sim runs headless in Node.
+
+**Exit:** gameplay is the same, and `shared/sim` runs in Vitest with no browser.
+
+### P2: Input layer and the avatar model (M)
+
+- Actions, device adapters, per-profile bindings, hot-swapping (D6).
+- `PilotedController` extracted from `update()`. Camera-relative movement.
+- The embodied avatar (D5) with procedural hands for flat players. Items are held in a hand.
+- iPad touch rework (floating stick, tap-to-interact, context buttons) and MacBook trackpad polish.
+
+**Exit:** single player feels great on iPad and MacBook.
+
+### P3: Online foundation (M)
+
+- `apps/server` as one process (static files + Colyseus + SQLite), deployed to the chosen host with backups.
+- Profiles, device tokens, **link codes**, worlds with **world codes**, the owner panel skeleton.
+- Presence for 10 players: pose streaming, interpolation, reconnection.
+- Server-authoritative item pickup/drop, crates, and lifts.
+
+**Exit:** friends on iPads and MacBooks hang out in a persistent world, and the world survives a server restart.
+
+### P4: Meta Quest VR (L)
+
+- XR session and rig in the bend frame, `playerScale`.
+- `EmbodiedController`: arm locomotion on the floor and in zero-g, plus comfort options.
+- Controller and hand-tracking input, haptics, wrist panel, in-world UI.
+- Performance pass on a real Quest against the budget, with an on-device performance HUD.
+- Tests: IWER (Meta's WebXR emulation runtime) in Playwright, plus a manual Quest checklist.
+
+**Exit:** a Quest player and iPad players share a world, and the Quest player can climb, fling, float, and hand items to friends at a steady frame rate.
+
+### P5: Economy v1 (L)
+
+- Ledger, Bolts, starting balance, crate-bash payouts, daily allowance.
+- Lots, the lease kiosk, the free first store, capex for additional stores.
+- The Depot wholesaler, inventory, shelves, price tags, buying from player stores (flat UI first, VR interactions once P4 lands).
+- Demand simulation with robot shoppers (sales events), the game clock, daily close with rent and utilities, the daily statement.
+- Guardrails (no negative balances, closed for repairs, stock returned) and the economy config in the owner panel.
+- Tests: ledger invariants (money in − money out = sum of balances), demand curve, daily close, away catch-up.
+
+**Exit:** a kid can open a free store, stock it, earn from robot shoppers and friends, pay rent, and save up for a second store.
+
+### P6: Economy v2 and social (M)
+
+- Upgrades: shelf slots, sign, lighting, **clerk bots**, plus offline away-time trading and the "While you were away" summary.
+- Visible robot shoppers on the promenade, store customization (name, sign, colors, layout).
+- Direct player-to-player trades with a confirm step, and delivery-run odd jobs.
+- **Proximity voice chat** (section 7).
+- First mini-game: **Tag** (section 10).
+
+**Exit:** the friend group plays together regularly with a living economy and voice.
+
+### P7: Later
+
+- Saber duels and combat, when you want fighting.
+- More mini-games, crafting, more zones (end-cap observation decks, a hub market).
+- glTF art pipeline alongside the procedural assets.
+
+---
+
+## 9. Unity or WebXR?
+
+**Recommendation: stay on WebXR (three.js).** For a friend-group game across Quest + iPad + MacBook, the web wins on the things that matter most here.
+
+| | WebXR (stay) | Unity (move) |
+| --- | --- | --- |
+| Getting it on devices | One URL. Bookmark it on the Quest and open it in Safari on the iPad. | Quest: sideload with developer mode (a Meta developer account on each headset) or submit to the Horizon Store. iPad: Xcode on the Mac, an Apple Developer membership ($99/yr), and TestFlight invites, with builds expiring every 90 days. |
+| Shipping an update | Push to GitHub, and everyone has it on next load | Rebuild per platform and redistribute to every device |
+| Existing code | Refactor what's here | Full rewrite: geometry, textures, the curved-floor shader, and gameplay are all rebuilt; only the design and numbers carry over |
+| Quest performance | Good enough for this low-poly, blob-shadow style if we keep the budget | Better: native rendering, mature profiling tools |
+| Physics, tools, assets | Hand-rolled physics, code-built content | PhysX, a visual editor, Asset Store, open-source Gorilla-style locomotion references |
+| Multiplayer + voice | Colyseus + WebRTC (built by us) | Photon / Normcore with voice add-ons, with free tiers that cover a friend group. The economy still needs our own server. |
+| Working with Claude Code | The whole loop (code, test in headless Chromium with XR emulation, deploy) runs in these sessions | Much of the work happens in the Unity editor on your Mac, and builds and on-device tests are manual |
+
+**What moving to Unity would take:**
+
+1. Unity 6 LTS (the free Personal license is fine), URP, and the Meta XR SDK (or OpenXR + XR Interaction Toolkit).
+2. Rebuilding every scene and asset, and porting the bend shader (a "curved world" vertex shader in URP).
+3. A netcode choice (Photon Fusion or Normcore), voice (Photon Voice or Vivox), and a separate economy backend.
+4. Two distribution pipelines: Quest APK via developer mode or Horizon Store, and iPad via TestFlight.
+5. Roughly the effort of P0-P5 again, before any new features.
+
+**When Unity would be the right call:** you want a Horizon Store release, much richer graphics, physics-heavy play, or someone on the team who already knows Unity.
+
+**The hedge:** the server and economy (D7, D8) are written in TypeScript on Colyseus, which has a Unity SDK. If the game outgrows the browser, a native Quest client could join the *same* worlds without throwing away the economy.
+
+---
+
+## 10. Modes
+
+The **world itself is the game** (the economy). Modes are optional activities layered on top. None of them involve fighting.
+
+| Mode | What it is | Who it's great for |
+| --- | --- | --- |
+| **Free roam** | What exists today: explore the ring, bash crates, ride lifts, float in the hub, play with items | Everyone, always on |
+| **Market** | The persistent economy (section 3). Not a separate mode; it's the world. | The main loop |
+| **Tag** | One player is "it", tagging means touching with a hand, everyone races around the promenade and hub. Arm locomotion makes it the classic VR chase; flat players play with stick + jump. | Quest kids especially |
+| **Hub race** | Zero-g race through the lift tubes and hub rings, timed checkpoints | VR and flat |
+| **Crate rush** | Timed crate bashing that pays a little in Bolts | Quick fun, a money source |
+| **Delivery runs** | Carry orders between stores against a timer, paid by the store owner or an NPC | Ties into the economy |
+| *Saber duels* | Deferred, since there's no fighting yet. Sabers are merchandise and toys meanwhile: ignite them, wave them, put on a light show. | Later |
+
+---
+
+## 11. Testing strategy
 
 | Layer | Tool | What |
 | --- | --- | --- |
-| Shared sim | Vitest (Node) | Ring math, movement, lifts, zero-g, crates, items, combat rules, codecs |
-| Input | Vitest | Bindings → actions, profile hot-swap, synthesized hand poses |
-| Rendering | Playwright screenshots (deterministic mode) | Fixed views at desktop and iPad viewports with touch emulation, before and after refactors |
-| XR | Playwright + IWER | Session start, rig placement, controller and hand input paths |
-| Network | Vitest + bot clients | Join/leave, ownership races (two players grabbing the same saber), reconnection, jitter/loss simulation |
-| Devices | Manual checklist each release | MacBook Safari/Chrome, iPad Safari, Quest 3/2 browser, Vision Pro Safari |
+| Shared sim + economy rules | Vitest (Node) | Ring math, movement, lifts, crates, rent, demand curve, daily close, away catch-up |
+| Server | Vitest + bot clients | Ledger invariants, two kids buying the last item at once, lease races, reconnection, restart persistence |
+| Input | Vitest | Bindings → actions, profile hot-swap, generated hand poses |
+| Rendering | Playwright screenshots (deterministic mode) | MacBook and iPad viewports with touch emulation |
+| VR | Playwright + IWER | Session start, rig placement, controller and hand input, shelf snapping |
+| Devices | Manual checklist each release | iPad Safari, MacBook Safari/Chrome, Quest Browser |
 
 ---
 
-## 7. Risks
+## 12. Risks
 
 | Risk | Mitigation |
 | --- | --- |
-| iPad Safari never ships WebXR | Make flat iPad first-class, keep AR feature-detected, and only build a native bridge on an explicit decision |
-| Three.js upgrade breaks the bend shader | Upgrade in Phase 1 behind screenshot tests, keep the chunk patches in one module, and verify under multiview |
-| VR comfort in a curved, rotating world | Keep "up" tied to the local floor, add comfort options (vignette, snap turn, seated), and playtest early in Phase 4 |
-| Quest performance (glass, lights, overdraw) | Budget set in Phase 4, light pool (D8), an on-device performance HUD, and LOD for far ring sections |
-| Client-owned movement enables speed cheats | Server plausibility checks, with server authority over everything that scores |
-| Cross-play combat imbalance | The Phase 6 fairness decision, and mode or matchmaking separation if needed |
-| The refactor stalls feature work | Strangler migration: the game stays playable and deployable after every PR |
+| Losing world data (stores, Bolts) | Append-only ledger, a persistent volume, nightly backups, a tested restore |
+| Economy balance (too easy, too punishing) | All numbers in config, the owner panel, guardrails, daily statements to spot problems |
+| Three.js upgrade breaks the bend shader | Done in P1 behind screenshot tests; the patches live in one module |
+| Quest performance (glass, overdraw, many items on shelves) | Budget in P4, instanced shelf items, no per-item lights, on-device performance HUD |
+| VR comfort in a curved, rotating world | "Up" follows the local floor, comfort options, early playtests |
+| Host sleeps or restarts mid-session | Always-on tier, Colyseus reconnection, state saved on every ledger write |
+| Kids' Meta accounts block the Browser | Check the parent-managed account settings before P4 |
+| The refactor stalls fun features | Strangler migration: playable and deployed after every PR |
 
 ---
 
-## 8. Open questions for the owner
+## 13. Open questions
 
-1. **iPad XR:** is great flat iPad play plus a feature-detected AR tabletop enough (recommended)? Or is iPad AR a hard requirement that justifies a native bridge? Or was Vision Pro the intended Apple XR target?
-2. **Game direction:** is Rustball the base of Saber Side (a robot with sabers in Ring Seven)? This plan assumes yes.
-3. **Room size and modes:** target players per room, and which mode ships first (sandbox, duels, or tag).
-4. **Cross-play combat:** should VR and flat players fight each other, or only share social spaces?
-5. **Hosting:** preferred vendor or budget for game servers and static hosting.
-6. **Voice chat:** in scope or not? It adds a large moderation and safety burden.
-7. **Unity:** confirm the project is web-only, so the Unity `.gitignore` and any Unity plans can be dropped.
+1. **Currency name:** "Bolts" (matches the crates)?
+2. **Day length:** is 20 real minutes per game day right? Should the world freeze when nobody's online (recommended)?
+3. **Launch goods:** sabers, blasters, carrots, robot cosmetics, decor. Anything the kids would definitely want to sell?
+4. **Worlds:** one shared world for the whole friend group (recommended), or one per kid?
+5. **Owner panel:** just you, or a parent in each family?
+6. **Quest accounts:** are the kids on parent-managed Meta accounts, and is Quest Browser allowed?
