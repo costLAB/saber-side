@@ -8,6 +8,8 @@ import {
   damp,
   FT,
   HALF_L,
+  HUB_L,
+  HUB_R,
   LEN,
   lerp,
   mulberry,
@@ -21,6 +23,7 @@ import {
   wrapD,
 } from '@saber-side/shared';
 import * as THREE from 'three';
+import { createFlightMode } from '../app/flight';
 
 (() => {
 const V3 = THREE.Vector3;
@@ -452,7 +455,7 @@ const bot = {};
 // ---------- habitat: Ring Seven ----------
 // Layout across the ring (x): promenade |x|<46 with shops facing it from 26..40, parks to 115, carrot farms to 161.
 // four lift tubes, a quarter turn apart, run from the promenade straight up to the zero-g hub on the axis
-const HUB_R = 16, HUB_L = 40, RIDE = 9;
+const RIDE = 9;   // seconds up or down a lift (the hub's HUB_R and HUB_L now live in @saber-side/shared)
 const REAL_OFF = 10000;   // anything parked this high is drawn as-is (unbent) after subtracting the offset
 const Y_AXIS = new V3(0, 1, 0), X_AXIS = new V3(1, 0, 0);
 const LIFTS = [0, 1, 2, 3].map(k => {
@@ -1278,12 +1281,12 @@ function updateBolts(dt) {
 
 const promptEl = document.getElementById('prompt');
 let promptText = '';
-function updatePrompt(p, override) {
+function updatePrompt(p, override, hintOnly) {
   const lift = override === undefined ? nearLift(p) : null, near = override === undefined && !lift ? nearestItem(p) : null;
   const txt = override !== undefined ? override : lift ? `Ride lift ${lift.k + 1} up to the hub` : near ? `${held ? 'Swap for' : 'Pick up'} the ${near.name}` : '';
   if (txt === promptText) return;
   promptText = txt;
-  if (txt) promptEl.innerHTML = `<span class="cap">${isTouch ? 'GRAB' : 'G'}</span> ${txt}`;
+  if (txt) promptEl.innerHTML = hintOnly ? txt : `<span class="cap">${isTouch ? 'GRAB' : 'G'}</span> ${txt}`;
   promptEl.classList.toggle('gone', !txt);
 }
 
@@ -1295,6 +1298,12 @@ function startSpin() {
 
 function update(dt, t) {
   if (st.boardNext) { boardLift(st.boardNext); st.boardNext = null; }
+  if (st.mode === 'ship') {   // flying: see apps/client/src/app/flight.ts
+    ships.update(dt, t);
+    if (ships.inStation) { for (const f of spinners) f(dt, t); sky.rotation.x = -OMEGA * t; syncLights(); }
+    for (const k in pressed) pressed[k] = false;
+    return;
+  }
   if (st.mode !== 'floor') { updateReal(dt, t); for (const k in pressed) pressed[k] = false; return; }
   const fwd = (keys.up ? 1 : 0) - (keys.down ? 1 : 0);
   const turn = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
@@ -1641,7 +1650,7 @@ const clock = new THREE.Clock();
 function frame() {
   const dt = Math.min(clock.getDelta(), 1 / 30);
   update(dt, clock.elapsedTime);
-  renderer.render(scene, camera);
+  renderer.render(ships.scene || scene, camera);
   requestAnimationFrame(frame);
 }
 addEventListener('resize', () => {
@@ -1789,6 +1798,11 @@ function updateReal(dt, t) {
     let best = null, bd = 5.5;
     for (const M2 of LIFTS) { const d = P.distanceTo(tmp.copy(M2.u).multiplyScalar(HUB_R - 1.5)); if (d < bd) { bd = d; best = M2; } }
     if (best) prompt = `Ride lift ${best.k + 1} down to the floor`;
+    const ship = ships.nearestCradle(P);
+    if (ship && (!best || ship.dist < bd)) {
+      if (pressed.grab) { st.mode = 'ship'; bot.root.visible = false; cab.visible = false; ships.board(ship.cradle); return; }
+      prompt = 'Board the ship and fly out the airlock'; best = null;
+    }
     where = 'Hub · zero g · floating';
     if (best && pressed.grab) {
       st.mode = 'down'; st.lift = best; st.rideT = 0;
@@ -1867,6 +1881,18 @@ function updateReal(dt, t) {
   updatePrompt(P, prompt);
 }
 
+// ---- ships: cradles and airlocks in the hub, and flying out to space (apps/client/src/app/flight.ts) ----
+const ships = createFlightMode({
+  camera, hub: liftWorld, steel: steelR, hazardMap: hazard.map, capMap: capTex, orbit: cam, keys, pressed, drawTex, makeSign, glow,
+  setWhere: txt => { if (txt !== whereTxt) { whereTxt = txt; whereEl.textContent = txt; } },
+  setPrompt: txt => updatePrompt(bot.root.position, txt, true),
+  onDocked: c => {
+    st.mode = 'hub'; bot.root.visible = true;
+    bot.root.position.set(c.pos.x, c.pos.y, c.pos.z).multiplyScalar(0.45); bot.root.quaternion.identity(); fl.V.set(0, 0, 0);
+    fl.cam.copy(bot.root.position).add(tmp.set(-c.end * 9, 2.5, 3));
+  },
+});
+
 // bend everything that lives on the floor onto the ring; real point lights follow their flat stand-ins
 const lightPairs = [];
 (function walk(o) {
@@ -1894,7 +1920,7 @@ function updateWhere(p) {
 }
 
 // Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
-if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock };
+if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships };
 
 frame();
 })();

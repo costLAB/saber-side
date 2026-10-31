@@ -53,6 +53,7 @@
 
   #hint { position: fixed; z-index: 2; left: 50%; top: calc(168px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); padding: 8px 14px; border-radius: 999px; background: var(--plate); font-size: 12px; letter-spacing: 0.04em; white-space: nowrap; pointer-events: none; transition: opacity 0.5s; }
   #hint.gone, #prompt.gone { opacity: 0; }
+  #flash { position: fixed; inset: 0; z-index: 5; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.28s; }
   #prompt { position: fixed; z-index: 2; left: 50%; top: calc(208px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: flex; gap: 8px; align-items: center; padding: 6px 14px 6px 6px; border-radius: 999px; background: var(--plate); font-size: 13px; white-space: nowrap; pointer-events: none; transition: opacity 0.25s; }
 
   #touch { position: fixed; inset: auto 0 0 0; z-index: 3; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
@@ -80,6 +81,8 @@
   <div class="tally">
     <span class="eyebrow">Crates bashed</span>
     <b id="score">0<i> / 0</i></b>
+    <span class="eyebrow">Aliens zapped</span>
+    <b id="aliens">0</b>
     <button id="reset" type="button">Restack (R)</button>
   </div>
 </div>
@@ -95,6 +98,7 @@
     <div class="caps"><span class="cap wide">Shift</span></div><span class="desc">Hold for 5× speed</span>
     <div class="caps"><span class="cap">G</span></div><span class="desc">Pick up / drop · ride a lift</span>
     <div class="caps"><span class="cap">↑</span><span class="cap">Space</span></div><span class="desc">In the hub: thrust / rise</span>
+    <div class="caps"><span class="cap">↑</span><span class="cap">↓</span><span class="cap">F</span></div><span class="desc">In a ship: climb / dive · fire</span>
     <div class="caps"><span class="cap">F</span></div><span class="desc">Use: ignite · fire · bite</span>
     <div class="caps"><span class="cap">Q</span><span class="cap">E</span></div><span class="desc">Orbit camera · or drag</span>
     <div class="caps"><span class="cap">−</span><span class="cap">+</span></div><span class="desc">Zoom · or scroll</span>
@@ -103,6 +107,7 @@
   </details>
 </div>
 
+<div id="flash"></div>
 <div id="hint">Click the yard, then press ↑ to roll</div>
 <div id="prompt" class="gone"></div>
 

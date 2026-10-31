@@ -408,6 +408,8 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 **Progress:**
 
 - [x] `packages/shared` created with Vitest. Ring geometry, `bendPoint` / `bendUp` / `unbend` / `wrapD`, the spin rate, `mulberry`, and `clamp` / `lerp` / `damp` / `smooth` moved out of the legacy file, with 13 unit tests. The screenshot baselines are unchanged.
+- [x] First feature built on the new layout instead of in the legacy file: **ships and planets** (board a ship in the hub, launch through an airlock, fly to four planets, zap aliens, dock back at the ring). The rules are plain data and functions in `shared/sim/` (`flight`, `ship`, `lasers`, `aliens`) and `shared/content/space.ts`, unit-tested headless with a seeded RNG. The client builds scenes in `world/` and `render/`, and `app/flight.ts` maps input to the sim and the sim onto scenes, camera, and HUD. The legacy file only lends a few helpers and hands off to the flight mode.
+- Found: three r128 draws every object's UUID from `Math.random`, so adding scene objects shifts the seeded sequence the legacy cosmetic effects use (robot glances, dust). Screenshots that show those move even though nothing about them changed. Moving the legacy effects onto their own seeded RNG (D2) fixes this.
 
 
 - Extract modules per section 4 behind the screenshot tests (the strangler pattern: the game stays playable after every PR).
