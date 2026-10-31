@@ -13,8 +13,8 @@ services:
     name: saber-side-station
     runtime: node
     plan: starter
-    # Pick the region closest to the players before creating the service: it can't be changed afterwards.
-    region: oregon
+    # Virginia is the closest region to the players (Boston). Render can't move a service to another region later.
+    region: virginia
     branch: main
     buildCommand: npx --yes pnpm@10.28.0 install --frozen-lockfile --prod --filter @saber-side/server...
     startCommand: cd apps/server && node --disable-warning=ExperimentalWarning src/index.ts
@@ -45,7 +45,7 @@ services:
     name: saber-side-staging
     runtime: node
     plan: free
-    region: oregon
+    region: virginia
     branch: main
     buildCommand: npx --yes pnpm@10.28.0 install --frozen-lockfile --prod --filter @saber-side/server...
     startCommand: cd apps/server && node --disable-warning=ExperimentalWarning src/index.ts
