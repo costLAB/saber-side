@@ -8,17 +8,24 @@
 | iPad (Safari) | Flat browser, first-class | Touch, plus keyboard/trackpad or gamepad when connected |
 | MacBook (Safari / Chrome) | Flat browser | Keyboard + trackpad/mouse, optional gamepad |
 
-All three platforms play together in the same world. Rooms hold **10 players**.
+All three platforms play together in **one shared station**, with up to **10 players** online at once.
 
-**Product decisions from the owner (2026-10-31):**
+## Owner decisions
 
-- Great flat play on iPad. **No AR.** VR is on Meta Quest.
-- The game is called **Saber Side** (formerly Rustball).
-- 10 players per room.
-- VR and flat players interact. **No fighting yet.** The core loop is **running stores and selling things to each other**. It's a fun economy with no real money: store owners get regular revenue, pay rent and other operating costs, and pay to open new stores. The first store is free.
-- Cheap hosting is fine. It's for kids and friends, not production grade, but it should just work.
-- Voice chat would be great (friends only, no moderation needed), but it's lower priority.
-- Stay on WebXR rather than moving to Unity (see [section 9](#9-unity-or-webxr)).
+- **Platforms:** great flat play on iPad, **no AR**, VR on **Meta Quest**.
+- **Name:** the game is **Saber Side** (formerly Rustball).
+- **Engine:** **stay on WebXR** (three.js). See [section 9](#9-unity-or-webxr-decided-webxr) for the comparison.
+- **Players:** 10 per room. **One shared world** for the whole friend group.
+- **No fighting yet.** The core loop is **running shops and selling things to each other**. It's a fun economy with no real money. Shop owners earn a regular income and pay rent and other operating costs. New shops cost money to open, but the first one is free.
+- **No free money.** There's no daily allowance; to earn a regular income you open a shop.
+- **Currency:** **Kyber Shards** and **Kyber Crystals** (100 shards = 1 crystal), plus raw **Kyber Ore** that must be refined into crystals at the **Refinery**, for a fee.
+- **No day/night cycle.** It's space. The economy runs in **real time**.
+- **Shops sell:** carrots, hats, **pet bots** (that follow on foot or fly overhead), and a **wide assortment of lightsabers and blasters**.
+- **Modes:** **free roam first**.
+- **Hosting:** cheap and simple, for kids rather than production grade, but it should just work.
+- **Voice chat:** wanted, friends only, no moderation. Lower priority.
+- **Owner panel:** just the owners.
+- **Permissions:** **as light as possible.** No accounts, passwords, or roles for players, and every player can use every feature.
 
 ---
 
@@ -26,9 +33,10 @@ All three platforms play together in the same world. Rooms hold **10 players**.
 
 `index.html` is one IIFE with a single global mutable state, `st`. Good things to keep:
 
-- **The ring-bend technique** (`index.html:161-199`). Floor content is simulated on a flat strip (x across, z around, y up) and bent onto the cylinder in the vertex shader. This keeps physics simple and works per eye in XR, because the bend happens in world space before `viewMatrix`.
-- **Procedural shops already exist** (`buildShop`, `makeSign`, `index.html:675-809`). They become the rentable storefronts.
-- **Crates labeled "BOLTS"** and grabbable items (sabers, blaster, carrot). These become the starter money source and the first merchandise.
+- **The ring-bend technique** (`index.html:161-199`). Floor content is simulated on a flat strip (x across, z around, y up) and bent onto the cylinder in the vertex shader. This keeps physics simple and works per eye in VR, because the bend happens in world space before `viewMatrix`.
+- **Procedural shops already exist** (`buildShop`, `makeSign`, `index.html:675-809`). They become the rentable shop spots.
+- **Procedural items:** `makeSaber(color)`, `makeBlaster()`, `makeCarrot()`. These become the generators for a wide, data-driven catalog.
+- **Bashable crates and the zero-g hub.** These become places to find **Kyber Ore**.
 - **Abstract actions:** input fills `keys` / `pressed` with action names, and there's a touch pad that feeds the same map (`index.html:1241-1294`).
 - **Blob shadows instead of shadow maps**, plus instanced and batched static parts. Both are right for Quest performance.
 
@@ -41,7 +49,7 @@ Problems that block scale, VR, or multiplayer:
 | P3 | **Simulation, input, animation, camera, and FX are interleaved in one 300-line `update()`.** | `:1412-1705` | You can't swap in a VR controller or camera rig. |
 | P4 | **Variable timestep.** | `frame()` `:1757` | Networking and reproducible tests need a fixed tick. |
 | P5 | **25 `Math.random()` calls**, some of which change game state (crate knockback `:1485`, item tumble `:1155`). | throughout | Different players' screens would disagree about where things are. |
-| P6 | **One PointLight per saber** (`:1097`). | `makeSaber` | Sabers will be merchandise, so there will be many of them. Every light costs every lit pixel, and a changing light count forces shader recompiles. Quest frame rate would collapse. |
+| P6 | **One PointLight per saber** (`:1097`). | `makeSaber` | Shops will be full of sabers. Every light costs every lit pixel, and a changing light count forces shader recompiles. Quest frame rate would collapse. |
 | P7 | **Units:** 1 scene unit = 0.364 m. | `FT` `:155` | WebXR works in meters. |
 | P8 | **"Real space" via a height sentinel:** anything with y > 5000 is drawn unbent (`REAL_OFF`). | `:572` | An invisible coupling that should live behind one API. |
 | P9 | **three.js r128 from a CDN** (2021). | `:128` | Hand tracking, foveation, and multiview need a current three.js. |
@@ -55,7 +63,7 @@ Problems that block scale, VR, or multiplayer:
 
 - `apps/client`: Vite, strict TypeScript, three.js pinned to an exact current release, `WebGLRenderer`.
 - `apps/server`: Node + TypeScript + Colyseus + SQLite.
-- `packages/shared`: pure TypeScript game rules, constants, ring math, economy rules, and network protocol. No DOM and no scene graph (three's math classes are fine), so it runs in the browser, on the server, and in tests.
+- `packages/shared`: pure TypeScript game rules, constants, ring math, economy rules, item catalog, and network protocol. No DOM and no scene graph (three's math classes are fine), so it runs in the browser, on the server, and in tests.
 - Tooling: Biome (lint + format), Vitest, Playwright, GitHub Actions.
 
 ### D2. The simulation owns the state, rendering only reads it
@@ -68,7 +76,7 @@ Problems that block scale, VR, or multiplayer:
 ### D3. Meters everywhere, player scale on the VR rig
 
 - **1 unit = 1 meter.** Every constant is converted once (gravity of 28 u/s² is about 10.2 m/s², which checks out).
-- The robot is 1.22 m tall. In VR, the rig scales headset eye height to robot eye height, using one `playerScale` setting. Kids are already close to that height.
+- The robot is 1.22 m tall. In VR, the rig scales headset eye height to robot eye height, using one `playerScale` setting.
 
 ### D4. All ring math lives in one module (`shared/ring-space.ts`)
 
@@ -77,11 +85,12 @@ Problems that block scale, VR, or multiplayer:
 
 ### D5. One avatar format for every platform
 
-Every avatar is networked as an **embodied pose**: root (frame + position + yaw), head, left hand, right hand, and per-hand state (gripping, holding item id).
+Every avatar is networked as an **embodied pose**: root (frame + position + yaw), head, left hand, right hand, and per-hand state (gripping, holding item id). It also carries a **loadout**: equipped hat and pet bot.
 
-- **Quest players** fill it from the headset and controllers or hands.
+- **Quest players** fill the pose from the headset and controllers or hands.
 - **iPad and MacBook players** drive the root with stick or keys, and an animation layer generates head and hand poses from what they're doing (carrying, waving, placing an item on a shelf).
-- Everyone renders the same way, so a VR kid handing a carrot to an iPad kid looks right on both screens.
+- **Pet bots** aren't streamed. Each client runs the same follow behavior from the owner's pose and the pet's type, so they cost no bandwidth.
+- Everyone renders the same way, so a VR kid handing a saber to an iPad kid looks right on both screens.
 
 ### D6. Controllers are separate from input devices
 
@@ -94,23 +103,26 @@ devices (keyboard, mouse/trackpad, touch, gamepad, xr-controller, xr-hand)
 
 Profiles hot-swap: a keyboard on the iPad hides the touch UI, a gamepad switches bindings, and entering VR swaps controllers without dropping the connection.
 
-### D7. Multiplayer: clients own their bodies, the server owns the world and every Bolt
+### D7. Multiplayer: clients own their bodies, the server owns the world and every shard
 
 - **Movement is client-owned.** VR arm locomotion can't be predicted well by a server. Clients stream poses at about 30 Hz, and the server applies light sanity checks.
-- **The server is authoritative** for item ownership, crates, lifts, stores, inventory, prices, and **every currency change**. Clients *request* ("buy item 812 for 40 Bolts"), and the server validates, applies, and broadcasts the result.
+- **The server is authoritative** for item ownership, crates, ore, lifts, shops, inventory, prices, and **every currency change**. Clients *request* ("buy item 812 for 3 crystals 20 shards"), and the server validates, applies, and broadcasts the result.
 - Remote avatars render about 100 ms behind, from an interpolation buffer.
-- **Stack:** Node + **Colyseus** (rooms, reconnection, binary state sync) over WebSocket, which works everywhere including Quest Browser and Safari. Colyseus also has a Unity/C# client SDK, which keeps a future native Quest client possible against the same server.
+- **Stack:** Node + **Colyseus** (rooms, reconnection, binary state sync) over WebSocket, which works everywhere including Quest Browser and Safari.
 
-### D8. Persistent worlds, one per friend group
+### D8. One persistent station, no accounts
 
-- A **world** is one Ring Seven with its own storefronts and economy, identified by a short **world code** (for example `BOLT-42`). Up to 10 players are online in it at once.
-- **SQLite** on the server's disk stores the state. A world loads when the first player joins and saves continuously (the ledger is append-only) and on the last player leaving.
-- **Identity, kept simple:** the first visit creates a profile (display name + robot color) held as a device token. To use the same profile on another device (Quest *and* iPad), show a 6-digit **link code** on one device and type it on the other. The world owner (you) can re-issue a code if a device gets wiped.
-- An **owner panel** for the world creator: tweak economy multipliers, grant Bolts, reset a store. Useful when a kid gets stuck or broke.
+- **One world** (Ring Seven) for the whole friend group, as a single Colyseus room capped at 10 online players. An 11th player sees "Station full, try again soon".
+- **SQLite** on the server's disk stores the state. Ledger writes are saved immediately.
+- **Identity with no accounts or passwords:** open the URL and either pick your name from the station's roster or make a new robot (name + color). The same name works on the Quest and the iPad, so there's nothing to link.
+  - The tradeoff is trust: anyone could pick anyone's name. That's fine among friends.
+  - An **optional 4-digit PIN** per robot is there if siblings start spending each other's crystals.
+- **Owner panel** (owners only): unlocked on a device by entering an `ADMIN_KEY` that's set as a server environment variable. From the panel, owners can tune economy numbers, grant or remove currency, reset a shop, rename or remove robots, and restock the Depot.
+- **Browser permissions** are only requested when a feature needs one: the microphone only when someone turns voice on, and Quest's standard VR prompt only on Enter VR. No motion or camera permissions.
 
 ### D9. Lights budget: emissive, not lights
 
-Sabers get emissive cores plus additive glow sprites, with **no light per saber**. If dynamic glow is wanted, use a fixed pool of 2-4 lights assigned to the nearest lit sabers.
+Sabers get emissive cores plus additive glow sprites, with **no light per saber**. That matters even more now that shops display many of them. If dynamic glow is wanted, use a fixed pool of 2-4 lights assigned to the nearest lit sabers.
 
 ---
 
@@ -118,78 +130,105 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
 
 ### Loop
 
-> Bash crates for starter Bolts → lease your free first store → buy stock at the Depot → set prices and stock shelves → earn from robot shoppers and friends → pay rent and bills each day → save up → open a second store or upgrade.
+> Find Kyber Ore (bash crates, catch floating chunks in the hub) → refine it into crystals at the Refinery → open your free first shop → buy stock at the Depot → set prices and fill shelves → earn from robot shoppers and friends → pay rent and running costs → save up → open another shop or upgrade.
 
-### Money
+### Currency
 
-- **Currency: Bolts.** New players start with about 200.
-- **Every change is a ledger entry**: who, to whom, how much, why, and on which game day. Balances are derived from the ledger. This rules out duplication bugs and makes daily statements trivial.
-- **Money comes in from:**
-  - robot (NPC) shoppers buying from stores
-  - bashing crates (tiny amounts)
-  - odd jobs, such as delivery runs between stores (later)
-  - a small daily allowance so nobody is stuck at zero
-- **Money goes out on:**
+| | What it is | Notes |
+| --- | --- | --- |
+| **Kyber Shards** | Small change | The base unit. The ledger stores every amount as an integer number of shards. |
+| **Kyber Crystals** | Main money | **1 crystal = 100 shards**, converted automatically. Displayed as `12 ◆ 45` (12 crystals, 45 shards). |
+| **Kyber Ore** | A raw resource, not money | A physical item you carry. It must be taken to the **Refinery**, which turns it into crystals and keeps a fee. Ore can also be traded or sold between players. |
+
+- **Every currency change is a ledger entry**: who, to whom, how many shards, why, and when. Balances are derived from the ledger. This rules out duplication bugs and makes shop reports trivial.
+- **New players get a starter purse** (about 5 crystals) so they can stock their first shop.
+- **There's no allowance.** Money enters the world in only three ways:
+  - robot (NPC) shoppers buying from shops
+  - refining ore
+  - selling items back to the Depot below what they cost
+- **Money leaves the world through:**
   - rent
-  - clerk wages
   - utilities
+  - clerk wages
+  - Refinery fees
   - wholesale stock
-  - store build-out and upgrades (capex)
+  - shop build-outs and upgrades (capex)
 
-  Player-to-player sales just move Bolts between players.
+  Sales between players just move money from one player to another.
 
-### Storefronts
+### Kyber Ore and the Refinery
 
-- Each shop slot on the promenade is a **lot** with a size (S/M/L) and a **foot-traffic score**. Lots near the lifts and the welcome arch get more traffic.
-- **Rent per game day** = base × size × traffic. Busy spots earn more and cost more. That's the core decision.
-- Vacant lots show a "FOR LEASE" sign. Walk up and lease from the kiosk.
-- **First store: no build-out cost**, plus 3 rent-free days. **Each additional store costs capex** (a build-out fee scaled by size, rising with each store you already own, so one kid can't buy the whole ring).
-- **Upgrades are capex too:** more shelf slots, a better sign, display lighting (raises appeal), and a **clerk bot**. The clerk costs wages but keeps the store selling while you're offline.
+- **Where ore comes from:**
+  - bashing crates on the promenade, which sometimes drops ore chunks
+  - **ore chunks drifting in the zero-g hub**, which you grab and carry out. This is great in VR.
 
-### Goods
+  Ore respawns slowly so it can't be farmed endlessly.
+- **The Refinery** sits in the hub next to the Depot. You drop ore into its hopper, and after a short refining animation crystals are paid out minus the fee. Rates live in config, with a proposed default of **1 ore chunk → 25 shards, less a 10% fee**.
+- **Later:** let a player *buy* and run the Refinery as a business and set its fee.
 
-- **Launch catalog:**
-  - sabers (in colors)
-  - blasters
-  - carrots
-  - robot cosmetics: hats, paint, antenna toppers
-  - store decorations
-- **The Depot** is the NPC wholesaler, located at the hub so the lifts matter. Owners buy stock at wholesale and choose retail prices.
-- **Stocking:** in VR you physically place items on shelf slots, where they snap into place. On flat devices you tap a slot, then pick an item from your inventory.
+### Shops
+
+- Each shop slot on the promenade is a **spot** with a size (S/M/L) and a **foot-traffic score**. Spots near the lifts and the welcome arch get more traffic.
+- **Rent per hour** = base × size × traffic. Busy spots earn more and cost more. That's the core decision.
+- Vacant spots show a "FOR LEASE" sign. Walk up and lease from the kiosk.
+- **First shop: free to open (no capex)**, plus one hour of real play rent-free. **Each additional shop costs capex**: a build-out fee scaled by size that rises with each shop you already own, so one kid can't buy the whole ring.
+- **Upgrades are capex too:** more shelf slots, a better sign, display lighting (raises appeal), and a **clerk bot**.
+
+### What shops sell (launch catalog)
+
+All item types are **data-driven variants of procedural generators**, so "a wide assortment" is mostly a matter of adding catalog entries, not modeling art.
+
+| Category | Variants | Notes |
+| --- | --- | --- |
+| **Lightsabers** | Hilt (several styles), blade color (about 10), blade type (single, double-bladed, crossguard, short "shoto", curved hilt), blade length, hum pitch | Extends `makeSaber`. Rarity tiers (Common → Legendary) set the wholesale price. Ignite, swing, and slice crates. No damage to players. |
+| **Blasters** | Body (pistol, carbine, rifle), bolt color, fire rate, sound | Extends `makeBlaster`. Fires at crates and targets. Bolts pass harmlessly through robots with a spark. |
+| **Hats** | Caps, helmets, antennas, crowns, traffic cones, ... | Attach to the robot's head. Shown on remote players through the loadout (D5). |
+| **Pet bots** | **Walkers** that roll or hop along behind you, and **flyers** (drones, orbs) that hover overhead | Follow behavior runs on each client (D5). One equipped pet at a time to start. |
+| **Carrots** | Regular, golden, giant | Biteable (existing). A cheap, fast-selling starter item. |
+
+- **The Depot** is the NPC wholesaler in the hub, so riding the lifts matters. Its stock rotates, and rarer saber variants show up occasionally.
+- **Stocking:** in VR you physically place items on shelf slots, where they snap into place. On flat devices you tap a slot, then pick from your inventory.
 - **Buying:**
   - Flat: tap or click an item to see its price card, then Buy.
   - VR: grab it off the shelf (its tag glows "unpaid") and set it on the register pad, or press Buy on your wrist.
-- **Later:** crafting (combine parts into new goods) and direct player-to-player trades with a confirm step.
+- **Later:** direct player-to-player trades with a confirm step, and crafting.
 
-### Revenue from robot shoppers
+### Income from robot shoppers
 
-- The server runs a **demand simulation**. Each game hour, every open, stocked store gets visits = traffic × appeal × (number of shoppers on the ring). Each visitor buys with a probability that falls as price rises above the item's reference price.
-- This is the **regular revenue stream**, and it rewards good spots, good stock, and fair prices.
-- A handful of cosmetic robot shoppers wander the promenade and walk out of stores carrying what they "bought". Clients render them from server events. They're cheap and fun.
+- While a shop is **open**, the server simulates robot shoppers arriving in **real time**. The arrival rate is foot traffic × appeal × base rate. Each visitor buys with a probability that falls as price rises above the item's reference price.
+- This is the **regular income**, and it rewards good spots, good stock, and fair prices.
+- Some robot shoppers are visible, wandering the promenade and leaving shops carrying what they "bought". Clients render them from server events.
 
-### Time
+### Real time, no day cycle
 
-- **Online:** the world clock runs **1 game day per 20 real minutes** (tunable). At closing time a bell rings and each owner gets a **daily statement**: sales, rent, wages, utilities, profit.
-- **Offline:** the world is frozen, so kids aren't punished for going to school. Stores **with a clerk** keep trading during "away time", capped at 3 game days, and on return the owner sees a "While you were away" summary. This is computed when the world loads, so no server has to run 24/7.
+- **A shop is open while its owner is on the station, or while a clerk bot is on shift.** A clerk keeps the shop open for up to 8 hours after the owner leaves (configurable).
+- **Rent, utilities, and wages build up only while a shop is open**, so kids aren't charged while they're at school with no clerk.
+- **Settlement:** robot sales, rent, utilities, and wages are posted to the ledger every 5 real minutes as summarized entries. Sales between players post immediately.
+- **Reports instead of daily statements:**
+  - a **shift report** when you leave: sales, costs, profit
+  - a **"While you were away"** summary when you return, if a clerk worked
+  - a rolling **"last hour"** view in the shop panel
+- The server runs all the time (section 6). After any downtime it simply resumes; it doesn't back-fill.
 
-### Kid-friendly guardrails
+### Guardrails, with no allowance
 
-- Balances can't go below zero. A store that can't pay rent goes "Closed for repairs" (no sales) until it's paid. After 5 unpaid days it's returned to vacant, and its stock goes back to the owner's inventory, never lost.
-- A daily allowance and crate bashing guarantee a way back from zero.
-- Every number (rent, prices, demand, day length) lives in one config file and can be tuned in the owner panel.
+- Balances can't go below zero. A shop that can't pay rent goes **"Closed for repairs"**: no sales, no rent. It reopens when you pay.
+- After several hours closed and unpaid, the spot is returned to vacant, and its stock goes back to the owner's inventory. **Nothing is ever destroyed.**
+- **Ways back from zero:** find ore and refine it, sell inventory back to the Depot or to friends, or reopen once you can pay rent.
+- Every number (rent, demand, ore rates, Refinery fee, clerk shift, starter purse) lives in one config file and can be tuned from the owner panel.
 
 ### Data model (SQLite)
 
 ```
-worlds(id, code, name, owner_player_id, game_day, game_time, settings_json)
-players(id, display_name, color, created_at)
-devices(token_hash, player_id)             link_codes(code, player_id, expires_at)
-world_members(world_id, player_id, joined_at)
-lots(world_id, lot_id, size, traffic)      -- seeded from shared/content
-stores(id, world_id, lot_id, owner_id, name, sign_json, status, upgrades_json, opened_day)
-items(id, world_id, type, owner_id, location_kind, location_ref, price)
-ledger(id, world_id, ts, game_day, from_acct, to_acct, amount, reason, ref)
+station(id, name, settings_json)                          -- one row: Ring Seven
+players(id, display_name, color, pin_hash NULL, loadout_json, created_at)
+spots(spot_id, size, traffic)                             -- seeded from shared/content
+shops(id, spot_id, owner_id, name, sign_json, status, upgrades_json, clerk_until, opened_at)
+items(id, catalog_id, variant_json, qty, owner_id, location_kind, location_ref, price_shards)
+ledger(id, ts, from_acct, to_acct, amount_shards, reason, ref)
 ```
+
+Ore is a stackable item (`catalog_id = 'ore'`). Accounts in the ledger are players, shops, and system sinks and sources (`depot`, `refinery`, `rent`, `npc_shoppers`).
 
 ---
 
@@ -204,33 +243,35 @@ saber-side/
 │  │  ├─ index.html        HUD markup only
 │  │  └─ src/
 │  │     ├─ main.ts        boot: detect capabilities → pick profile → app state machine
-│  │     ├─ app/           loop (fixed tick + interp), states: boot/title/world-select/play/vr, settings
+│  │     ├─ app/           loop (fixed tick + interp), states: boot/roster/play/vr, settings
 │  │     ├─ platform/      profiles: desktop | touch | vr
 │  │     ├─ input/         actions.ts, devices/*, bindings/*
 │  │     ├─ controllers/   piloted.ts, embodied.ts (arm locomotion)
 │  │     ├─ render/        renderer + WebXR, ring/ (bend), cameras/, textures/, fx/
-│  │     ├─ world/         scene builders from level data: shell, promenade, lots, lifts, hub, Depot
-│  │     ├─ avatar/        robot model, procedural animation, hand IK, remote interpolation
-│  │     ├─ items/         item visuals (sabers, blasters, carrots, cosmetics, decor)
-│  │     ├─ shop/          shelves, price tags, register, store management UI (DOM + in-world)
-│  │     ├─ ui/            HUD, menus, world code entry, link code, daily statement, wrist panel (VR)
+│  │     ├─ world/         scene builders from level data: shell, promenade, spots, lifts, hub, Depot, Refinery
+│  │     ├─ avatar/        robot model, hats, procedural animation, hand IK, remote interpolation
+│  │     ├─ pets/          walker + flyer pet bots, follow behaviors
+│  │     ├─ items/         item generators: sabers, blasters, carrots, hats, ore
+│  │     ├─ shop/          shelves, price tags, register, shop management UI (DOM + in-world)
+│  │     ├─ ui/            HUD (crystals/shards/ore), roster picker, shift reports, wrist panel (VR), owner panel
 │  │     ├─ net/           connection, interpolation buffer, clock sync
 │  │     ├─ voice/         WebRTC mesh + spatial audio (later)
-│  │     └─ audio/         hum, cha-ching, closing bell, ambience
+│  │     └─ audio/         hum, blaster, cha-ching, Refinery, ambience
 │  └─ server/
 │     └─ src/
 │        ├─ index.ts       one process: serves the built client + Colyseus + SQLite
-│        ├─ rooms/WorldRoom.ts
-│        ├─ economy/       ledger, stores, demand sim, daily close, away catch-up
+│        ├─ rooms/StationRoom.ts
+│        ├─ economy/       ledger, shops, demand sim, settlement, clerks, Refinery, Depot
 │        ├─ db/            schema, migrations, backups
-│        └─ auth/          device tokens, link codes
+│        └─ admin/         ADMIN_KEY check, owner panel actions
 ├─ packages/
 │  └─ shared/src/
 │     ├─ constants.ts      habitat dimensions in meters
 │     ├─ ring-space.ts     bend / unbend / wrap / frames
-│     ├─ sim/              movement, collision, lifts, zero-g, crates, items
-│     ├─ economy/          pure rules: rent, demand curve, prices, statements (no I/O)
-│     ├─ content/          level data: lots, Depot catalog, crate stacks, spawn points
+│     ├─ sim/              movement, collision, lifts, zero-g, crates, items, ore
+│     ├─ economy/          pure rules: currency math, rent, demand curve, Refinery yield (no I/O)
+│     ├─ catalog/          item catalog: saber/blaster/hat/pet/carrot variants, rarity, prices
+│     ├─ content/          level data: spots, crate stacks, ore spawns, spawn points
 │     ├─ protocol/         messages, versioning, pose codecs
 │     └─ rng.ts
 └─ docs/
@@ -245,8 +286,8 @@ Where today's code goes:
 | habitat scale + bend (151-212) | `shared/constants.ts`, `shared/ring-space.ts`, `render/ring/` |
 | procedural textures, materials (213-413) | `render/textures/`, `render/materials.ts` |
 | robot (414-567) | `avatar/robot.ts` + `avatar/animate.ts` |
-| habitat, shops, landmarks, end caps (568-1057) | `shared/content/` (lot and layout data) + `world/` (builders) |
-| weapon table + items (1058-1168) | `shared/sim/items.ts` + `items/` |
+| habitat, shops, landmarks, end caps (568-1057) | `shared/content/` (spot and layout data) + `world/` (builders) |
+| weapon table + items (1058-1168) | `shared/sim/items.ts`, `shared/catalog/`, `items/` |
 | crates (1169-1200, 1706-1754) | `shared/sim/crates.ts` + `world/crates.ts` |
 | particles (1201-1239) | `render/fx/` |
 | input (1240-1295) | `input/devices/*`, `input/bindings/` |
@@ -260,9 +301,9 @@ Where today's code goes:
 ### iPad (flat, first-class)
 
 - **Movement and camera:** a floating left-thumb joystick replaces the d-pad. Dragging on the right half looks around, and pinch zooms.
-- **Interacting:** tap an item, shelf slot, kiosk, or register to interact. Context buttons appear (Buy, Stock, Lease, Pick up).
-- **Buttons:** large thumb buttons for jump and grab, inside the safe areas.
-- **Panels:** store management opens as a full-screen sheet with prices, stock, upgrades, and the daily statement.
+- **Interacting:** tap an item, shelf slot, kiosk, register, or Refinery hopper to interact. Context buttons appear (Buy, Stock, Lease, Pick up, Refine).
+- **Buttons:** large thumb buttons for jump, grab, and use (ignite or fire), inside the safe areas.
+- **Panels:** shop management opens as a full-screen sheet with prices, stock, upgrades, and reports.
 - **Other input:** a Magic Keyboard, trackpad, or gamepad switches automatically to that profile.
 
 ### MacBook (flat)
@@ -282,13 +323,13 @@ Where today's code goes:
 - **Rig placement:** the rig sits at the bend frame of the player's strip position, so "up" follows the floor around the ring. Room-scale motion is converted back to strip coordinates every tick.
 - **Locomotion:**
   - **Arm locomotion** in the Gorilla Tag style. Hands are sphere colliders. Pushing a surface moves the body the opposite way, and releasing carries the hand's velocity forward (capped).
-  - **The zero-g hub** uses the same mechanic with no gravity.
+  - **The zero-g hub** uses the same mechanic with no gravity, which makes catching drifting ore fun.
   - **Comfort options:** thumbstick smooth locomotion, snap turn, vignette, seated mode.
-- **Shopping, natively:** grab goods off shelves, put stock on shelf slots (they snap in), set an item on the register to pay, and use a **wrist panel** for Bolts, inventory, and the daily statement.
-- **Store management** on a wall panel in your store's back room (a canvas texture with pointer interaction).
+- **Shopping, natively:** grab goods off shelves, put stock on shelf slots (they snap in), set an item on the register to pay, toss ore into the Refinery hopper, and use a **wrist panel** for crystals, shards, ore, and inventory.
+- **Shop management** on a wall panel in your shop's back room (a canvas texture with pointer interaction).
 - **Performance budget (Quest 2/3):**
   - Frame rate: 72-90 Hz, with fixed foveation
-  - Draw calls: at most about 150
+  - Draw calls: at most about 150, with shelf items **instanced** per variant
   - Triangles: at most about 500k
   - Lights: no shadow maps, a fixed light count (D9)
   - Glass: minimal transparent overdraw (hub and lift glass)
@@ -298,17 +339,17 @@ Where today's code goes:
 
 ## 6. Hosting (simple, cheap, just works)
 
-- **One process does everything:** the Node server serves the built client files, runs Colyseus, and writes SQLite to a persistent volume. That means one deploy, one URL, and HTTPS from the host. WebXR requires HTTPS.
+- **One process does everything:** the Node server serves the built client files, runs Colyseus, runs the economy, and writes SQLite to a persistent volume. That means one deploy, one URL, and HTTPS from the host. WebXR requires HTTPS.
 - **What to look for in a host:**
   - WebSocket support
   - a **persistent disk/volume**
   - automatic HTTPS
   - deploy-on-push from GitHub
-  - an **always-on** small instance
+  - an **always-on** small instance, since clerk shops trade in real time
 
-  Railway, Render, and Fly.io all fit, typically on their cheapest paid tier. Avoid free tiers that sleep: a cold start drops everyone's connection and takes ages to wake.
-- **Backups:** a nightly copy of the SQLite file to cheap object storage, with Litestream for continuous backups if you want to go further. Losing their stores would be the worst bug for kids.
-- **For the Quest:** bookmark the URL in Quest Browser. If the kids use parent-managed Meta accounts, make sure the Browser app is allowed.
+  Railway, Render, and Fly.io all fit, typically on their cheapest paid tier. Avoid free tiers that sleep.
+- **Backups:** a nightly copy of the SQLite file to cheap object storage. Losing the kids' shops would be the worst bug.
+- **For the Quest:** bookmark the URL in Quest Browser.
 - **Dev testing on devices:** `vite --host` with HTTPS for the iPad on the same Wi-Fi, and `adb reverse` for a Quest over USB.
 
 ---
@@ -317,6 +358,7 @@ Where today's code goes:
 
 - **Peer-to-peer WebRTC mesh**, with signaling over the existing Colyseus room. With 10 players that's 9 outgoing Opus streams at about 32 kbps, roughly 0.3 Mbps up per player, which is fine.
 - **Proximity audio:** each remote voice goes through a WebAudio `PannerNode` attached to that avatar's head, with distance falloff. Mute and push-to-talk toggles.
+- **Off by default.** The mic permission is requested only when a player taps "Voice on".
 - **Connectivity:** public STUN only to start. Add a cheap managed TURN server only if a friend's network can't connect.
 - **Gotchas to test:**
   - Chrome sometimes needs a remote WebRTC stream attached to a (muted) `<audio>` element before WebAudio receives sound.
@@ -330,11 +372,11 @@ Where today's code goes:
 Each phase ends with something playable and deployed. Sizes are relative (S/M/L).
 
 ```
-P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online foundation ─┬─► P4 Quest VR ──┐
-                                                                            └─► P5 Economy v1 ┴─► P6 Economy v2 + social ─► P7 Later
+P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free roam ─┬─► P4 Quest VR ──┐
+                                                                           └─► P5 Economy v1 ┴─► P6 Economy v2 + social ─► P7 Later
 ```
 
-P4 and P5 can go in either order. Do P5 first if the kids mostly play on iPad.
+**Free roam comes first**: P3 delivers it online for everyone. P4 and P5 can go in either order; do P5 first if the kids mostly play on iPad.
 
 ### P0: Groundwork (S)
 
@@ -349,7 +391,7 @@ P4 and P5 can go in either order. Do P5 first if the kids mostly play on iPad.
 ### P1: Decompose and separate simulation from rendering (L)
 
 - Extract modules per section 4 behind the screenshot tests (the strangler pattern: the game stays playable after every PR).
-- `packages/shared`: meters (D3), `ring-space` (D4), level data with **lots defined as data**.
+- `packages/shared`: meters (D3), `ring-space` (D4), level data with **spots defined as data**.
 - The entity/world model (D2): player, crates, items, and lifts move out of meshes. Fixed tick and seeded RNG.
 - Saber lighting moves to emissive + glow (D9).
 - **Upgrade three.js** and re-verify the bend shader patches, color management, and light intensities.
@@ -361,19 +403,19 @@ P4 and P5 can go in either order. Do P5 first if the kids mostly play on iPad.
 
 - Actions, device adapters, per-profile bindings, hot-swapping (D6).
 - `PilotedController` extracted from `update()`. Camera-relative movement.
-- The embodied avatar (D5) with procedural hands for flat players. Items are held in a hand.
+- The embodied avatar (D5) with procedural hands for flat players. Items are held in a hand. A hat slot.
 - iPad touch rework (floating stick, tap-to-interact, context buttons) and MacBook trackpad polish.
 
-**Exit:** single player feels great on iPad and MacBook.
+**Exit:** single-player free roam feels great on iPad and MacBook.
 
-### P3: Online foundation (M)
+### P3: Online free roam (M)
 
 - `apps/server` as one process (static files + Colyseus + SQLite), deployed to the chosen host with backups.
-- Profiles, device tokens, **link codes**, worlds with **world codes**, the owner panel skeleton.
-- Presence for 10 players: pose streaming, interpolation, reconnection.
-- Server-authoritative item pickup/drop, crates, and lifts.
+- One station room capped at 10 players, the roster picker (name + color, optional PIN), and the `ADMIN_KEY` owner panel skeleton.
+- Presence: pose streaming, interpolation, reconnection.
+- Server-authoritative item pickup/drop, crates, and lifts. Sabers and blasters as shared toys.
 
-**Exit:** friends on iPads and MacBooks hang out in a persistent world, and the world survives a server restart.
+**Exit:** friends on iPads and MacBooks free-roam together in the persistent station, and it survives a server restart.
 
 ### P4: Meta Quest VR (L)
 
@@ -383,78 +425,68 @@ P4 and P5 can go in either order. Do P5 first if the kids mostly play on iPad.
 - Performance pass on a real Quest against the budget, with an on-device performance HUD.
 - Tests: IWER (Meta's WebXR emulation runtime) in Playwright, plus a manual Quest checklist.
 
-**Exit:** a Quest player and iPad players share a world, and the Quest player can climb, fling, float, and hand items to friends at a steady frame rate.
+**Exit:** a Quest player free-roams with iPad players, climbing, flinging, floating, and handing items around at a steady frame rate.
 
 ### P5: Economy v1 (L)
 
-- Ledger, Bolts, starting balance, crate-bash payouts, daily allowance.
-- Lots, the lease kiosk, the free first store, capex for additional stores.
-- The Depot wholesaler, inventory, shelves, price tags, buying from player stores (flat UI first, VR interactions once P4 lands).
-- Demand simulation with robot shoppers (sales events), the game clock, daily close with rent and utilities, the daily statement.
-- Guardrails (no negative balances, closed for repairs, stock returned) and the economy config in the owner panel.
-- Tests: ledger invariants (money in − money out = sum of balances), demand curve, daily close, away catch-up.
+- Ledger in shards, crystal display, starter purse.
+- **Kyber Ore**: crate drops, hub drifters, respawn. The **Refinery** with its fee.
+- Spots, the lease kiosk, the free first shop, capex for additional shops.
+- The item catalog and generators: a wide saber and blaster assortment, hats, carrots, and **pet bots** (walkers + flyers, equipped through the loadout).
+- The Depot (wholesale and buyback), inventory, shelves, price tags, buying from player shops (flat UI first, VR interactions once P4 lands).
+- Real-time robot shopper demand, open/closed rules, 5-minute settlement, shift reports.
+- Guardrails (no negative balances, closed for repairs, stock returned) and economy tuning in the owner panel.
+- Tests: ledger invariants (money in − money out = sum of balances), currency math, demand curve, Refinery yield, settlement, two kids buying the last item at once.
 
-**Exit:** a kid can open a free store, stock it, earn from robot shoppers and friends, pay rent, and save up for a second store.
+**Exit:** a kid can refine ore, open a free shop, stock it with sabers and pets, earn from robot shoppers and friends, pay rent, and save up for a second shop.
 
 ### P6: Economy v2 and social (M)
 
-- Upgrades: shelf slots, sign, lighting, **clerk bots**, plus offline away-time trading and the "While you were away" summary.
-- Visible robot shoppers on the promenade, store customization (name, sign, colors, layout).
-- Direct player-to-player trades with a confirm step, and delivery-run odd jobs.
+- Upgrades: shelf slots, sign, lighting, **clerk bots** with the "While you were away" summary.
+- Visible robot shoppers on the promenade, shop customization (name, sign, colors, layout).
+- Rotating Depot stock with rare saber drops, and direct player-to-player trades with a confirm step.
 - **Proximity voice chat** (section 7).
-- First mini-game: **Tag** (section 10).
+- First extra mode: **Tag** (section 10).
 
 **Exit:** the friend group plays together regularly with a living economy and voice.
 
 ### P7: Later
 
-- Saber duels and combat, when you want fighting.
-- More mini-games, crafting, more zones (end-cap observation decks, a hub market).
-- glTF art pipeline alongside the procedural assets.
+- A player-run Refinery, crafting, more zones (end-cap observation decks, a hub market).
+- More modes (hub race, delivery runs).
+- Saber duels, when you want fighting.
+- A glTF art pipeline alongside the procedural assets.
 
 ---
 
-## 9. Unity or WebXR?
+## 9. Unity or WebXR? (Decided: WebXR)
 
-**Recommendation: stay on WebXR (three.js).** For a friend-group game across Quest + iPad + MacBook, the web wins on the things that matter most here.
+Kept for the record:
 
-| | WebXR (stay) | Unity (move) |
+| | WebXR (chosen) | Unity |
 | --- | --- | --- |
-| Getting it on devices | One URL. Bookmark it on the Quest and open it in Safari on the iPad. | Quest: sideload with developer mode (a Meta developer account on each headset) or submit to the Horizon Store. iPad: Xcode on the Mac, an Apple Developer membership ($99/yr), and TestFlight invites, with builds expiring every 90 days. |
+| Getting it on devices | One URL. Bookmark it on the Quest and open it in Safari on the iPad. | Quest: developer-mode sideloading or a Horizon Store submission. iPad: Xcode, an Apple Developer membership ($99/yr), and TestFlight with builds expiring every 90 days. |
 | Shipping an update | Push to GitHub, and everyone has it on next load | Rebuild per platform and redistribute to every device |
-| Existing code | Refactor what's here | Full rewrite: geometry, textures, the curved-floor shader, and gameplay are all rebuilt; only the design and numbers carry over |
-| Quest performance | Good enough for this low-poly, blob-shadow style if we keep the budget | Better: native rendering, mature profiling tools |
-| Physics, tools, assets | Hand-rolled physics, code-built content | PhysX, a visual editor, Asset Store, open-source Gorilla-style locomotion references |
-| Multiplayer + voice | Colyseus + WebRTC (built by us) | Photon / Normcore with voice add-ons, with free tiers that cover a friend group. The economy still needs our own server. |
-| Working with Claude Code | The whole loop (code, test in headless Chromium with XR emulation, deploy) runs in these sessions | Much of the work happens in the Unity editor on your Mac, and builds and on-device tests are manual |
+| Existing code | Refactor what's here | Full rewrite |
+| Quest performance | Good enough for this low-poly style within budget | Better |
+| Working with Claude Code | The whole loop (code, test, deploy) runs in these sessions | Much of the work happens in the Unity editor, and builds are manual |
 
-**What moving to Unity would take:**
-
-1. Unity 6 LTS (the free Personal license is fine), URP, and the Meta XR SDK (or OpenXR + XR Interaction Toolkit).
-2. Rebuilding every scene and asset, and porting the bend shader (a "curved world" vertex shader in URP).
-3. A netcode choice (Photon Fusion or Normcore), voice (Photon Voice or Vivox), and a separate economy backend.
-4. Two distribution pipelines: Quest APK via developer mode or Horizon Store, and iPad via TestFlight.
-5. Roughly the effort of P0-P5 again, before any new features.
-
-**When Unity would be the right call:** you want a Horizon Store release, much richer graphics, physics-heavy play, or someone on the team who already knows Unity.
-
-**The hedge:** the server and economy (D7, D8) are written in TypeScript on Colyseus, which has a Unity SDK. If the game outgrows the browser, a native Quest client could join the *same* worlds without throwing away the economy.
+Revisit only for a Horizon Store release or much richer graphics. Colyseus has a Unity SDK, so a native client could join the same station later.
 
 ---
 
 ## 10. Modes
 
-The **world itself is the game** (the economy). Modes are optional activities layered on top. None of them involve fighting.
+The **station itself is the game** (free roam plus the economy). Other modes come later, and none involve fighting.
 
-| Mode | What it is | Who it's great for |
+| Mode | What it is | When |
 | --- | --- | --- |
-| **Free roam** | What exists today: explore the ring, bash crates, ride lifts, float in the hub, play with items | Everyone, always on |
-| **Market** | The persistent economy (section 3). Not a separate mode; it's the world. | The main loop |
-| **Tag** | One player is "it", tagging means touching with a hand, everyone races around the promenade and hub. Arm locomotion makes it the classic VR chase; flat players play with stick + jump. | Quest kids especially |
-| **Hub race** | Zero-g race through the lift tubes and hub rings, timed checkpoints | VR and flat |
-| **Crate rush** | Timed crate bashing that pays a little in Bolts | Quick fun, a money source |
-| **Delivery runs** | Carry orders between stores against a timer, paid by the store owner or an NPC | Ties into the economy |
-| *Saber duels* | Deferred, since there's no fighting yet. Sabers are merchandise and toys meanwhile: ignite them, wave them, put on a light show. | Later |
+| **Free roam** | Explore the ring, bash crates, ride lifts, float in the hub, play with sabers and blasters | **First** (P3) |
+| **Market** | The persistent economy (section 3). Not a separate mode; it's the world. | P5 |
+| **Tag** | One player is "it", tagging means touching with a hand, everyone races around the promenade and hub | P6 |
+| **Hub race** | Zero-g race through the lift tubes and hub rings | P7 |
+| **Delivery runs** | Carry orders between shops against a timer | P7 |
+| *Saber duels* | Deferred, since there's no fighting yet | Later |
 
 ---
 
@@ -462,11 +494,12 @@ The **world itself is the game** (the economy). Modes are optional activities la
 
 | Layer | Tool | What |
 | --- | --- | --- |
-| Shared sim + economy rules | Vitest (Node) | Ring math, movement, lifts, crates, rent, demand curve, daily close, away catch-up |
-| Server | Vitest + bot clients | Ledger invariants, two kids buying the last item at once, lease races, reconnection, restart persistence |
+| Shared sim + economy rules | Vitest (Node) | Ring math, movement, lifts, crates, currency math, rent, demand curve, Refinery yield, settlement |
+| Server | Vitest + bot clients | Ledger invariants, last-item races, lease races, reconnection, restart persistence, 10-player cap |
+| Catalog | Vitest + Playwright screenshots | Every catalog variant builds, and a screenshot sheet of all sabers, blasters, hats, and pets |
 | Input | Vitest | Bindings → actions, profile hot-swap, generated hand poses |
 | Rendering | Playwright screenshots (deterministic mode) | MacBook and iPad viewports with touch emulation |
-| VR | Playwright + IWER | Session start, rig placement, controller and hand input, shelf snapping |
+| VR | Playwright + IWER | Session start, rig placement, controller and hand input, shelf snapping, Refinery hopper |
 | Devices | Manual checklist each release | iPad Safari, MacBook Safari/Chrome, Quest Browser |
 
 ---
@@ -475,22 +508,21 @@ The **world itself is the game** (the economy). Modes are optional activities la
 
 | Risk | Mitigation |
 | --- | --- |
-| Losing world data (stores, Bolts) | Append-only ledger, a persistent volume, nightly backups, a tested restore |
-| Economy balance (too easy, too punishing) | All numbers in config, the owner panel, guardrails, daily statements to spot problems |
+| Losing station data (shops, crystals) | Append-only ledger, a persistent volume, nightly backups, a tested restore |
+| Economy balance (too easy, too punishing) with no allowance | All numbers in config, the owner panel, ore and Depot buyback as ways back from zero, shift reports to spot problems |
+| A kid picks another kid's name and spends their crystals | Optional PIN per robot, and the owner panel can reverse ledger entries |
 | Three.js upgrade breaks the bend shader | Done in P1 behind screenshot tests; the patches live in one module |
-| Quest performance (glass, overdraw, many items on shelves) | Budget in P4, instanced shelf items, no per-item lights, on-device performance HUD |
+| Quest performance (glass, overdraw, full shelves, pets) | Budget in P4, instanced shelf items, no per-item lights, simple pet meshes, on-device performance HUD |
 | VR comfort in a curved, rotating world | "Up" follows the local floor, comfort options, early playtests |
-| Host sleeps or restarts mid-session | Always-on tier, Colyseus reconnection, state saved on every ledger write |
-| Kids' Meta accounts block the Browser | Check the parent-managed account settings before P4 |
+| Host restarts mid-session | Always-on tier, Colyseus reconnection, ledger written on every change |
 | The refactor stalls fun features | Strangler migration: playable and deployed after every PR |
 
 ---
 
 ## 13. Open questions
 
-1. **Currency name:** "Bolts" (matches the crates)?
-2. **Day length:** is 20 real minutes per game day right? Should the world freeze when nobody's online (recommended)?
-3. **Launch goods:** sabers, blasters, carrots, robot cosmetics, decor. Anything the kids would definitely want to sell?
-4. **Worlds:** one shared world for the whole friend group (recommended), or one per kid?
-5. **Owner panel:** just you, or a parent in each family?
-6. **Quest accounts:** are the kids on parent-managed Meta accounts, and is Quest Browser allowed?
+1. **Refinery rates:** how much ore makes a crystal, and what's the fee? The proposal is 1 ore chunk → 25 shards (4 chunks per crystal), less 10%.
+2. **Starter purse:** is about 5 crystals right for stocking a first shop?
+3. **Pets:** one equipped pet at a time, or a walker *and* a flyer together?
+4. **Clerk shift:** is up to 8 hours of trading after the owner leaves the right amount of passive income?
+5. **Naming, only if this ever goes public:** "Kyber" and "lightsaber" are Lucasfilm trademarks. That's fine for a private game among friends.
