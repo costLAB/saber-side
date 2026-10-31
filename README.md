@@ -31,6 +31,10 @@ Then open the printed URL. To try it on an iPad or Quest on the same Wi-Fi, run 
 
 The screenshot tests pause time and seed randomness, so every run renders the same frames. If a change is supposed to alter the picture, run `pnpm e2e:update` and commit the new images in `apps/client/e2e/game.spec.ts-snapshots/`.
 
+### Deploying
+
+The game is static files for now. Netlify builds and hosts it using `netlify.toml` (build `pnpm build`, publish `apps/client/dist`): import the repo in Netlify and it picks those settings up, deploys every merge to `main`, and gives each PR a preview link. Online play (Phase 3) adds a small always-on game server on a separate host; see the plan.
+
 ### Controls
 
 | Key | Action |

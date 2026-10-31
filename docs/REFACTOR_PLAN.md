@@ -344,6 +344,8 @@ Where today's code goes:
 
 ## 6. Hosting (simple, cheap, just works)
 
+> **Decision (2026-10-31): the client is hosted on Netlify** (the owner already has an account), using `netlify.toml` in the repo. Netlify can't run a long-lived WebSocket server or keep a disk, so from Phase 3 the game server runs on a separate always-on host (a Render web service with a persistent disk is the front-runner). The client connects to it over `wss://`. That replaces the "one process does everything" layout below: the server only runs Colyseus, the economy, and SQLite.
+
 - **One process does everything:** the Node server serves the built client files, runs Colyseus, runs the economy, and writes SQLite to a persistent volume. That means one deploy, one URL, and HTTPS from the host. WebXR requires HTTPS.
 - **What to look for in a host:**
   - WebSocket support
