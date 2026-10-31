@@ -17,7 +17,7 @@ pnpm install
 pnpm dev
 ```
 
-This starts the game and a local station server together. Open the printed URL; under the title it should say **Station · online · 1 aboard**, and a second browser tab makes 2. To try it on an iPad or Quest on the same Wi-Fi, run `pnpm dev:https` and open the `https://` network URL (WebXR needs HTTPS; accept the self-signed certificate warning).
+This starts the game and a local station server together. Open the printed URL, make a robot, and under the title it should say **Station · online · 1 aboard**. A second browser window (or a private one) can come aboard as another robot. Locally the owner panel is off unless you start with `ADMIN_KEY=something pnpm dev`. To try it on an iPad or Quest on the same Wi-Fi, run `pnpm dev:https` and open the `https://` network URL (WebXR needs HTTPS; accept the self-signed certificate warning).
 
 | Command | What it does |
 | --- | --- |
@@ -34,6 +34,10 @@ The screenshot tests pause time and seed randomness, so every run renders the sa
 ### Deploying
 
 Netlify hosts the game (`netlify.toml`) and gives each PR a preview link. Render runs the station server (`render.yaml`), with the SQLite database on a persistent disk. Previews join a separate staging server, so they never touch the real station. [docs/HOSTING.md](docs/HOSTING.md) has the one-time setup and what happens on each merge.
+
+### Coming aboard
+
+With a station server (always in `pnpm dev`, and on the hosted game), the game opens on the station's roster: **Who's playing?** Pick your robot or make a new one (a name, a paint color, and an optional 4-digit PIN). There are no accounts: the same robot works on the iPad, the MacBook, and the Quest, and each device remembers who last played on it. Coming aboard from a second device takes over from the first. Owners can unlock the owner panel (**Owner**, with the server's `ADMIN_KEY`) to rename robots, clear a forgotten PIN, or remove a robot.
 
 ### Controls
 

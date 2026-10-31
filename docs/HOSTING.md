@@ -27,8 +27,12 @@ station, and deploy previews join a free staging server, so a PR can never touch
 3. **Check the URLs.** Render names each service `https://<name>.onrender.com`, and adds a suffix if the name is taken.
    If either URL differs from `netlify.toml`, change it there and merge.
 4. **Check it works.** `https://saber-side-station.onrender.com/healthz` should answer with JSON that includes
-   `"ok":true`. Open the game, and under the title it should say **Station · online · 1 aboard**.
-5. **Uptime alerts (optional, free).** Point UptimeRobot or Better Stack at the `/healthz` URL so you get an email if the
+   `"ok":true`. Open the game: the roster asks **Who's playing?**, and once you've made a robot, the line under the
+   title says **Station · online · 1 aboard · as \<name\>**.
+5. **Owner key.** Render generates `ADMIN_KEY` for each service. Copy the station's from its **Environment** page. In
+   the game, **Owner** at the bottom of the roster unlocks the owner panel on that device (rename a robot, clear a
+   forgotten PIN, remove a robot).
+6. **Uptime alerts (optional, free).** Point UptimeRobot or Better Stack at the `/healthz` URL so you get an email if the
    station goes down.
 
 ## What happens on a merge

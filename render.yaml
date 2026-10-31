@@ -40,6 +40,10 @@ services:
       # The game's address, so only its pages can join: https://<your-site>.netlify.app
       - key: ALLOWED_ORIGINS
         sync: false
+      # Unlocks the owner panel (Owner, at the bottom of the roster). Render makes up a long random one; read it from
+      # the service's Environment page.
+      - key: ADMIN_KEY
+        generateValue: true
 
   - type: web
     name: saber-side-staging
@@ -67,3 +71,5 @@ services:
       # Netlify's deploy previews and branch deploys: https://*--<your-site>.netlify.app
       - key: ALLOWED_ORIGINS
         sync: false
+      - key: ADMIN_KEY
+        generateValue: true

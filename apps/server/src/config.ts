@@ -9,6 +9,8 @@ export interface ServerConfig {
    * which is the dev default.
    */
   allowedOrigins: string[];
+  /** Unlocks the owner panel. Unset turns the owner endpoints off. On Render it's generated (see render.yaml). */
+  adminKey: string | undefined;
 }
 
 export function readConfig(env: Record<string, string | undefined> = process.env): ServerConfig {
@@ -22,5 +24,6 @@ export function readConfig(env: Record<string, string | undefined> = process.env
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+    adminKey: env.ADMIN_KEY || undefined,
   };
 }
