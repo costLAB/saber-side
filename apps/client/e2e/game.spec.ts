@@ -1,8 +1,13 @@
 import { advance, boot, expect, hold, snap, test } from './fixtures';
 
-test('spawn view', async ({ page, errors }) => {
+test('spawn view', async ({ page, errors }, info) => {
   await boot(page, 1500);
   await snap(page, 'spawn.png');
+  await expect(page.locator('h1')).toHaveText('SABERSIDE');
+  await expect(page.locator('#spec')).toContainText('3.05 rpm = 1 g');
+  await expect(page.locator('#where')).toContainText('around the ring');
+  await expect(page.locator('#score')).toHaveText('0 / 14');
+  if (info.project.name === 'macbook') await expect(page.locator('#keysbox .keys')).toBeVisible();
   expect(errors).toEqual([]);
 });
 

@@ -80,13 +80,18 @@ export async function hold(page: Page, key: string, ms: number) {
  * Renders one real frame and compares a screenshot of it with the stored baseline. This uses a single
  * `page.screenshot` rather than `toHaveScreenshot`, because the latter waits for animation frames to settle,
  * and that never happens under the frozen fake clock.
+ *
+ * HUD panels and touch buttons are masked as solid boxes: their layout is still compared, but not their text,
+ * because glyph rasterization (and fallback fonts for symbols like ↑ ▲) differs between machines. HUD text is
+ * checked with DOM assertions instead.
  */
 export async function snap(page: Page, name: string) {
   await page.evaluate(() => {
     window.__draw = true;
   });
   await page.clock.fastForward(33);
-  const image = await page.screenshot({ timeout: 60_000 });
+  const mask = ['.hud', '#hint', '#prompt', '#touch .tb'].map((selector) => page.locator(selector));
+  const image = await page.screenshot({ timeout: 60_000, mask, maskColor: '#ff00ff' });
   await page.evaluate(() => {
     window.__draw = false;
   });
