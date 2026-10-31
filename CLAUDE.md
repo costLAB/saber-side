@@ -25,6 +25,9 @@ Name every branch and PR for its **purpose**: what the work is for, not a list o
   being split into modules during Phase 1. It's excluded from lint.
 - `packages/shared`: game rules, ring math, and constants. Pure TypeScript with no DOM and no scene graph, so it runs
   in the browser, on the server, and in tests.
+- New features go in modules, not in `game.js`: rules and level data in `packages/shared` (`sim/`, `content/`), scene
+  builders in `apps/client/src/world/` and `render/`, and the glue in `apps/client/src/app/`. The legacy file only gets
+  a small hook. `app/flight.ts` (ships and planets) is the example to follow.
 
 ## Commands
 

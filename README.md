@@ -53,6 +53,17 @@ The game is static files for now. Netlify builds and hosts it using `netlify.tom
 
 The ring is 800 ft across with an 85 ft hull, 400 ft long, and spins at 3.05 rpm for 1 g at the floor. Four lift tubes run from the promenade to a zero-gravity hub on the axis.
 
+In the hub, four little ships wait in cradles beside two airlocks. Board one (G) and it launches into space, where you can fly to Earth, Mars, Glorp and Frostbite, land, and zap the little aliens. Fly into a glowing dock at either end of Ring Seven to come home.
+
+| Ship key | Action |
+| --- | --- |
+| ↑ ↓ | Climb / dive |
+| ← → | Turn |
+| Shift (hold) | 5× speed |
+| Space | Brake |
+| F | Fire lasers |
+| X | Barrel roll |
+
 ## Roadmap
 
 See [docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md) for the plan to grow this prototype into a multiplayer game for browsers, iPad, and WebXR headsets.

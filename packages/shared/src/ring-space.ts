@@ -29,6 +29,10 @@ export const HALF_L = LEN / 2;
 /** Floor circumference: strip z wraps every `CIRC` units. */
 export const CIRC = TAU * R_IN;
 
+/** The zero-g hub: a drum on the spin axis (real frame), where the four lift tubes meet. */
+export const HUB_R = 16;
+export const HUB_L = 40;
+
 /** Spin rate that gives 1 g at the floor: omega = sqrt(g / r), with r = 315 ft = 96 m. */
 export const OMEGA = Math.sqrt(9.81 / (315 * 0.3048));
 export const RPM = (OMEGA * 60) / TAU;
