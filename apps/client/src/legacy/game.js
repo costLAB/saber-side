@@ -24,6 +24,10 @@ import {
 } from '@saber-side/shared';
 import * as THREE from 'three';
 import { createFlightMode } from '../app/flight';
+import { createRenderer } from '../render/renderer';
+import { bendMaterial } from '../render/ring/bend';
+import { makeCanvas, textureKit, wrapX } from '../render/textures';
+import { dot } from '../render/kit';
 
 (() => {
 const V3 = THREE.Vector3;
@@ -31,15 +35,9 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 
 // ---------- renderer / scene ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
-renderer.outputEncoding = THREE.sRGBEncoding;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
-renderer.domElement.tabIndex = 0;
-document.getElementById('stage').appendChild(renderer.domElement);
-const ANISO = renderer.capabilities.getMaxAnisotropy();
+const renderer = createRenderer(document.getElementById('stage'));   // render/renderer.ts
+// the procedural texture painters (render/textures.ts)
+const { toTex, drawTex, paintTex, glowTex, groundTex, crateTex } = textureKit(renderer.capabilities.getMaxAnisotropy());
 
 // ---------- habitat scale ----------
 // The bot stands 4 ft tall (about 3.35 scene units). The ring is 800 ft across outside with an 85 ft hull,
@@ -47,43 +45,8 @@ const ANISO = renderer.capabilities.getMaxAnisotropy();
 // (FT, R_IN, R_OUT, LEN, HALF_L, CIRC, wrapD, OMEGA, and RPM now live in @saber-side/shared ring-space.)
 
 // Everything that lives on the floor is simulated on a flat strip (x across, z around the ring, y up)
-// and bent onto the cylinder in the vertex shader; the CPU uses the same mapping for the camera and lights.
-const BEND_GLSL = `
-#define BEND_R ${R_IN.toFixed(4)}
-vec4 bendPos( vec4 w ) { if ( w.y > 5000.0 ) return vec4( w.x, w.y - 10000.0, w.z, 1.0 ); float th = -w.z / BEND_R; float r = BEND_R - w.y; return vec4( w.x, -r * cos( th ), -r * sin( th ), 1.0 ); }
-vec3 bendDir( vec3 v, float th ) { float c = cos( th ), s = sin( th ); return vec3( v.x, c * v.y - s * v.z, s * v.y + c * v.z ); }
-`;
-function bendMaterial(m) {
-  if (m.userData.bent) return;
-  m.userData.bent = true;
-  m.onBeforeCompile = sh => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + BEND_GLSL);
-    if (m.isSpriteMaterial) {
-      sh.vertexShader = sh.vertexShader.replace('vec4 mvPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );',
-        'vec4 mvPosition = viewMatrix * bendPos( modelMatrix * vec4( 0.0, 0.0, 0.0, 1.0 ) );');
-      return;
-    }
-    sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', `
-      vec4 bl = vec4( transformed, 1.0 );
-      #ifdef USE_INSTANCING
-        bl = instanceMatrix * bl;
-      #endif
-      vec4 mvPosition = viewMatrix * bendPos( modelMatrix * bl );
-      gl_Position = projectionMatrix * mvPosition;`);
-    sh.vertexShader = sh.vertexShader.replace('transformedNormal = normalMatrix * transformedNormal;', `
-      {
-        vec4 bp0 = vec4( position, 1.0 );
-        #ifdef USE_INSTANCING
-          bp0 = instanceMatrix * bp0;
-        #endif
-        bp0 = modelMatrix * bp0;
-        vec3 wn0 = normalize( mat3( modelMatrix ) * transformedNormal );
-        transformedNormal = mat3( viewMatrix ) * ( bp0.y > 5000.0 ? wn0 : bendDir( wn0, -bp0.z / BEND_R ) );
-      }`);
-  };
-  m.customProgramCacheKey = () => 'bend';
-  m.needsUpdate = true;
-}
+// and bent onto the cylinder in the vertex shader (bendMaterial, render/ring/bend.ts); the CPU uses the same
+// mapping for the camera and lights.
 
 const scene = new THREE.Scene();
 const HAZE = 0xb3bcc4;
@@ -98,154 +61,8 @@ const axisLight = new THREE.PointLight(0xfff1dc, 1.05, 0, 0);
 scene.add(axisLight);
 
 // ---------- procedural textures ----------
-function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
-function toTex(c, srgb, repeat) {
-  const t = new THREE.CanvasTexture(c);
-  if (srgb) t.encoding = THREE.sRGBEncoding;
-  t.anisotropy = ANISO;
-  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat, repeat); }
-  return t;
-}
-// draws fn at x and its horizontal wrap twins so sphere UV seams line up
-function wrapX(w, x, r, fn) { fn(x); if (x < r) fn(x + w); if (x > w - r) fn(x - w); }
-function dot(g, x, y, r) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
-
-function paintTex(o) {
-  const w = o.w || 1024, h = o.h || 512, R = mulberry(o.seed || 1);
-  const c = makeCanvas(w, h), g = c.getContext('2d');
-  const b = makeCanvas(w, h), bg = b.getContext('2d');
-  g.fillStyle = o.base; g.fillRect(0, 0, w, h);
-  bg.fillStyle = '#888'; bg.fillRect(0, 0, w, h);
-
-  // mottled enamel
-  for (let i = 0; i < (o.mottle || 900); i++) {
-    const r = 6 + R() * 48, x = R() * w, y = R() * h;
-    g.globalAlpha = 0.035 + R() * 0.06;
-    g.fillStyle = R() < 0.55 ? o.light : o.shade;
-    wrapX(w, x, r, xx => dot(g, xx, y, r));
-  }
-  g.globalAlpha = 1;
-
-  // worn orange paint stripes
-  const orange = () => `rgb(${190 + R() * 30 | 0},${92 + R() * 26 | 0},${34 + R() * 18 | 0})`;
-  for (const s of (o.stripes || [])) {
-    const x0 = s.u0 * w, x1 = s.u1 * w, y0 = s.v0 * h, y1 = s.v1 * h;
-    g.fillStyle = orange(); g.globalAlpha = 0.9; g.fillRect(x0, y0, x1 - x0, y1 - y0);
-    const per = (x1 - x0) + (y1 - y0);
-    for (let i = 0; i < per * 0.6; i++) {
-      g.fillStyle = orange(); g.globalAlpha = 0.5 + R() * 0.45;
-      const edge = R() * 4 | 0, r = 1.5 + R() * 6;
-      const x = edge < 2 ? lerp(x0, x1, R()) : (edge === 2 ? x0 : x1) + (R() - 0.5) * 8;
-      const y = edge < 2 ? (edge === 0 ? y0 : y1) + (R() - 0.5) * 8 : lerp(y0, y1, R());
-      dot(g, x, y, r);
-    }
-    // chipped to primer
-    for (let i = 0; i < per * 0.12; i++) {
-      g.fillStyle = R() < 0.6 ? o.base : '#8a7a68'; g.globalAlpha = 0.5 + R() * 0.5;
-      dot(g, lerp(x0, x1, R()), lerp(y0, y1, R()), 1 + R() * 5);
-    }
-  }
-  for (let i = 0; i < (o.patches || 0); i++) {
-    const cx = R() * w, cy = (o.patchV0 || 0) * h + R() * ((o.patchV1 || 1) - (o.patchV0 || 0)) * h, n = 20 + R() * 60, sp = 8 + R() * 26;
-    for (let k = 0; k < n; k++) {
-      g.fillStyle = orange(); g.globalAlpha = 0.45 + R() * 0.5;
-      const r = 1.5 + R() * 6, x = cx + (R() - 0.5) * sp * 2.2, y = cy + (R() - 0.5) * sp;
-      wrapX(w, x, r, xx => dot(g, xx, y, r));
-    }
-  }
-  g.globalAlpha = 1;
-
-  // panel seams with grime collected along them
-  const seam = (x0, y0, x1, y1) => {
-    g.lineCap = 'round';
-    g.strokeStyle = 'rgba(52,40,32,0.12)'; g.lineWidth = 12; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
-    g.strokeStyle = 'rgba(48,38,32,0.9)'; g.lineWidth = 2.4; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
-    g.strokeStyle = 'rgba(255,250,240,0.3)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x0 + 1.5, y0 + 1.5); g.lineTo(x1 + 1.5, y1 + 1.5); g.stroke();
-    bg.strokeStyle = '#1a1a1a'; bg.lineWidth = 4; bg.beginPath(); bg.moveTo(x0, y0); bg.lineTo(x1, y1); bg.stroke();
-  };
-  const rivet = (x, y) => {
-    g.fillStyle = 'rgba(40,32,28,0.9)'; dot(g, x, y, 4.2);
-    g.fillStyle = 'rgba(170,160,148,1)'; dot(g, x - 0.6, y - 0.6, 2.6);
-    bg.fillStyle = '#e0e0e0'; dot(bg, x, y, 3.5);
-  };
-  for (const v of (o.seamsV || [])) { seam(0, v * h, w, v * h); }
-  for (const s of (o.seamsU || [])) {
-    seam(s.u * w, s.v0 * h, s.u * w, s.v1 * h);
-    if (o.rivets) { rivet(s.u * w + 12, s.v0 * h + 12); rivet(s.u * w - 12, s.v1 * h - 12); }
-  }
-
-  // rust specks, clustered, with drip streaks
-  const clusters = Array.from({ length: o.clusters || 50 }, () => [R() * w, R() * h]);
-  for (const [cx, cy] of clusters) {
-    if (R() < 0.5) continue;
-    g.strokeStyle = 'rgba(110,58,26,0.10)'; g.lineWidth = 1 + R() * 2;
-    g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + (R() - 0.5) * 6, cy + 20 + R() * 60); g.stroke();
-  }
-  const speckCols = ['#3b2a20', '#3b2a20', '#7a3e1c', '#7a3e1c', '#a5582a', '#1f1a17'];
-  for (let i = 0; i < (o.speck || 12000); i++) {
-    let x, y;
-    if (R() < 0.62) { const cl = clusters[R() * clusters.length | 0]; x = cl[0] + (R() + R() + R() - 1.5) * 70; y = cl[1] + (R() + R() + R() - 1.5) * 50; }
-    else { x = R() * w; y = R() * h; }
-    x = (x + w) % w;
-    const r = 0.4 + Math.pow(R(), 4) * 2.6;
-    g.globalAlpha = 0.18 + R() * 0.5; g.fillStyle = speckCols[R() * speckCols.length | 0];
-    dot(g, x, y, r);
-    if (r > 1.2) { bg.fillStyle = '#5c5c5c'; dot(bg, x, y, r); }
-  }
-  g.globalAlpha = 1;
-
-  if (o.grime) {
-    const gr = g.createLinearGradient(0, o.grime[0] * h, 0, o.grime[1] * h);
-    gr.addColorStop(0, 'rgba(60,46,36,0)'); gr.addColorStop(1, 'rgba(60,46,36,0.45)');
-    g.fillStyle = gr; g.fillRect(0, o.grime[0] * h, w, (o.grime[1] - o.grime[0]) * h);
-  }
-  return { map: toTex(c, true), bump: toTex(b, false) };
-}
-
-function glowTex() {
-  const c = makeCanvas(128, 128), g = c.getContext('2d');
-  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
-  return toTex(c, true);
-}
+// (makeCanvas, toTex, wrapX, dot, paintTex, glowTex, groundTex, and crateTex live in render/textures.ts)
 const GLOW = glowTex();
-
-function groundTex() {
-  const s = 512, R = mulberry(77), c = makeCanvas(s, s), g = c.getContext('2d');
-  g.fillStyle = '#857d75'; g.fillRect(0, 0, s, s);
-  const wrap = (x, y, r, fn) => { for (const dx of [-s, 0, s]) for (const dy of [-s, 0, s]) if (Math.abs(x + dx - s / 2) < s / 2 + r && Math.abs(y + dy - s / 2) < s / 2 + r) fn(x + dx, y + dy); };
-  for (let i = 0; i < 1500; i++) { const r = 4 + R() * 40, x = R() * s, y = R() * s; g.globalAlpha = 0.04 + R() * 0.06; g.fillStyle = R() < 0.5 ? '#9b938a' : '#635b54'; wrap(x, y, r, (a, b) => dot(g, a, b, r)); }
-  for (let i = 0; i < 10; i++) { const r = 30 + R() * 70, x = R() * s, y = R() * s; g.globalAlpha = 0.06; g.fillStyle = '#4a3c30'; wrap(x, y, r, (a, b) => dot(g, a, b, r)); }
-  g.globalAlpha = 1;
-  for (let k = 0; k <= 4; k++) {
-    const p = k * 128;
-    g.fillStyle = 'rgba(42,36,32,0.55)'; g.fillRect(p - 1.5, 0, 3, s); g.fillRect(0, p - 1.5, s, 3);
-    g.fillStyle = 'rgba(200,190,176,0.18)'; g.fillRect(p + 1.5, 0, 1.5, s); g.fillRect(0, p + 1.5, s, 1.5);
-  }
-  g.strokeStyle = 'rgba(40,34,30,0.45)'; g.lineWidth = 1;
-  for (let i = 0; i < 9; i++) { let x = R() * s, y = R() * s; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 14; k++) { x += (R() - 0.5) * 18; y += (R() - 0.3) * 14; g.lineTo(x, y); } g.stroke(); }
-  for (let i = 0; i < 9000; i++) { g.globalAlpha = 0.2 + R() * 0.5; g.fillStyle = R() < 0.5 ? '#4d433b' : '#a59c92'; g.fillRect(R() * s, R() * s, 1 + R() * 1.5, 1 + R() * 1.5); }
-  g.globalAlpha = 1;
-  return toTex(c, true, 36);
-}
-
-function crateTex(seed, base, label) {
-  const s = 256, R = mulberry(seed), c = makeCanvas(s, s), g = c.getContext('2d');
-  g.fillStyle = base; g.fillRect(0, 0, s, s);
-  for (let i = 0; i < 300; i++) { g.globalAlpha = 0.05 + R() * 0.06; g.fillStyle = R() < 0.5 ? '#ffffff' : '#000000'; dot(g, R() * s, R() * s, 4 + R() * 24); }
-  g.globalAlpha = 1;
-  g.strokeStyle = 'rgba(25,20,18,0.55)'; g.lineWidth = 16; g.strokeRect(8, 8, s - 16, s - 16);
-  g.strokeStyle = 'rgba(255,245,230,0.18)'; g.lineWidth = 2; g.strokeRect(19, 19, s - 38, s - 38);
-  g.strokeStyle = 'rgba(25,20,18,0.35)'; g.lineWidth = 2; g.strokeRect(34, 34, s - 68, s - 68);
-  for (const [x, y] of [[16, 16], [s - 16, 16], [16, s - 16], [s - 16, s - 16], [s / 2, 16], [s / 2, s - 16], [16, s / 2], [s - 16, s / 2]]) { g.fillStyle = 'rgba(30,24,20,0.9)'; dot(g, x, y, 4); g.fillStyle = '#b8ab9b'; dot(g, x - 0.7, y - 0.7, 2.3); }
-  g.font = '700 46px "Chakra Petch", "Arial Narrow", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillStyle = 'rgba(28,22,18,0.7)'; g.fillText(label, s / 2, s / 2 - 8);
-  g.font = '500 15px "IBM Plex Mono", monospace'; g.fillText('YARD 7 · 40 KG', s / 2, s / 2 + 30);
-  for (let i = 0; i < 3500; i++) { g.globalAlpha = 0.3 + R() * 0.6; g.fillStyle = ['#3b2a20', '#7a3e1c', '#a5582a', '#d8cfc2'][R() * 4 | 0]; dot(g, R() * s, R() * s, 0.5 + Math.pow(R(), 3) * 2.5); }
-  g.globalAlpha = 1;
-  return toTex(c, true);
-}
 
 // ---------- materials ----------
 const T = {
@@ -467,7 +284,6 @@ const colliders = [];   // flat-space obstacles: boxes { x, z, hw, hd } or circl
 const spinners = [];    // things that turn on their own every frame
 const signJobs = [];    // canvas signs to redraw once the display font arrives
 const css = hex => '#' + new THREE.Color(hex).getHexString();
-function drawTex(w, h, draw, srgb = true) { const c = makeCanvas(w, h); draw(c.getContext('2d'), w, h); return toTex(c, srgb); }
 
 function floorStrip(x0, x1, tex, tile, y) {
   const g = new THREE.PlaneGeometry(x1 - x0, CIRC, 1, 1024); g.rotateX(-Math.PI / 2);
