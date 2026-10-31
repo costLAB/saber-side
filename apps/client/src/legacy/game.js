@@ -1,132 +1,7 @@
-<!doctype html>
-<html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Saber Side</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<style>
-  /* Layout: full-bleed WebGL yard, HUD pinned to the corners like stencils on a crate */
-  :root {
-    --yard: #6b6460;
-    --ink: #f1eadf;
-    --ink-dim: #c9bfb2;
-    --plate: rgba(34, 29, 26, 0.62);
-    --bone: #e4dccd;
-    --bone-edge: #a99e8e;
-    --rust: #d0702c;
-    --soot: #2b2522;
-    --display: "Chakra Petch", "Arial Narrow", system-ui, sans-serif;
-    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-    color-scheme: dark;
-  }
-  html, body { height: 100%; margin: 0; overflow: hidden; background: var(--yard); color: var(--ink); }
-  body { font-family: var(--mono); -webkit-user-select: none; user-select: none; touch-action: none; }
-  #stage { position: fixed; inset: 0; }
-  #stage canvas { display: block; width: 100%; height: 100%; outline: none; }
+// Legacy single-file game, moved here unchanged from the original index.html (Phase 0).
+// It is being split into modules in Phase 1; see docs/REFACTOR_PLAN.md. Excluded from lint.
+import * as THREE from 'three';
 
-  .hud { position: fixed; z-index: 2; pointer-events: none; }
-  .tl { top: calc(16px + env(safe-area-inset-top, 0px)); left: calc(16px + env(safe-area-inset-left, 0px)); }
-  .tr { top: calc(16px + env(safe-area-inset-top, 0px)); right: calc(16px + env(safe-area-inset-right, 0px)); text-align: right; }
-  .bl { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: calc(16px + env(safe-area-inset-left, 0px)); }
-
-  .tl { padding: 10px 14px; background: var(--plate); border-radius: 6px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-  .readout { display: grid; gap: 2px; margin-top: 8px; font-size: 11px; letter-spacing: 0.03em; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
-  .eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); }
-  h1 { margin: 2px 0 0; font-family: var(--display); font-weight: 700; font-size: clamp(28px, 5vw, 44px); line-height: 1; letter-spacing: 0.02em; color: var(--bone); text-shadow: 0 2px 0 rgba(0,0,0,0.25); }
-  h1 span { color: var(--rust); }
-
-  .tally { display: inline-grid; gap: 2px; padding: 10px 14px; background: var(--plate); border-radius: 6px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-  .tally b { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--bone); }
-  .tally b i { font-style: normal; color: var(--ink-dim); font-size: 18px; }
-  .tally button { pointer-events: auto; margin-top: 6px; justify-self: end; font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); background: transparent; border: 1px solid var(--bone-edge); border-radius: 4px; padding: 4px 8px; cursor: pointer; }
-  .tally button:hover { border-color: var(--rust); color: var(--rust); }
-  .tally button:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
-
-  #keys { pointer-events: auto; }
-  #keysbox summary { cursor: pointer; display: inline-block; padding: 6px 12px; margin-bottom: 6px; border-radius: 999px; background: var(--plate); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim); list-style: none; }
-  #keysbox summary::-webkit-details-marker { display: none; }
-  #keysbox summary:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
-  .keys { display: grid; grid-template-columns: auto auto; gap: 7px 12px; align-items: center; padding: 12px 14px; background: var(--plate); border-radius: 6px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); font-size: 12px; }
-  .caps { display: flex; gap: 4px; justify-content: flex-end; }
-  .cap { min-width: 24px; height: 24px; padding: 0 6px; box-sizing: border-box; display: inline-grid; place-items: center; font: 500 12px var(--mono); color: var(--soot); background: var(--bone); border-radius: 4px; box-shadow: inset 0 -3px 0 var(--bone-edge), 0 1px 2px rgba(0,0,0,0.4); }
-  .cap.wide { min-width: 64px; }
-  .keys .desc { color: var(--ink-dim); }
-
-  #hint { position: fixed; z-index: 2; left: 50%; top: calc(168px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); padding: 8px 14px; border-radius: 999px; background: var(--plate); font-size: 12px; letter-spacing: 0.04em; white-space: nowrap; pointer-events: none; transition: opacity 0.5s; }
-  #hint.gone, #prompt.gone { opacity: 0; }
-  #prompt { position: fixed; z-index: 2; left: 50%; top: calc(208px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: flex; gap: 8px; align-items: center; padding: 6px 14px 6px 6px; border-radius: 999px; background: var(--plate); font-size: 13px; white-space: nowrap; pointer-events: none; transition: opacity 0.25s; }
-
-  #touch { position: fixed; inset: auto 0 0 0; z-index: 3; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
-  #touch[hidden] { display: none; }
-  .pad { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); gap: 4px; }
-  .act { display: grid; grid-template-columns: repeat(2, 76px); gap: 10px; }
-  .act .tb[data-k="boost"] { grid-column: span 2; width: auto; height: 48px; border-radius: 24px; }
-  .tb { pointer-events: auto; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 12px; border: 0; background: rgba(228, 220, 205, 0.82); color: var(--soot); font: 700 18px var(--display); box-shadow: inset 0 -4px 0 var(--bone-edge); touch-action: none; }
-  .tb.on { background: var(--rust); color: var(--ink); box-shadow: inset 0 -2px 0 #8a4517; }
-  .tb.big { width: 76px; height: 76px; border-radius: 50%; font-size: 14px; letter-spacing: 0.06em; }
-  .pad .u { grid-area: 1 / 2; } .pad .l { grid-area: 2 / 1; } .pad .r { grid-area: 2 / 3; } .pad .d { grid-area: 3 / 2; }
-
-  @media (max-width: 560px) { .keys { display: none; } .tally b { font-size: 20px; } }
-</style>
-
-<div id="stage"></div>
-
-<header class="hud tl">
-  <div class="eyebrow">Unit R-7 · Ring Seven habitat</div>
-  <h1>SABER<span>SIDE</span></h1>
-  <div class="readout"><span id="spec"></span><span id="where"></span></div>
-</header>
-
-<div class="hud tr">
-  <div class="tally">
-    <span class="eyebrow">Crates bashed</span>
-    <b id="score">0<i> / 0</i></b>
-    <button id="reset" type="button">Restack (R)</button>
-  </div>
-</div>
-
-<div class="hud bl" id="keys">
-  <details id="keysbox" open>
-  <summary>Controls</summary>
-  <div class="keys">
-    <div class="caps"><span class="cap">↑</span><span class="cap">↓</span></div><span class="desc">Roll forward / back</span>
-    <div class="caps"><span class="cap">←</span><span class="cap">→</span></div><span class="desc">Turn</span>
-    <div class="caps"><span class="cap wide">Space</span></div><span class="desc">Jump</span>
-    <div class="caps"><span class="cap">X</span></div><span class="desc">Spin attack</span>
-    <div class="caps"><span class="cap wide">Shift</span></div><span class="desc">Hold for 5× speed</span>
-    <div class="caps"><span class="cap">G</span></div><span class="desc">Pick up / drop · ride a lift</span>
-    <div class="caps"><span class="cap">↑</span><span class="cap">Space</span></div><span class="desc">In the hub: thrust / rise</span>
-    <div class="caps"><span class="cap">F</span></div><span class="desc">Use: ignite · fire · bite</span>
-    <div class="caps"><span class="cap">Q</span><span class="cap">E</span></div><span class="desc">Orbit camera · or drag</span>
-    <div class="caps"><span class="cap">−</span><span class="cap">+</span></div><span class="desc">Zoom · or scroll</span>
-    <div class="caps"><span class="cap">C</span></div><span class="desc">Reset camera · or double-click</span>
-  </div>
-  </details>
-</div>
-
-<div id="hint">Click the yard, then press ↑ to roll</div>
-<div id="prompt" class="gone"></div>
-
-<div id="touch" hidden>
-  <div class="pad">
-    <button class="tb u" data-k="up" type="button" aria-label="Forward">▲</button>
-    <button class="tb l" data-k="left" type="button" aria-label="Turn left">◀</button>
-    <button class="tb r" data-k="right" type="button" aria-label="Turn right">▶</button>
-    <button class="tb d" data-k="down" type="button" aria-label="Back">▼</button>
-  </div>
-  <div class="act">
-    <button class="tb big" data-k="grab" type="button">GRAB</button>
-    <button class="tb big" data-k="use" type="button">USE</button>
-    <button class="tb big" data-k="boost" type="button">BOOST</button>
-    <button class="tb big" data-k="spin" type="button">SPIN</button>
-    <button class="tb big" data-k="jump" type="button">JUMP</button>
-  </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
 (() => {
 const TAU = Math.PI * 2, V3 = THREE.Vector3;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -2010,6 +1885,8 @@ function updateWhere(p) {
   if (txt !== whereTxt) { whereTxt = txt; whereEl.textContent = txt; }
 }
 
+// Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
+if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock };
+
 frame();
 })();
-</script>

@@ -1,0 +1,25 @@
+{
+  "name": "saber-side",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @saber-side/client dev",
+    "dev:https": "pnpm --filter @saber-side/client dev:https",
+    "build": "pnpm -r build",
+    "preview": "pnpm --filter @saber-side/client preview",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r --if-present test",
+    "e2e": "pnpm --filter @saber-side/client e2e",
+    "e2e:update": "pnpm --filter @saber-side/client e2e:update",
+    "lint": "biome check .",
+    "format": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.4",
+    "typescript": "7.0.2"
+  }
+}

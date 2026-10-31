@@ -17,8 +17,11 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **Engine:** **stay on WebXR** (three.js). See [section 9](#9-unity-or-webxr-decided-webxr) for the comparison.
 - **Players:** 10 per room. **One shared world** for the whole friend group.
 - **No fighting yet.** The core loop is **running shops and selling things to each other**. It's a fun economy with no real money. Shop owners earn a regular income and pay rent and other operating costs. New shops cost money to open, but the first one is free.
-- **No free money.** There's no daily allowance; to earn a regular income you open a shop.
-- **Currency:** **Kyber Shards** and **Kyber Crystals** (100 shards = 1 crystal), plus raw **Kyber Ore** that must be refined into crystals at the **Refinery**, for a fee.
+- **No free money.** Everyone **starts with nothing** and there's no allowance. Opening your (free) first shop starts a small, steady trickle of shards.
+- **Currency:** **Kyber Shards** and **Kyber Crystals** (100 shards = 1 crystal), plus raw **Kyber Ore** that must be refined at the **Refinery**: 1 ore chunk = 25 shards, less a 10% fee.
+- **Pets:** up to **3 pet bots** at a time.
+- **Clerk bots** keep a shop open for up to **8 hours** after the owner leaves.
+- **Internal only.** This is never published, so the Star Wars names are fine.
 - **No day/night cycle.** It's space. The economy runs in **real time**.
 - **Shops sell:** carrots, hats, **pet bots** (that follow on foot or fly overhead), and a **wide assortment of lightsabers and blasters**.
 - **Modes:** **free roam first**.
@@ -85,7 +88,7 @@ Problems that block scale, VR, or multiplayer:
 
 ### D5. One avatar format for every platform
 
-Every avatar is networked as an **embodied pose**: root (frame + position + yaw), head, left hand, right hand, and per-hand state (gripping, holding item id). It also carries a **loadout**: equipped hat and pet bot.
+Every avatar is networked as an **embodied pose**: root (frame + position + yaw), head, left hand, right hand, and per-hand state (gripping, holding item id). It also carries a **loadout**: equipped hat and up to 3 pet bots.
 
 - **Quest players** fill the pose from the headset and controllers or hands.
 - **iPad and MacBook players** drive the root with stick or keys, and an animation layer generates head and hand poses from what they're doing (carrying, waving, placing an item on a shelf).
@@ -141,9 +144,11 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
 | **Kyber Ore** | A raw resource, not money | A physical item you carry. It must be taken to the **Refinery**, which turns it into crystals and keeps a fee. Ore can also be traded or sold between players. |
 
 - **Every currency change is a ledger entry**: who, to whom, how many shards, why, and when. Balances are derived from the ledger. This rules out duplication bugs and makes shop reports trivial.
-- **New players get a starter purse** (about 5 crystals) so they can stock their first shop.
-- **There's no allowance.** Money enters the world in only three ways:
-  - robot (NPC) shoppers buying from shops
+- **New players start with nothing.** There's no starter purse and no allowance.
+- **The first shop pays a trickle:** an open shop earns a small, steady trickle of shards from window shoppers, scaled by foot traffic. For the free first shop, the trickle always pays more than its rent, so a brand-new player can afford their first stock after a short stretch of play. For extra shops, the trickle is less than the rent, so they need stock to make a profit.
+- Money enters the world in only four ways:
+  - the window-shopper trickle from open shops
+  - robot (NPC) shoppers buying stock
   - refining ore
   - selling items back to the Depot below what they cost
 - **Money leaves the world through:**
@@ -163,7 +168,7 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
   - **ore chunks drifting in the zero-g hub**, which you grab and carry out. This is great in VR.
 
   Ore respawns slowly so it can't be farmed endlessly.
-- **The Refinery** sits in the hub next to the Depot. You drop ore into its hopper, and after a short refining animation crystals are paid out minus the fee. Rates live in config, with a proposed default of **1 ore chunk → 25 shards, less a 10% fee**.
+- **The Refinery** sits in the hub next to the Depot. You drop ore into its hopper, and after a short refining animation crystals are paid out minus the fee. Rates live in config: **1 ore chunk → 25 shards, less a 10% fee**.
 - **Later:** let a player *buy* and run the Refinery as a business and set its fee.
 
 ### Shops
@@ -171,7 +176,7 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
 - Each shop slot on the promenade is a **spot** with a size (S/M/L) and a **foot-traffic score**. Spots near the lifts and the welcome arch get more traffic.
 - **Rent per hour** = base × size × traffic. Busy spots earn more and cost more. That's the core decision.
 - Vacant spots show a "FOR LEASE" sign. Walk up and lease from the kiosk.
-- **First shop: free to open (no capex)**, plus one hour of real play rent-free. **Each additional shop costs capex**: a build-out fee scaled by size that rises with each shop you already own, so one kid can't buy the whole ring.
+- **First shop: free to open (no capex)**, and its window-shopper trickle always covers its rent. **Each additional shop costs capex**: a build-out fee scaled by size that rises with each shop you already own, so one kid can't buy the whole ring.
 - **Upgrades are capex too:** more shelf slots, a better sign, display lighting (raises appeal), and a **clerk bot**.
 
 ### What shops sell (launch catalog)
@@ -183,7 +188,7 @@ All item types are **data-driven variants of procedural generators**, so "a wide
 | **Lightsabers** | Hilt (several styles), blade color (about 10), blade type (single, double-bladed, crossguard, short "shoto", curved hilt), blade length, hum pitch | Extends `makeSaber`. Rarity tiers (Common → Legendary) set the wholesale price. Ignite, swing, and slice crates. No damage to players. |
 | **Blasters** | Body (pistol, carbine, rifle), bolt color, fire rate, sound | Extends `makeBlaster`. Fires at crates and targets. Bolts pass harmlessly through robots with a spark. |
 | **Hats** | Caps, helmets, antennas, crowns, traffic cones, ... | Attach to the robot's head. Shown on remote players through the loadout (D5). |
-| **Pet bots** | **Walkers** that roll or hop along behind you, and **flyers** (drones, orbs) that hover overhead | Follow behavior runs on each client (D5). One equipped pet at a time to start. |
+| **Pet bots** | **Walkers** that roll or hop along behind you, and **flyers** (drones, orbs) that hover overhead | Follow behavior runs on each client (D5). **Up to 3 equipped at once**, in any mix. |
 | **Carrots** | Regular, golden, giant | Biteable (existing). A cheap, fast-selling starter item. |
 
 - **The Depot** is the NPC wholesaler in the hub, so riding the lifts matters. Its stock rotates, and rarer saber variants show up occasionally.
@@ -214,8 +219,8 @@ All item types are **data-driven variants of procedural generators**, so "a wide
 
 - Balances can't go below zero. A shop that can't pay rent goes **"Closed for repairs"**: no sales, no rent. It reopens when you pay.
 - After several hours closed and unpaid, the spot is returned to vacant, and its stock goes back to the owner's inventory. **Nothing is ever destroyed.**
-- **Ways back from zero:** find ore and refine it, sell inventory back to the Depot or to friends, or reopen once you can pay rent.
-- Every number (rent, demand, ore rates, Refinery fee, clerk shift, starter purse) lives in one config file and can be tuned from the owner panel.
+- **Ways back from zero:** your first shop's trickle, finding and refining ore, and selling inventory back to the Depot or to friends.
+- Every number (rent, trickle, demand, ore rates, Refinery fee, clerk shift) lives in one config file and can be tuned from the owner panel.
 
 ### Data model (SQLite)
 
@@ -378,15 +383,23 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 
 **Free roam comes first**: P3 delivers it online for everyone. P4 and P5 can go in either order; do P5 first if the kids mostly play on iPad.
 
-### P0: Groundwork (S)
+### P0: Groundwork (S): done
 
-- pnpm workspace, Vite, strict TypeScript, Biome, Vitest, Playwright.
-- Replace the Unity `.gitignore` with a Node one.
-- Move the current script into Vite **unchanged**. Add a deterministic mode (fixed clock, seeded `Math.random`) and Playwright screenshot baselines at MacBook and iPad viewports.
-- CI: lint, typecheck, unit tests, build, screenshots. Preview deploys.
-- *(Done ahead of time: rename to Saber Side.)*
+- [x] pnpm workspace (`apps/*`, `packages/*`), Vite 8, strict TypeScript, Biome, Playwright.
+- [x] Node `.gitignore` replaces the Unity one.
+- [x] The game moved into `apps/client` with its script **unchanged** in `src/legacy/game.js` (three.js r128 now from npm, fonts bundled instead of Google Fonts). The only addition is a `?debug` hook that exposes state to tests.
+- [x] Deterministic Playwright tests:
+  - **Determinism:** the fake clock is paused, `Math.random` is seeded, and a test asserts that two identical runs produce identical state.
+  - **Screenshot baselines:** MacBook and iPad (touch) views.
+  - **Smoke test:** every key action runs without errors.
+  - **Speed:** software WebGL is slow, so draw calls are skipped except on the captured frame.
+- [x] CI: lint, typecheck, unit tests, build, e2e. Reports are uploaded when it fails.
+- [x] `pnpm dev:https` for testing on an iPad or Quest on the same network.
+- [x] *(Ahead of time: rename to Saber Side.)*
+- Deferred: **Vitest** arrives with `packages/shared` in P1, since there's nothing to unit test until then. **Preview deploys** wait for the hosting choice in P3.
+- Found for P2: on iPad landscape, the keyboard legend overlaps the touch d-pad.
 
-**Exit:** identical game, built by Vite, deployed from CI.
+**Exit:** identical game, built by Vite, checked by CI.
 
 ### P1: Decompose and separate simulation from rendering (L)
 
@@ -429,16 +442,16 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 
 ### P5: Economy v1 (L)
 
-- Ledger in shards, crystal display, starter purse.
+- Ledger in shards, crystal display, everyone starts at zero, the first-shop window-shopper trickle.
 - **Kyber Ore**: crate drops, hub drifters, respawn. The **Refinery** with its fee.
 - Spots, the lease kiosk, the free first shop, capex for additional shops.
-- The item catalog and generators: a wide saber and blaster assortment, hats, carrots, and **pet bots** (walkers + flyers, equipped through the loadout).
+- The item catalog and generators: a wide saber and blaster assortment, hats, carrots, and **pet bots** (walkers + flyers, up to 3 equipped through the loadout).
 - The Depot (wholesale and buyback), inventory, shelves, price tags, buying from player shops (flat UI first, VR interactions once P4 lands).
 - Real-time robot shopper demand, open/closed rules, 5-minute settlement, shift reports.
 - Guardrails (no negative balances, closed for repairs, stock returned) and economy tuning in the owner panel.
 - Tests: ledger invariants (money in − money out = sum of balances), currency math, demand curve, Refinery yield, settlement, two kids buying the last item at once.
 
-**Exit:** a kid can refine ore, open a free shop, stock it with sabers and pets, earn from robot shoppers and friends, pay rent, and save up for a second shop.
+**Exit:** a kid starting with nothing can open a free shop, earn its trickle, refine ore, stock it with sabers and pets, earn from robot shoppers and friends, pay rent, and save up for a second shop.
 
 ### P6: Economy v2 and social (M)
 
@@ -521,8 +534,4 @@ The **station itself is the game** (free roam plus the economy). Other modes com
 
 ## 13. Open questions
 
-1. **Refinery rates:** how much ore makes a crystal, and what's the fee? The proposal is 1 ore chunk → 25 shards (4 chunks per crystal), less 10%.
-2. **Starter purse:** is about 5 crystals right for stocking a first shop?
-3. **Pets:** one equipped pet at a time, or a walker *and* a flyer together?
-4. **Clerk shift:** is up to 8 hours of trading after the owner leaves the right amount of passive income?
-5. **Naming, only if this ever goes public:** "Kyber" and "lightsaber" are Lucasfilm trademarks. That's fine for a private game among friends.
+None right now. All answers so far are recorded under [Owner decisions](#owner-decisions).
