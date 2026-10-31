@@ -1,4 +1,4 @@
-import { HALF_L, type XYZ } from '../ring-space';
+import { HALF_L, type XYZ } from '../ring-space.ts';
 
 /**
  * Level data for flying outside Ring Seven: the ship cradles in the hub, the docks on the ring, and the planets.

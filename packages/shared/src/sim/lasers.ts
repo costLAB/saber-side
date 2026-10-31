@@ -1,5 +1,5 @@
-import type { XYZ } from '../ring-space';
-import { Vec3 } from '../vec3';
+import type { XYZ } from '../ring-space.ts';
+import { Vec3 } from '../vec3.ts';
 
 /** A laser bolt from a ship's wing guns. It flies straight and fades out after `life` seconds. */
 export interface Laser {

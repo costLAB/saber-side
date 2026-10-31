@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { bendPoint, bendUp, CIRC, OMEGA, R_IN, RPM, UNIT_M, unbend, wrapD, type XYZ } from './ring-space';
+import { bendPoint, bendUp, CIRC, OMEGA, R_IN, RPM, UNIT_M, unbend, wrapD, type XYZ } from './ring-space.ts';
 
 class V implements XYZ {
-  constructor(
-    public x = 0,
-    public y = 0,
-    public z = 0,
-  ) {}
+  x: number;
+  y: number;
+  z: number;
+  constructor(x = 0, y = 0, z = 0) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+  }
   set(x: number, y: number, z: number) {
     this.x = x;
     this.y = y;

@@ -1,13 +1,38 @@
 # Netlify builds the game client from the repo root (a pnpm workspace) and serves the static output.
 # Every PR also gets a deploy preview link, which is handy for testing on an iPad or Quest before merging.
 # Netlify installs dependencies with the pnpm version from package.json's packageManager field.
+# The station server runs on Render instead (render.yaml); see docs/HOSTING.md.
 
 [build]
   command = "pnpm build"
   publish = "apps/client/dist"
+  # Skip the build (and its deploy credits) when a commit only touches the server or docs. Exit 0 means "skip".
+  # The first build for a branch has nothing to compare against, so it always runs.
+  ignore = """
+    [ "$CACHED_COMMIT_REF" != "$COMMIT_REF" ] && git diff --quiet "$CACHED_COMMIT_REF" "$COMMIT_REF" -- \
+      apps/client packages/shared package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json netlify.toml
+  """
 
 [build.environment]
   NODE_VERSION = "22"
+
+# Which station server each build joins. Deploy previews and branch deploys use the staging server, so a PR can never
+# touch the real station's data. These are the URLs Render gives the two services in render.yaml; if Render adds a
+# suffix because a name was taken, update them here.
+[context.production.environment]
+  VITE_SERVER_URL = "https://saber-side-station.onrender.com"
+
+[context.deploy-preview.environment]
+  VITE_SERVER_URL = "https://saber-side-staging.onrender.com"
+
+[context.branch-deploy.environment]
+  VITE_SERVER_URL = "https://saber-side-staging.onrender.com"
+
+# Internal only (never published): keep search engines out.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
 
 # Built JS, CSS, and fonts have content hashes in their names, so browsers can cache them forever.
 [[headers]]

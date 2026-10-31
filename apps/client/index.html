@@ -33,6 +33,11 @@
   .eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); }
   h1 { margin: 2px 0 0; font-family: var(--display); font-weight: 700; font-size: clamp(28px, 5vw, 44px); line-height: 1; letter-spacing: 0.02em; color: var(--bone); text-shadow: 0 2px 0 rgba(0,0,0,0.25); }
   h1 span { color: var(--rust); }
+  #station::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #d9a441; vertical-align: 1px; }
+  #station[data-state="aboard"]::before { background: #7fc46a; }
+  #station[data-state="unreachable"]::before, #station[data-state="outdated"]::before { background: #c8553d; }
+  #station button { pointer-events: auto; font: 500 11px var(--mono); color: var(--ink); background: transparent; border: 1px solid var(--bone-edge); border-radius: 4px; padding: 1px 6px; cursor: pointer; }
+  #station button:hover { border-color: var(--rust); color: var(--rust); }
 
   .tally { display: inline-grid; gap: 2px; padding: 10px 14px; background: var(--plate); border-radius: 6px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   .tally b { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--bone); }
@@ -74,7 +79,7 @@
 <header class="hud tl">
   <div class="eyebrow">Unit R-7 · Ring Seven habitat</div>
   <h1>SABER<span>SIDE</span></h1>
-  <div class="readout"><span id="spec"></span><span id="where"></span></div>
+  <div class="readout"><span id="spec"></span><span id="where"></span><span id="station" hidden></span></div>
 </header>
 
 <div class="hud tr">

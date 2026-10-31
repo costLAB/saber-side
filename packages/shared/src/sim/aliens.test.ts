@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { PLANETS, type Planet, SURFACE_EDGE, terrainHeight } from '../content/space';
-import type { XYZ } from '../ring-space';
-import { mulberry } from '../rng';
-import { Vec3 } from '../vec3';
-import { ALIEN_COUNT, type Alien, HIT_HEIGHT, RESPAWN_TIME, spawnAliens, stepAliens } from './aliens';
-import { fireLaser, makeLasers, stepLasers } from './lasers';
+import { PLANETS, type Planet, SURFACE_EDGE, terrainHeight } from '../content/space.ts';
+import type { XYZ } from '../ring-space.ts';
+import { mulberry } from '../rng.ts';
+import { Vec3 } from '../vec3.ts';
+import { ALIEN_COUNT, type Alien, HIT_HEIGHT, RESPAWN_TIME, spawnAliens, stepAliens } from './aliens.ts';
+import { fireLaser, makeLasers, stepLasers } from './lasers.ts';
 
 const earth = PLANETS[0] as Planet;
 const DT = 1 / 60;

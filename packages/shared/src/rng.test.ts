@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mulberry } from './rng';
+import { mulberry } from './rng.ts';
 
 describe('mulberry', () => {
   it('repeats the same sequence for the same seed', () => {

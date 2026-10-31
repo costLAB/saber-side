@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { HUB_CRADLES, type HubCradle } from '../content/space';
-import { HUB_L } from '../ring-space';
-import { Vec3 } from '../vec3';
+import { HUB_CRADLES, type HubCradle } from '../content/space.ts';
+import { HUB_L } from '../ring-space.ts';
+import { Vec3 } from '../vec3.ts';
 import {
   airlockOpen,
   BOOST,
@@ -17,7 +17,7 @@ import {
   shipForward,
   shipToWorld,
   steerShip,
-} from './ship';
+} from './ship.ts';
 
 const fly = (input: Partial<ShipInput>, seconds: number, surface = false, ship = makeShip()) => {
   for (let t = 0; t < seconds; t += 1 / 60) steerShip(ship, { ...NO_INPUT, ...input }, 1 / 60, surface);
