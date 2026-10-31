@@ -24,6 +24,7 @@ import {
 } from '@saber-side/shared';
 import * as THREE from 'three';
 import { createFlightMode } from '../app/flight';
+import { buildRobot } from '../avatar/robot';
 import { createRenderer } from '../render/renderer';
 import { bendMaterial } from '../render/ring/bend';
 import { makeCanvas, textureKit, wrapX } from '../render/textures';
@@ -116,158 +117,9 @@ const Sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const zCyl = (a, b, h, s = 24) => { const g = Cyl(a, b, h, s); g.rotateX(Math.PI / 2); return g; };
 
 // ---------- robot ----------
-const bot = {};
-(function buildRobot() {
-  bot.root = new THREE.Group(); scene.add(bot.root);
-  bot.lean = new THREE.Group(); bot.root.add(bot.lean);
-  bot.squash = new THREE.Group(); bot.lean.add(bot.squash);
-  bot.spinner = new THREE.Group(); bot.squash.add(bot.spinner);
-  const core = bot.core = new THREE.Group(); core.position.y = 0.95; bot.spinner.add(core);
-
-  // rolling drive ball peeking out underneath
-  bot.drive = mesh(new THREE.SphereGeometry(0.95, 40, 28), M.drive); core.add(bot.drive);
-  // fixed lower band + upper shell
-  core.add(mesh(new THREE.SphereGeometry(0.985, 64, 12, 0, TAU, 2.12, 0.5), M.band));
-  core.add(mesh(new THREE.SphereGeometry(1, 64, 44, 0, TAU, 0, 2.16), M.shell));
-  const rim = (theta, r, tube) => { const t = mesh(new THREE.TorusGeometry(r * Math.sin(theta), tube, 10, 72), M.metal); t.rotation.x = Math.PI / 2; t.position.y = r * Math.cos(theta); core.add(t); };
-  rim(2.14, 0.995, 0.03); rim(2.62, 0.975, 0.035);
-
-  // belly hatch
-  const hatch = onSphere(new THREE.Group(), 0.985, Math.PI / 2 - 2.37, 0);
-  const hp = mesh(new THREE.BoxGeometry(0.36, 0.2, 0.05), M.band); hatch.add(hp);
-  const hf = mesh(new THREE.BoxGeometry(0.4, 0.24, 0.03), M.dark); hf.position.z = -0.01; hatch.add(hf);
-  const hh = mesh(new THREE.BoxGeometry(0.12, 0.03, 0.04), M.metal); hh.position.set(0, 0.05, 0.03); hatch.add(hh);
-  core.add(hatch);
-
-  // chest control panel
-  const panel = onSphere(new THREE.Group(), 0.86, 0.04, 0); core.add(panel);
-  const frame = mesh(new THREE.BoxGeometry(0.78, 0.66, 0.28), M.metal); frame.position.z = -0.02; panel.add(frame);
-  const plate = mesh(new THREE.BoxGeometry(0.7, 0.58, 0.3), M.limb); panel.add(plate);
-  const F = 0.15;
-  const recess = mesh(new THREE.BoxGeometry(0.26, 0.22, 0.02), M.dark); recess.position.set(-0.17, 0.13, F); panel.add(recess);
-  const led = mesh(Sph(0.055, 16, 12), M.led); led.position.set(-0.17, 0.13, F + 0.02); panel.add(led);
-  bot.ledGlow = glow(0xff3a1a, 0.42, 0.9); bot.ledGlow.position.set(-0.17, 0.13, F + 0.08); panel.add(bot.ledGlow);
-  const swb = mesh(new THREE.BoxGeometry(0.26, 0.2, 0.02), M.dark); swb.position.set(0.15, 0.13, F); panel.add(swb);
-  for (const x of [0.1, 0.2]) { const sw = mesh(new THREE.BoxGeometry(0.06, 0.12, 0.06), M.limb); sw.position.set(x, 0.13, F + 0.03); sw.rotation.x = x < 0.15 ? 0.25 : -0.2; panel.add(sw); }
-  for (let i = 0; i < 5; i++) { const sl = mesh(new THREE.BoxGeometry(0.22, 0.022, 0.035), M.dark); sl.position.set(-0.15, -0.05 - i * 0.042, F + 0.005); panel.add(sl); }
-  const knobBase = mesh(zCyl(0.085, 0.085, 0.03), M.dark); knobBase.position.set(0.15, -0.12, F + 0.01); panel.add(knobBase);
-  const knob = mesh(zCyl(0.06, 0.065, 0.07), M.metal); knob.position.set(0.15, -0.12, F + 0.04); panel.add(knob);
-  for (const [x, y] of [[-0.31, 0.25], [0.31, 0.25], [-0.31, -0.25], [0.31, -0.25]]) { const sc = mesh(Sph(0.018, 8, 6), M.metal, false); sc.position.set(x, y, F); panel.add(sc); }
-
-  // side port + slot
-  const port = onSphere(new THREE.Group(), 0.99, -0.02, 0.8); core.add(port);
-  port.add(mesh(zCyl(0.075, 0.075, 0.05), M.dark));
-  const portRing = mesh(new THREE.TorusGeometry(0.08, 0.015, 8, 24), M.metal); portRing.position.z = 0.02; port.add(portRing);
-  const slot = onSphere(new THREE.Group(), 0.985, -0.08, -0.85); core.add(slot);
-  slot.add(mesh(new THREE.BoxGeometry(0.2, 0.08, 0.06), M.metal));
-  const slotIn = mesh(new THREE.BoxGeometry(0.16, 0.035, 0.07), M.dark); slot.add(slotIn);
-
-  // shoulder sockets
-  for (const s of [1, -1]) {
-    const sock = onSphere(new THREE.Group(), 0.94, 0.22, s * Math.PI / 2); core.add(sock);
-    const ring = mesh(new THREE.TorusGeometry(0.19, 0.04, 10, 28), M.metal); sock.add(ring);
-    sock.add(mesh(zCyl(0.17, 0.17, 0.06), M.dark));
-  }
-
-  // neck + head
-  const neck = new THREE.Group(); neck.position.y = 0.9; core.add(neck);
-  const nc = mesh(Cyl(0.22, 0.26, 0.18), M.metal); nc.position.y = 0.05; neck.add(nc);
-  bot.head = new THREE.Group(); bot.head.position.y = 0.1; neck.add(bot.head);
-  const HY = 0.68;
-  const skull = mesh(new THREE.SphereGeometry(0.8, 64, 44), M.head); skull.scale.y = 0.9; skull.position.y = HY; bot.head.add(skull);
-  const under = mesh(Cyl(0.44, 0.38, 0.1, 32), M.dark); under.position.y = 0.04; bot.head.add(under);
-  const underRing = mesh(new THREE.TorusGeometry(0.5, 0.03, 8, 40), M.metal); underRing.rotation.x = Math.PI / 2; underRing.position.y = 0.1; bot.head.add(underRing);
-
-  // the big red eye
-  const eye = onSphere(new THREE.Group(), 0.7, 0.13, 0); eye.position.y += HY; bot.head.add(eye);
-  eye.add(mesh(zCyl(0.36, 0.38, 0.2, 40), M.dark));
-  const er1 = mesh(new THREE.TorusGeometry(0.33, 0.05, 14, 48), M.metal); er1.position.z = 0.1; eye.add(er1);
-  const er2 = mesh(new THREE.TorusGeometry(0.255, 0.025, 10, 40), M.dark); er2.position.z = 0.11; eye.add(er2);
-  const lensG = new THREE.SphereGeometry(0.25, 40, 20, 0, TAU, 0, Math.PI / 2); lensG.rotateX(Math.PI / 2);
-  const lens = mesh(lensG, M.lens, false); lens.scale.z = 0.45; lens.position.z = 0.08; eye.add(lens);
-  bot.eyeCore = mesh(Sph(0.06, 16, 12), M.core, false); bot.eyeCore.position.z = 0.17; eye.add(bot.eyeCore);
-  bot.eyeGlow = glow(0xff2a10, 0.75, 0.75); bot.eyeGlow.position.z = 0.22; eye.add(bot.eyeGlow);
-  bot.eyeHot = glow(0xff6a4a, 0.2, 0.9); bot.eyeHot.position.z = 0.2; eye.add(bot.eyeHot);
-  const spec = new THREE.Mesh(Sph(0.03, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
-  spec.scale.set(1.4, 0.8, 0.4); spec.position.set(0.09, 0.1, 0.17); eye.add(spec);
-  bot.eyeLight = new THREE.PointLight(0xff2a10, 1.2, 3.2, 2); bot.eyeLight.position.z = 0.5; eye.add(bot.eyeLight);
-
-  // ear discs
-  for (const s of [1, -1]) {
-    const ear = onSphere(new THREE.Group(), 0.7, 0.02, s * Math.PI / 2); ear.position.y += HY; bot.head.add(ear);
-    ear.add(mesh(zCyl(0.27, 0.29, 0.16, 32), M.dark));
-    const r1 = mesh(new THREE.TorusGeometry(0.25, 0.04, 10, 36), M.metal); r1.position.z = 0.08; ear.add(r1);
-    const disc = mesh(zCyl(0.17, 0.17, 0.04, 28), M.metal); disc.position.z = 0.08; ear.add(disc);
-    const nub = mesh(zCyl(0.05, 0.06, 0.06, 16), M.dark); nub.position.z = 0.11; ear.add(nub);
-  }
-  // little screws dotted on the head
-  for (const [lat, lon] of [[0.75, 0.6], [0.6, -0.9], [0.35, 2.4], [-0.25, 0.55], [-0.3, -0.6], [0.95, 2.9]]) {
-    const sc = onSphere(mesh(Sph(0.022, 8, 6), M.metal, false), 0.79, lat, lon); sc.position.y = sc.position.y * 0.9 + HY; bot.head.add(sc);
-  }
-
-
-  // arms
-  bot.arms = [1, -1].map(s => {
-    const A = { s, cur: { ab: 0.35, sw: 0, el: 0.45, ez: 0, wr: 0, wz: 0, curl: 0.3 } };
-    A.shoulder = new THREE.Group(); A.shoulder.position.set(s * 0.93, 0.22, 0.03); core.add(A.shoulder);
-    A.shoulder.add(mesh(Sph(0.15, 20, 14), M.metal));
-    const cuff = mesh(Cyl(0.1, 0.1, 0.06, 16), M.dark); cuff.position.y = -0.12; A.shoulder.add(cuff);
-    const up = mesh(Cyl(0.095, 0.09, 0.26, 16), M.limb); up.position.y = -0.27; A.shoulder.add(up);
-    A.elbow = new THREE.Group(); A.elbow.position.y = -0.44; A.shoulder.add(A.elbow);
-    A.elbow.add(mesh(Sph(0.11, 18, 12), M.metal));
-    const c2 = mesh(Cyl(0.12, 0.12, 0.05, 16), M.dark); c2.position.y = -0.09; A.elbow.add(c2);
-    const fore = mesh(Cyl(0.12, 0.13, 0.27, 16), M.limb); fore.position.y = -0.25; A.elbow.add(fore);
-    const c3 = mesh(Cyl(0.11, 0.11, 0.05, 16), M.dark); c3.position.y = -0.41; A.elbow.add(c3);
-    A.wrist = new THREE.Group(); A.wrist.position.y = -0.45; A.wrist.scale.setScalar(1.2); A.elbow.add(A.wrist);
-    const wj = mesh(Cyl(0.06, 0.06, 0.07, 12), M.metal); wj.position.y = -0.02; A.wrist.add(wj);
-    const palm = mesh(new THREE.BoxGeometry(0.2, 0.17, 0.11), M.limb); palm.position.y = -0.13; A.wrist.add(palm);
-    A.fingers = [-0.05, 0.05].map((fx, i) => {
-      const root = new THREE.Group(); root.position.set(fx, -0.22, 0); A.wrist.add(root);
-      root.add(mesh(Sph(0.032, 10, 8), M.metal));
-      const seg = mesh(Cyl(0.028, 0.03, 0.08, 10), M.limb); seg.position.y = -0.05; root.add(seg);
-      const joint = new THREE.Group(); joint.position.y = -0.1; root.add(joint);
-      joint.add(mesh(Sph(0.028, 10, 8), M.metal));
-      const t = mesh(Cyl(0.034, 0.032, 0.07, 10), M.tip); t.position.y = -0.05; joint.add(t);
-      const cap = mesh(Sph(0.034, 10, 8), M.tip); cap.position.y = -0.085; joint.add(cap);
-      return { root, joint, spread: (i - 0.5) * 0.2 };
-    });
-    A.thumb = new THREE.Group(); A.thumb.position.set(s * 0.1, -0.12, 0.03); A.wrist.add(A.thumb);
-    A.thumb.add(mesh(Sph(0.03, 10, 8), M.metal));
-    const ts = mesh(Cyl(0.03, 0.032, 0.08, 10), M.limb); ts.position.y = -0.05; A.thumb.add(ts);
-    const tt = mesh(Sph(0.036, 10, 8), M.tip); tt.position.y = -0.1; tt.scale.y = 1.3; A.thumb.add(tt);
-    return A;
-  });
-
-  // grip in the left fist: whatever the bot holds is parented here, pointing along the grip's +y
-  bot.grip = new THREE.Group(); bot.grip.position.set(0, -0.24, 0.05); bot.arms[0].wrist.add(bot.grip);
-
-  // spin-attack swooshes ride on the spinner
-  const sc = makeCanvas(256, 32), sg = sc.getContext('2d');
-  const hg = sg.createLinearGradient(0, 0, 256, 0); hg.addColorStop(0, 'rgba(255,255,255,0)'); hg.addColorStop(1, 'rgba(255,255,255,1)');
-  sg.fillStyle = hg; sg.fillRect(0, 0, 256, 32);
-  sg.globalCompositeOperation = 'destination-in';
-  const vg = sg.createLinearGradient(0, 0, 0, 32); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(0.8, 'rgba(0,0,0,1)'); vg.addColorStop(1, 'rgba(0,0,0,0.2)');
-  sg.fillStyle = vg; sg.fillRect(0, 0, 256, 32);
-  const swooshTex = toTex(sc, true);
-  function arcGeo(r0, r1, a0, a1, seg) {
-    const pos = [], uv = [], idx = [];
-    for (let i = 0; i <= seg; i++) { const f = i / seg, a = a0 + (a1 - a0) * f, c = Math.cos(a), s = -Math.sin(a); pos.push(c * r0, 0, s * r0, c * r1, 0, s * r1); uv.push(f, 0, f, 1); }
-    for (let i = 0; i < seg; i++) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
-    const g = new THREE.BufferGeometry(); g.setIndex(idx);
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-    return g;
-  }
-  bot.swooshMat = new THREE.MeshBasicMaterial({ map: swooshTex, color: 0xffa865, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  bot.swoosh = new THREE.Group(); bot.swoosh.position.y = 1.17; bot.spinner.add(bot.swoosh);
-  for (const off of [0, Math.PI]) {
-    const a = new THREE.Mesh(arcGeo(1.0, 2.15, -2.4, 0, 48), bot.swooshMat); a.rotation.y = off; bot.swoosh.add(a);
-    const b = new THREE.Mesh(arcGeo(1.6, 2.05, -1.5, 0, 32), bot.swooshMat); b.rotation.y = off; b.position.y = 0.12; bot.swoosh.add(b);
-  }
-  bot.saberTrailMat = new THREE.MeshBasicMaterial({ map: swooshTex, color: 0xff3020, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
-  bot.swoosh.add(new THREE.Mesh(arcGeo(2.3, 3.7, -2.2, 0, 48), bot.saberTrailMat));
-
-  bot.root.traverse(o => { if (o.isMesh && o.material === bot.swooshMat) { o.castShadow = false; o.receiveShadow = false; } });
-})();
+// Built by avatar/robot.ts. The player's own robot keeps the shared materials and gets the eye light.
+const bot = buildRobot({ materials: M, mesh, glow, toTex }, { eyeLight: true });
+scene.add(bot.root);
 
 // ---------- habitat: Ring Seven ----------
 // Layout across the ring (x): promenade |x|<46 with shops facing it from 26..40, parks to 115, carrot farms to 161.
