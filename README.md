@@ -20,3 +20,7 @@ Saber Side: a multiplayer lightsaber game with Gorilla Tag-style controls
 | R | Restack crates |
 
 The ring is 800 ft across with an 85 ft hull, 400 ft long, and spins at 3.05 rpm for 1 g at the floor. Four lift tubes run from the promenade to a zero-gravity hub on the axis.
+
+## Roadmap
+
+See [docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md) for the plan to grow this prototype into a multiplayer game for browsers, iPad, and WebXR headsets.
