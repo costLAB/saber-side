@@ -1,0 +1,16 @@
+{
+  "name": "@saber-side/shared",
+  "private": true,
+  "type": "module",
+  "description": "Game rules, ring math, and constants shared by the client, the server, and tests. No DOM, no scene graph.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "5.0.4"
+  }
+}
