@@ -403,6 +403,11 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 
 ### P1: Decompose and separate simulation from rendering (L)
 
+**Progress:**
+
+- [x] `packages/shared` created with Vitest. Ring geometry, `bendPoint` / `bendUp` / `unbend` / `wrapD`, the spin rate, `mulberry`, and `clamp` / `lerp` / `damp` / `smooth` moved out of the legacy file, with 13 unit tests. The screenshot baselines are unchanged.
+
+
 - Extract modules per section 4 behind the screenshot tests (the strangler pattern: the game stays playable after every PR).
 - `packages/shared`: meters (D3), `ring-space` (D4), level data with **spots defined as data**.
 - The entity/world model (D2): player, crates, items, and lifts move out of meshes. Fixed tick and seeded RNG.

@@ -1,16 +1,31 @@
 // Legacy single-file game, moved here unchanged from the original index.html (Phase 0).
 // It is being split into modules in Phase 1; see docs/REFACTOR_PLAN.md. Excluded from lint.
+import {
+  bendPoint,
+  bendUp,
+  CIRC,
+  clamp,
+  damp,
+  FT,
+  HALF_L,
+  LEN,
+  lerp,
+  mulberry,
+  OMEGA,
+  R_IN,
+  R_OUT,
+  RPM,
+  smooth,
+  TAU,
+  unbend,
+  wrapD,
+} from '@saber-side/shared';
 import * as THREE from 'three';
 
 (() => {
-const TAU = Math.PI * 2, V3 = THREE.Vector3;
-const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-const lerp = (a, b, t) => a + (b - a) * t;
-const damp = (a, b, r, dt) => a + (b - a) * (1 - Math.exp(-r * dt));
-const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const V3 = THREE.Vector3;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 // ---------- renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -26,11 +41,7 @@ const ANISO = renderer.capabilities.getMaxAnisotropy();
 // ---------- habitat scale ----------
 // The bot stands 4 ft tall (about 3.35 scene units). The ring is 800 ft across outside with an 85 ft hull,
 // so the floor sits on a 315 ft radius, and it runs 400 ft along its axis (scene x).
-const FT = 3.35 / 4;
-const R_IN = 315 * FT, R_OUT = 400 * FT, LEN = 400 * FT, HALF_L = LEN / 2, CIRC = TAU * R_IN;
-const wrapD = d => d - CIRC * Math.round(d / CIRC);
-// spin for 1 g at the floor: omega = sqrt(g / r), r = 315 ft = 96 m
-const OMEGA = Math.sqrt(9.81 / (315 * 0.3048)), RPM = OMEGA * 60 / TAU;
+// (FT, R_IN, R_OUT, LEN, HALF_L, CIRC, wrapD, OMEGA, and RPM now live in @saber-side/shared ring-space.)
 
 // Everything that lives on the floor is simulated on a flat strip (x across, z around the ring, y up)
 // and bent onto the cylinder in the vertex shader; the CPU uses the same mapping for the camera and lights.
@@ -70,8 +81,6 @@ function bendMaterial(m) {
   m.customProgramCacheKey = () => 'bend';
   m.needsUpdate = true;
 }
-function bendPoint(v, out) { const th = -v.z / R_IN, r = R_IN - v.y; return out.set(v.x, -r * Math.cos(th), -r * Math.sin(th)); }
-function bendUp(z, out) { const th = -z / R_IN; return out.set(0, Math.cos(th), Math.sin(th)); }
 
 const scene = new THREE.Scene();
 const HAZE = 0xb3bcc4;
@@ -1720,7 +1729,6 @@ const cab = new THREE.Group(); cab.visible = false; liftWorld.add(cab);
 // ---- riding the lifts and floating in the hub ----
 const fl = { V: new V3(), startPos: new V3(), startQ: new THREE.Quaternion(), cam: new V3() };
 const qYaw = new THREE.Quaternion(), qTmp = new THREE.Quaternion(), FAR = new V3(0, 0, 1e6);
-function unbend(v, out) { const th = Math.atan2(-v.z, -v.y), r = Math.hypot(v.y, v.z); return out.set(v.x, R_IN - r, -th * R_IN); }
 function boardLift(L) {
   st.mode = 'up'; st.lift = L; st.rideT = 0;
   st.vel = 0; st.angVel = 0; st.y = 0; st.vy = 0; st.grounded = true; st.spin = -1; bot.spinner.rotation.y = 0;
