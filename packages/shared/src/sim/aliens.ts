@@ -1,8 +1,8 @@
-import { type Planet, SURFACE_EDGE, terrainHeight } from '../content/space';
-import { clamp, TAU } from '../math';
-import type { XYZ } from '../ring-space';
-import { Vec3 } from '../vec3';
-import type { LaserPool } from './lasers';
+import { type Planet, SURFACE_EDGE, terrainHeight } from '../content/space.ts';
+import { clamp, TAU } from '../math.ts';
+import type { XYZ } from '../ring-space.ts';
+import { Vec3 } from '../vec3.ts';
+import type { LaserPool } from './lasers.ts';
 
 /** A little alien on a planet surface. It wanders, hops, and runs from ships that swoop low. */
 export interface Alien {

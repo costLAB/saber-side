@@ -1,12 +1,18 @@
-import type { XYZ } from './ring-space';
+import type { XYZ } from './ring-space.ts';
 
 /** A minimal mutable 3-vector for sim state. It fits `SettableXYZ`, like a three.js `Vector3`, and serializes as plain x/y/z. */
 export class Vec3 implements XYZ {
-  constructor(
-    public x = 0,
-    public y = 0,
-    public z = 0,
-  ) {}
+  x: number;
+  y: number;
+  z: number;
+
+  // Plain fields rather than `constructor(public x = 0, ...)`: the server runs this file with Node's type stripping,
+  // which only removes types and can't rewrite parameter properties.
+  constructor(x = 0, y = 0, z = 0) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+  }
 
   set(x: number, y: number, z: number): this {
     this.x = x;

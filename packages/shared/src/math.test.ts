@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clamp, damp, lerp, smooth } from './math';
+import { clamp, damp, lerp, smooth } from './math.ts';
 
 describe('math helpers', () => {
   it('clamps', () => {

@@ -10,13 +10,13 @@ import {
   SURFACE_CLEARANCE,
   SURFACE_EDGE,
   terrainHeight,
-} from '../content/space';
-import { clamp } from '../math';
-import { HALF_L, type XYZ } from '../ring-space';
-import { mulberry } from '../rng';
-import { distance, Vec3 } from '../vec3';
-import { type Alien, spawnAliens, stepAliens } from './aliens';
-import { clearLasers, fireLaser, type LaserPool, makeLasers, stepLasers } from './lasers';
+} from '../content/space.ts';
+import { clamp } from '../math.ts';
+import { HALF_L, type XYZ } from '../ring-space.ts';
+import { mulberry } from '../rng.ts';
+import { distance, Vec3 } from '../vec3.ts';
+import { type Alien, spawnAliens, stepAliens } from './aliens.ts';
+import { clearLasers, fireLaser, type LaserPool, makeLasers, stepLasers } from './lasers.ts';
 import {
   FIRE_INTERVAL,
   LASER_SPEED,
@@ -28,7 +28,7 @@ import {
   shipForward,
   shipToWorld,
   steerShip,
-} from './ship';
+} from './ship.ts';
 
 /**
  * One pilot's trip out of the hub and back:

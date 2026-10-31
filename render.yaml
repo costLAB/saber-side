@@ -1,0 +1,69 @@
+# Render Blueprint for the station server (docs/HOSTING.md has the setup steps).
+#
+# Two services run the same code from main:
+# - saber-side-station: the real station. Always on, with a disk for the SQLite file.
+# - saber-side-staging: what Netlify deploy previews join. Free plan, so it sleeps when idle and forgets everything
+#   when it does. That's fine for trying a PR.
+#
+# Node runs the TypeScript directly (type stripping), so "build" only installs the server's dependencies.
+# Deploys wait for GitHub CI to pass, and only commits that touch the server or shared code trigger one.
+
+services:
+  - type: web
+    name: saber-side-station
+    runtime: node
+    plan: starter
+    # Pick the region closest to the players before creating the service: it can't be changed afterwards.
+    region: oregon
+    branch: main
+    buildCommand: npx --yes pnpm@10.28.0 install --frozen-lockfile --prod --filter @saber-side/server...
+    startCommand: cd apps/server && node --disable-warning=ExperimentalWarning src/index.ts
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - apps/server/**
+        - packages/shared/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - render.yaml
+    disk:
+      name: station-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_PATH
+        value: /var/data/station.db
+      # Only the game's own pages may join. Add a custom domain here if the site gets one.
+      - key: ALLOWED_ORIGINS
+        value: https://saberside.netlify.app
+
+  - type: web
+    name: saber-side-staging
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: npx --yes pnpm@10.28.0 install --frozen-lockfile --prod --filter @saber-side/server...
+    startCommand: cd apps/server && node --disable-warning=ExperimentalWarning src/index.ts
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - apps/server/**
+        - packages/shared/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - render.yaml
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_PATH
+        value: /tmp/station.db
+      # Netlify's deploy previews and branch deploys.
+      - key: ALLOWED_ORIGINS
+        value: https://*--saberside.netlify.app

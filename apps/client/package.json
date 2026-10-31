@@ -12,6 +12,7 @@
     "e2e:update": "playwright test --update-snapshots"
   },
   "dependencies": {
+    "@colyseus/sdk": "0.18.5",
     "@fontsource/chakra-petch": "5.3.0",
     "@fontsource/ibm-plex-mono": "5.3.0",
     "@saber-side/shared": "workspace:*",
