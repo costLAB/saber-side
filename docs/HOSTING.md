@@ -12,18 +12,16 @@ station, and deploy previews join a free staging server, so a PR can never touch
 
 ## One-time setup
 
-1. **Netlify.** If the site isn't set up yet, import `costLAB/saber-side`; it reads `netlify.toml`, so there's nothing
-   to configure. Note the site's address (for example `https://saber-side.netlify.app`).
+1. **Netlify.** The site is `saberside` (`https://saberside.netlify.app`) and reads `netlify.toml`, so there's nothing
+   to configure. If it's ever renamed or gets a custom domain, update `ALLOWED_ORIGINS` in `render.yaml` to match.
 2. **Render.** Sign in with GitHub and give Render's GitHub app access to `costLAB/saber-side`. Then **New → Blueprint**
    and pick the repo. Render reads `render.yaml` and offers two services:
    - `saber-side-station`, on the Starter plan ($7/month) with a 1 GB disk ($0.25/month). This is the real station.
    - `saber-side-staging`, on the free plan. It sleeps when idle, and the first join after that takes about a minute.
 
    Before you apply it, check `region` in `render.yaml` (it's `oregon`) and change it to the region closest to the
-   players if needed: Render can't move a service later. When asked for `ALLOWED_ORIGINS`, enter:
-   - for `saber-side-station`: the site's address, such as `https://saber-side.netlify.app`
-   - for `saber-side-staging`: the same with `*--` in front of the name, such as `https://*--saber-side.netlify.app`
-     (this matches every deploy preview)
+   players if needed: Render can't move a service later. `ALLOWED_ORIGINS` is already set: the station accepts only
+   `https://saberside.netlify.app`, and staging accepts only the deploy previews (`https://*--saberside.netlify.app`).
 3. **Check the URLs.** Render names each service `https://<name>.onrender.com`, and adds a suffix if the name is taken.
    If either URL differs from `netlify.toml`, change it there and merge.
 4. **Check it works.** `https://saber-side-station.onrender.com/healthz` should answer with JSON that includes

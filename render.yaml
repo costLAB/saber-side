@@ -37,9 +37,9 @@ services:
         value: "22"
       - key: DATABASE_PATH
         value: /var/data/station.db
-      # The game's address, so only its pages can join: https://<your-site>.netlify.app
+      # Only the game's own pages may join. Add a custom domain here if the site gets one.
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: https://saberside.netlify.app
 
   - type: web
     name: saber-side-staging
@@ -64,6 +64,6 @@ services:
         value: "22"
       - key: DATABASE_PATH
         value: /tmp/station.db
-      # Netlify's deploy previews and branch deploys: https://*--<your-site>.netlify.app
+      # Netlify's deploy previews and branch deploys.
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: https://*--saberside.netlify.app
