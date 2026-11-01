@@ -1,49 +1,57 @@
 # Hosting
 
-The game has two halves that deploy separately:
+Everything runs on [Render](https://render.com), from one Blueprint, [`render.yaml`](../render.yaml):
 
-| Half | Host | Config | What it does |
-| --- | --- | --- | --- |
-| Client | Netlify | [`netlify.toml`](../netlify.toml) | Static files: the game itself, plus a preview link for every PR |
-| Station server | Render | [`render.yaml`](../render.yaml) | `apps/server`: one always-on Node process running the Colyseus room and the SQLite database |
+| Service | What it is | Plan |
+| --- | --- | --- |
+| `saber-side` | The game: the built client (`apps/client`), served as static files, plus a preview link for every PR | Free static site |
+| `saber-side-station` | The real station: `apps/server`, one always-on Node process running the Colyseus room and the SQLite database | Starter ($7/month) with a 1 GB disk ($0.25/month) |
+| `saber-side-staging` | The station PR previews join, so a PR can never touch the real station's data | Free (sleeps when idle) |
 
-Each Netlify build is told which server to join (`VITE_SERVER_URL` in `netlify.toml`). Production joins the real
-station, and deploy previews join a free staging server, so a PR can never touch the real station's data.
+The game used to be on Netlify. It moved on 2026-11-01, when Netlify paused production deploys after the team ran out of
+credits, and the live game fell behind the station (see the decision in
+[the plan's section 6](REFACTOR_PLAN.md#6-hosting-simple-cheap-just-works)).
+
+Every build of the game carries both station URLs (`VITE_SERVER_URL` and `VITE_PREVIEW_SERVER_URL` in `render.yaml`).
+The page picks by its own address: a PR preview (`saber-side-pr-<n>.onrender.com`) joins staging, and everything else
+joins the real station ([`server-url.ts`](../apps/client/src/net/server-url.ts)).
 
 ## One-time setup
 
-1. **Netlify.** The site is `saberside` (`https://saberside.netlify.app`) and reads `netlify.toml`, so there's nothing
-   to configure. If it's ever renamed or gets a custom domain, update `ALLOWED_ORIGINS` in `render.yaml` to match.
-2. **Render.** Sign in with GitHub and give Render's GitHub app access to `costLAB/saber-side`. Then **New → Blueprint**
-   and pick the repo. Render reads `render.yaml` and offers two services:
-   - `saber-side-station`, on the Starter plan ($7/month) with a 1 GB disk ($0.25/month). This is the real station.
-   - `saber-side-staging`, on the free plan. It sleeps when idle, and the first join after that takes about a minute.
+1. **Render.** Sign in with GitHub and give Render's GitHub app access to `costLAB/saber-side`. Then **New → Blueprint**
+   and pick the repo; Render reads `render.yaml` and offers the three services. If the Blueprint already exists (it
+   ran the two station services before the game moved), open it in the Render dashboard and **sync** it, or approve
+   the new `saber-side` service it offers, so Render creates the game's static site.
 
-   Both services run in Render's `virginia` region, the closest to the players in Boston. Render can't move a service
-   later, so changing it means recreating the service. `ALLOWED_ORIGINS` is already set: the station accepts only
-   `https://saberside.netlify.app`, and staging accepts only the deploy previews (`https://*--saberside.netlify.app`).
-3. **Check the URLs.** Render names each service `https://<name>.onrender.com`, and adds a suffix if the name is taken.
-   If either URL differs from `netlify.toml`, change it there and merge.
-4. **Check it works.** `https://saber-side-station.onrender.com/healthz` should answer with JSON that includes
-   `"ok":true`. Open the game and tap **Play**: once you've built a robot, the line under the title says **Station ·
-   online · 1 aboard · as Bot 1**.
-5. **Owner key.** Render generates `ADMIN_KEY` for each service. Copy the station's from its **Environment** page. In
-   the game, **Owner** at the bottom of the arrival screen unlocks the owner panel on that device (rename players and
-   robots, reset a forgotten PIN, remove a player or a robot).
-6. **Uptime alerts (optional, free).** Point UptimeRobot or Better Stack at the `/healthz` URL so you get an email if the
+   All three run in Render's `virginia` region, the closest to the players in Boston. Render can't move a service
+   later, so changing it means recreating the service.
+2. **Check the URLs.** Render names each service `https://<name>.onrender.com`, and adds a suffix if the name is taken.
+   The game should be at `https://saber-side.onrender.com`. If any URL differs, update `render.yaml` to match (the
+   game's `VITE_SERVER_URL` and `VITE_PREVIEW_SERVER_URL`, the station's `ALLOWED_ORIGINS`, and staging's
+   `ALLOWED_ORIGINS`, which covers `https://saber-side-pr-*.onrender.com`) and merge.
+3. **Check it works.** `https://saber-side-station.onrender.com/healthz` should answer with JSON that includes
+   `"ok":true` and the current `"protocol"`. Open `https://saber-side.onrender.com` and tap **Play**: once you've built
+   a robot, the line under the title says **Station · online · 1 aboard · as Bot 1**.
+4. **Owner key.** Render generates `ADMIN_KEY` for each station. Copy the station's from its **Environment** page. In
+   the game, **Owner** at the bottom of the arrival screen unlocks the owner panel on that device.
+5. **Uptime alerts (optional, free).** Point UptimeRobot or Better Stack at the `/healthz` URL so you get an email if the
    station goes down.
+6. **Retire the Netlify site.** `https://saberside.netlify.app` serves an old build that the station no longer
+   accepts. Delete the `saberside` project in Netlify (or unlink its repository) so nobody lands there by mistake.
 
 ## What happens on a merge
 
 - GitHub CI runs as usual.
-- Netlify rebuilds the client if the merge touched `apps/client`, `packages/shared`, or the workspace config. Server-only
-  merges are skipped, which saves deploy credits.
-- Render redeploys both services **after CI passes**, but only if the merge touched `apps/server`, `packages/shared`, or
-  the workspace config.
-- A server deploy restarts the station. Players see **Station restarting · back in a moment**, and their game rejoins by
+- Render redeploys each service **after CI passes**, but only the services whose code the merge touched: the game for
+  `apps/client`, the stations for `apps/server`, and both for `packages/shared`, the workspace config, or
+  `render.yaml`. Docs-only merges deploy nothing.
+- A station deploy restarts it. Players see **Station restarting · back in a moment**, and their game rejoins by
   itself, usually within a minute. Nothing is lost: everything that matters is in the database on the disk.
-- If a change bumps `PROTOCOL_VERSION` (`packages/shared/src/protocol.ts`), pages from before the change show **Saber
-  Side was updated · Reload** instead of half-working.
+- The game and the station still deploy as two services, so for a minute after a merge one can be newer than the
+  other. If a change bumps `PROTOCOL_VERSION` (`packages/shared/src/protocol.ts`), pages from before the change show
+  **Saber Side was updated · Reload** instead of half-working.
+- Every PR gets a preview of the game at `https://saber-side-pr-<n>.onrender.com`, which joins staging. Staging runs
+  `main`, so a PR that bumps `PROTOCOL_VERSION` can't join from its preview until it merges.
 
 ## Data
 

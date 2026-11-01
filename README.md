@@ -33,7 +33,7 @@ The screenshot tests pause time and seed randomness, so every run renders the sa
 
 ### Deploying
 
-Netlify hosts the game (`netlify.toml`) and gives each PR a preview link. Render runs the station server (`render.yaml`), with the SQLite database on a persistent disk. Previews join a separate staging server, so they never touch the real station. [docs/HOSTING.md](docs/HOSTING.md) has the one-time setup and what happens on each merge.
+Render hosts everything from one Blueprint (`render.yaml`): the game as a static site at `https://saber-side.onrender.com`, with a preview link for each PR, and the station server, with the SQLite database on a persistent disk. Previews join a separate staging server, so they never touch the real station. [docs/HOSTING.md](docs/HOSTING.md) has the one-time setup and what happens on each merge.
 
 ### Coming aboard
 

@@ -4,8 +4,8 @@ export interface ServerConfig {
   /** The SQLite file. On Render it lives on the persistent disk; `:memory:` keeps nothing (tests). */
   databasePath: string;
   /**
-   * Browser origins allowed to join, such as `https://saber-side.netlify.app`. A `*` matches within one part of a
-   * hostname, so `https://*--saber-side.netlify.app` covers Netlify's deploy previews. Empty allows every origin,
+   * Browser origins allowed to join, such as `https://saber-side.onrender.com`. A `*` matches within one part of a
+   * hostname, so `https://saber-side-pr-*.onrender.com` covers the game's PR previews. Empty allows every origin,
    * which is the dev default.
    */
   allowedOrigins: string[];
