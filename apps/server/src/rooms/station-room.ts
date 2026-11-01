@@ -1,27 +1,34 @@
 import { type Client, CloseCode, type Deferred, Room, ServerError } from '@colyseus/core';
 import { type FieldBuilder, type SchemaType, schema, t } from '@colyseus/schema';
 import {
+  type BotMakerAnswer,
   buildColor,
   CLOSED,
   cleanRobotBuild,
+  type Garage,
   guestName,
   JOIN_REFUSED,
   type JoinRequest,
   MESSAGE,
+  type NewRobot,
   NOTICE,
   nextGuestNumber,
+  type Pilot,
   POSE,
   type PoseKind,
   PROTOCOL_VERSION,
   type RegistryAnswer,
+  ROBOTS_PER_PLAYER,
   type RobotBuild,
   readPose,
+  robotPrice,
+  SHARDS_PER_CC,
   type SignIn,
   STATION_CAPACITY,
   type WalletNotice,
 } from '@saber-side/shared';
-import { type Ledger, playerAccount } from '../ledger.ts';
-import type { Players, RobotRecord } from '../players.ts';
+import { type Ledger, playerAccount, SYSTEM } from '../ledger.ts';
+import { ownerRobot, type Players, type RobotRecord } from '../players.ts';
 
 // Synced to every client. They decode it by reflection, so the client has no copy of these (see StationView).
 
@@ -66,8 +73,8 @@ export interface StationControl {
   kickRobot(robotId: string, code: number): void;
   /** Shows a renamed or rebuilt robot's new look to everyone aboard. */
   refreshRobot(robot: RobotRecord): void;
-  /** Tells a player's seat (if they're aboard) their new balance. */
-  walletChanged(playerId: string): void;
+  /** Tells a player's seat (if they're aboard) their balance and robots, after the owner panel changed them. */
+  playerChanged(playerId: string): void;
 }
 
 export interface StationRoomDeps {
@@ -97,10 +104,13 @@ export function defineStationRoom(deps: StationRoomDeps) {
   /** The live room, once created. */
   let live: StationRoom | undefined;
 
-  /** A player's balance goes to their own seat only: other players never see it. */
-  const sendWallet = (client: Client, playerId: string) => {
-    const notice: WalletNotice = { shards: deps.ledger.balance(playerAccount(playerId)) };
-    client.send(NOTICE.wallet, notice);
+  /** A player's balance and robots go to their own seat only: other players never see them. */
+  const sendPlayer = (client: Client, playerId: string) => {
+    const wallet: WalletNotice = { shards: deps.ledger.balance(playerAccount(playerId)) };
+    client.send(NOTICE.wallet, wallet);
+    const robots = deps.players.robotsOf(playerId);
+    const garage: Garage = { robots: robots.map(ownerRobot), nextPrice: robotPrice(robots.length) ?? null };
+    client.send(NOTICE.garage, garage);
   };
 
   class StationRoom extends Room<{ state: StationState }> {
@@ -161,7 +171,10 @@ export function defineStationRoom(deps: StationRoomDeps) {
           return;
         }
         const result = deps.players.rebuild(aboard.robot, msg);
-        if (result.ok) show(aboard, result.value);
+        if (result.ok) {
+          show(aboard, result.value);
+          sendPlayer(client, aboard.player);
+        }
       });
       // The Robot Registry. A guest registers: their robot (as built) is saved under a new player, and the seat becomes
       // that player's. Anyone logs in: the seat switches to that player and the robot they piloted last. The robot
@@ -181,6 +194,46 @@ export function defineStationRoom(deps: StationRoomDeps) {
         if (!made.ok) return answer(client, { ok: false, error: made.error });
         this.#seat(client, aboard, made.value.player.id, made.value.robot);
         answer(client, { ok: true, name: made.value.player.name });
+      });
+      // The Bot Maker, for registered players: build another robot (the first is free, then each costs more, up to
+      // ROBOTS_PER_PLAYER) and pilot it, or pilot one they already own. Either way the seat is kept.
+      this.onMessage(MESSAGE.build, (client, msg: unknown) => {
+        const aboard = this.state.players.get(client.sessionId);
+        if (!aboard) return;
+        const playerId = aboard.player;
+        if (!playerId)
+          return built(client, { ok: false, error: 'Register at the Robot Registry to keep more robots.' });
+        const m = (msg && typeof msg === 'object' ? msg : {}) as Partial<Record<keyof NewRobot, unknown>>;
+        // The price, the payment, and the robot, all in one transaction: two taps can't buy one robot twice, and a
+        // robot is never made without its payment.
+        const made = deps.ledger.atomically(() => {
+          const price = robotPrice(deps.players.robotsOf(playerId).length);
+          if (price === undefined) return refused(409, `You can keep ${ROBOTS_PER_PLAYER} robots.`);
+          if (price > 0) {
+            const paid = deps.ledger.transfer({
+              from: playerAccount(playerId),
+              to: SYSTEM.botMaker,
+              shards: price,
+              reason: 'robot',
+            });
+            if (!paid.ok) return refused(409, `A new robot costs ${price / SHARDS_PER_CC} CC. You don't have enough.`);
+          }
+          return deps.players.addRobot(playerId, String(m.name ?? ''), m.build);
+        });
+        if (!made.ok) return built(client, { ok: false, error: made.error });
+        this.#pilot(client, aboard, made.value);
+        built(client, { ok: true });
+      });
+      this.onMessage(MESSAGE.pilot, (client, msg: unknown) => {
+        const aboard = this.state.players.get(client.sessionId);
+        if (!aboard) return;
+        const id = (msg && typeof msg === 'object' ? (msg as Partial<Pilot>).robot : undefined) ?? '';
+        const robot = typeof id === 'string' ? deps.players.robot(id) : undefined;
+        if (!aboard.player || !robot || robot.playerId !== aboard.player) {
+          return built(client, { ok: false, error: "That isn't one of your robots." });
+        }
+        this.#pilot(client, aboard, robot);
+        built(client, { ok: true });
       });
       this.onMessage(MESSAGE.login, (client, msg: unknown) => {
         const aboard = this.state.players.get(client.sessionId);
@@ -202,10 +255,10 @@ export function defineStationRoom(deps: StationRoomDeps) {
       deps.onReady({
         kickPlayer: (playerId, code) => this.#release((a) => a.player === playerId, code),
         kickRobot: (robotId, code) => this.#release((a) => a.player !== '' && a.robot === robotId, code),
-        walletChanged: (playerId) => {
+        playerChanged: (playerId) => {
           this.state.players.forEach((aboard, sessionId) => {
             const client = this.clients.find((c) => c.sessionId === sessionId);
-            if (aboard.player === playerId && client) sendWallet(client, playerId);
+            if (aboard.player === playerId && client) sendPlayer(client, playerId);
           });
         },
         refreshRobot: (robot) => {
@@ -290,13 +343,18 @@ export function defineStationRoom(deps: StationRoomDeps) {
       });
     }
 
-    /** Makes a seat a registered player's, piloting this robot, and tells it their balance. */
+    /** Switches a player's seat to another of their robots. */
+    #pilot(client: Client, aboard: Aboard, robot: RobotRecord) {
+      this.#seat(client, aboard, aboard.player, robot);
+    }
+
+    /** Makes a seat a registered player's, piloting this robot, and tells it their balance and robots. */
     #seat(client: Client, aboard: Aboard, playerId: string, robot: RobotRecord) {
       aboard.player = playerId;
       aboard.robot = robot.id;
       show(aboard, robot);
       deps.players.piloted(robot.id);
-      sendWallet(client, playerId);
+      sendPlayer(client, playerId);
     }
 
     /** Ends every seat that matches (except `keep`): connected ones are closed, held ones let go. */
@@ -327,6 +385,12 @@ function signIn(msg: unknown): SignIn {
 function answer(client: Client, reply: RegistryAnswer) {
   client.send(NOTICE.registry, reply);
 }
+
+function built(client: Client, reply: BotMakerAnswer) {
+  client.send(NOTICE.botMaker, reply);
+}
+
+const refused = (status: number, error: string) => ({ ok: false, status, error }) as const;
 
 /** Puts a robot's name and looks on its seat, for everyone aboard to see. */
 function show(aboard: Aboard, robot: { name: string; color: string; build: RobotBuild }) {

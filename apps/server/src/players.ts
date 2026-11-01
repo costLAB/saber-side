@@ -230,6 +230,28 @@ export class Players {
     return { ok: true, value: { player, robot: this.robot(robotId) as RobotRecord } };
   }
 
+  /**
+   * Adds another robot for a player, after checking its name and parts. It doesn't check the price or the cap: the
+   * room does that, in the same transaction as the payment (see Ledger.atomically).
+   */
+  addRobot(playerId: string, rawName: string, rawBuild: unknown): Outcome<RobotRecord> {
+    const name = cleanRobotName(rawName);
+    if (!name) return fail(400, BAD_NAME);
+    if (isGuestName(name)) return fail(400, GUEST_NAME);
+    const build = cleanRobotBuild(rawBuild);
+    if (!build) return fail(400, 'A robot needs a wheel, and parts and paint from the list.');
+    if (!this.#playerRow(playerId)) return fail(404, 'No such player.');
+    if (this.#robotNameTaken(name)) return fail(409, `There's already a robot called ${name}.`);
+    const id = randomUUID();
+    this.#db
+      .prepare(
+        `INSERT INTO robots (id, player_id, display_name, color, build_json, created_at)
+         VALUES (?, ?, ?, ?, ?, ${NOW_SQL})`,
+      )
+      .run(id, playerId, name, buildColor(build), JSON.stringify(build));
+    return { ok: true, value: this.robot(id) as RobotRecord };
+  }
+
   /** New parts and paint for a saved robot. */
   rebuild(robotId: string, rawBuild: unknown): Outcome<RobotRecord> {
     const build = cleanRobotBuild(rawBuild);

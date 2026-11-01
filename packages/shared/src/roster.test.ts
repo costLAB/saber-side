@@ -9,6 +9,8 @@ import {
   PIN_LOCK_SECONDS,
   pinLockSeconds,
   ROBOT_COLORS,
+  ROBOTS_PER_PLAYER,
+  robotPrice,
 } from './roster.ts';
 
 describe('robot names', () => {
@@ -61,5 +63,13 @@ describe('PIN lockouts', () => {
   it('grow with each lock, then stay at the longest', () => {
     expect([0, 1, 2, 3, 9].map(pinLockSeconds)).toEqual([60, 300, 1800, 1800, 1800]);
     expect(pinLockSeconds(0)).toBe(PIN_LOCK_SECONDS[0]);
+  });
+});
+
+describe('robot prices', () => {
+  it('makes the first robot free, and each extra one 10 CC more, up to the cap', () => {
+    expect([0, 1, 2, 3, 4].map(robotPrice)).toEqual([0, 1000, 2000, 3000, 4000]);
+    expect(robotPrice(ROBOTS_PER_PLAYER)).toBeUndefined();
+    expect(ROBOTS_PER_PLAYER).toBe(5);
   });
 });

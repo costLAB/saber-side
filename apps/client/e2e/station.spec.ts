@@ -52,6 +52,25 @@ async function playAsGuest(page: Page): Promise<string> {
   return (/as (Bot \d+)/.exec((await page.locator('#station').textContent()) ?? '') as RegExpExecArray)[1] as string;
 }
 
+/** Puts the robot in the walkway in front of a building's door and drives in through it. */
+async function driveInto(page: Page, building: { front: number; z: number }) {
+  await page.evaluate(
+    ({ x, z }) => {
+      // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+      const s = (window as any).__saber;
+      s.bot.root.position.x = x;
+      s.bot.root.position.z = z;
+      s.st.yaw = -Math.PI / 2;
+    },
+    { x: building.front + 6, z: building.z },
+  );
+  await advance(page, 100);
+  await hold(page, 'ArrowUp', 2000);
+}
+
+/** The owner panel's API on the throwaway station. */
+const owner = { Authorization: `Bearer ${OWNER_KEY}` };
+
 test('plays straight away as a guest: builds a robot from parts and rolls it out of the Bot Maker', async ({
   page,
   errors,
@@ -188,7 +207,7 @@ test('rebuilds the robot by driving back into the Bot Maker', async ({ page, err
   expect(errors).toEqual([]);
 });
 
-test('registers at the Robot Registry, then logs back in on the next visit', async ({
+test('registers at the Robot Registry, logs back in on the next visit, and buys a second robot', async ({
   page,
   errors,
   request,
@@ -206,18 +225,7 @@ test('registers at the Robot Registry, then logs back in on the next visit', asy
   await advance(page, 6000);
 
   // Drive in through the Registry's door, next to the Bot Maker.
-  await page.evaluate(
-    ({ x, z }) => {
-      // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
-      const s = (window as any).__saber;
-      s.bot.root.position.x = x;
-      s.bot.root.position.z = z;
-      s.st.yaw = -Math.PI / 2;
-    },
-    { x: ROBOT_REGISTRY.front + 6, z: ROBOT_REGISTRY.z },
-  );
-  await advance(page, 100);
-  await hold(page, 'ArrowUp', 2000);
+  await driveInto(page, ROBOT_REGISTRY);
   await expect(sheet).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Robot Registry' })).toBeVisible();
 
@@ -236,7 +244,6 @@ test('registers at the Robot Registry, then logs back in on the next visit', asy
   await eventually(page, () => page.locator('#wallet').textContent()).toBe('0 ◆ 00');
 
   // An owner grants crystals, and the HUD shows the new balance.
-  const owner = { Authorization: `Bearer ${OWNER_KEY}` };
   const players = (await (await request.get(`${STATION}/api/owner/players`, { headers: owner })).json()) as {
     id: string;
     name: string;
@@ -258,6 +265,32 @@ test('registers at the Robot Registry, then logs back in on the next visit', asy
   await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
   expect(await saber(page, 's.bot.build.head.part')).toBe('stalk');
   await eventually(page, () => page.locator('#wallet').textContent()).toBe('12 ◆ 45');
+
+  // At the Bot Maker: a second robot costs 10 CC. Buy one, and it rolls out instead.
+  await advance(page, 6000);
+  await driveInto(page, BOT_MAKER);
+  await expect(page.getByRole('heading', { name: 'Bot Maker' })).toBeVisible();
+  await expect(sheet.locator('.robot.here')).toContainText(name);
+  await page.getByRole('button', { name: '+ New robot · 10 CC' }).click();
+  const second = fresh('Sprout');
+  await page.getByLabel('Name').fill(second);
+  await page.locator('[data-slot=head]').getByText('Visor').click();
+  await page.getByRole('button', { name: 'Buy for 10 CC' }).click();
+  await expect(sheet).toBeHidden();
+  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${second}`);
+  await eventually(page, () => page.locator('#wallet').textContent()).toBe('2 ◆ 45');
+  expect(await saber(page, 's.bot.build.head.part')).toBe('visor');
+  expect(await saber<number>(page, 's.st.rollout')).toBeGreaterThan(0);
+
+  // Back in: two robots now, and the next one costs 20 CC, which isn't affordable but is on offer. Switch back.
+  await advance(page, 6000);
+  await driveInto(page, BOT_MAKER);
+  await expect(sheet.locator('.robots .robot[data-robot]')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: '+ New robot · 20 CC' })).toBeVisible();
+  await sheet.locator('.robot', { hasText: name }).click();
+  await expect(sheet).toBeHidden();
+  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
+  await eventually(page, () => saber(page, 's.bot.build.head.part')).toBe('stalk');
   expect(errors).toEqual([]);
 });
 

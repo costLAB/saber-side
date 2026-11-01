@@ -41,7 +41,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 
 | Initiative | Phase | Status |
 | --- | --- | --- |
-| [Players, their robots, and seats](initiatives/players-and-robots.md) | P3 | In progress: guests and logins (#19), the Registry (#20), and the wallet (#21) done, next `feature/several-robots-per-player`; lands before the carrot initiative's paint cure |
+| [Players, their robots, and seats](initiatives/players-and-robots.md) | P3 | **Done** (#19, #20, #21, #22): guests, the Robot Registry, the wallet, and several robots per player |
 | [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 done (#13), next `feature/robot-mouth` |
 | [Robot parts catalogs](initiatives/robot-parts-catalog.md) | P3 (parts), P5 (prices) | Planned: next `feature/jack-o-lantern-head`; prices wait on the players initiative and the wallet |
 | [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md) | P5 | Planned: next `feature/ore-planet`; buying, mining, and refining wait on the wallet |
@@ -423,9 +423,9 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 | P0 Groundwork | **Done** | Everything | |
 | P1 Decompose | **Partly done** | `packages/shared` and its tests, ships and planets on the new layout, render modules, the robot factory, seeded cosmetic RNG | Meters (units are still feet-scaled, `FT`), the entity/world model (the player, items, and lifts still live on meshes), a fixed tick, emissive sabers (each saber still has a point light), the three.js upgrade (still r128), and most of `game.js` (1,661 lines, `update()` included) |
 | P2 Input + avatar | Not started | | Action map and device adapters, `PilotedController`, the embodied avatar, the iPad touch rework (including the legend/d-pad overlap) |
-| P3 Online free roam | **Partly done** | The station server on Render, the roster with PINs, the owner panel skeleton, robots built from parts, the Bot Maker spawn, seeing friends' robots | [Players, their robots, and seats](initiatives/players-and-robots.md) (guests, the Robot Registry, one seat per player); server-authoritative item pickup/drop and lifts (sabers and blasters as shared toys); off-site backups (Litestream) |
+| P3 Online free roam | **Partly done** | The station server on Render, the owner panel, robots built from parts, the Bot Maker spawn, seeing friends' robots, and [players, their robots, and seats](initiatives/players-and-robots.md): guests, the Robot Registry, logins with PINs, one seat per player, up to 5 robots each | Server-authoritative item pickup/drop and lifts (sabers and blasters as shared toys); off-site backups (Litestream) |
 | P4 Quest VR | Not started | | |
-| P5 Economy v1 | **Started** | Step 0 of the [carrot initiative](initiatives/carrot-economy.md) (#13) | The rest of the carrot initiative, then the rest of P5 |
+| P5 Economy v1 | **Started** | Step 0 of the [carrot initiative](initiatives/carrot-economy.md) (#13), and the Cyber Crystal wallet (#21) | The rest of the carrot initiative, then the rest of P5 |
 | P6, P7 | Not started | | |
 
 P5 is going ahead of P2-P4 on purpose: the carrot initiative is the next feature work. Its PRs build in modules, the way `app/flight.ts` did, so they don't wait on the rest of P1.

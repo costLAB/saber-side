@@ -1,5 +1,6 @@
 import { request } from 'node:http';
 import {
+  type BotMakerAnswer,
   CLOSED,
   classicBuild,
   JOIN_REFUSED,
@@ -19,7 +20,9 @@ import {
   api,
   ask,
   boot,
+  botMaker,
   comeAboard,
+  garage,
   health,
   leaveCode,
   logIn,
@@ -324,6 +327,94 @@ describe('the Robot Registry', () => {
       ok: false,
       error: expect.stringMatching(/wrong PIN/i),
     });
+  });
+});
+
+describe('several robots per player', () => {
+  const key = 'test-owner-key';
+  const owner = { Authorization: `Bearer ${key}` };
+  const grant = async (server: Awaited<ReturnType<typeof boot>>, cc: number) => {
+    const [player] = (await api<OwnerPlayer[]>(server, 'GET', '/owner/players', undefined, owner)).body;
+    await api(server, 'POST', `/owner/players/${player?.id}/grant`, { shards: cc * 100 }, owner);
+  };
+  const stalk = { ...classicBuild(), head: { part: 'stalk', paint: '#b5e06a' } } as const;
+
+  it('sells a second robot for 10 CC, pilots it in the same seat, and switches back', async () => {
+    const server = await boot({ ADMIN_KEY: key, ...seeded({ name: 'Mia', pin: '4321' }) });
+    const room = await logIn(server, 'Mia', '4321');
+    const balance = wallet(room);
+    const robots = garage(room);
+    await until(() => robots.length > 0, "Mia's garage");
+    expect(robots.at(-1)).toMatchObject({ robots: [{ name: 'Mia' }], nextPrice: 1000 });
+
+    // Not enough crystals: refused, and nothing charged or made.
+    expect(await botMaker(room, MESSAGE.build, { name: 'Sprout', build: stalk })).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/costs 10 CC/),
+    });
+    await grant(server, 15);
+    await until(() => balance.at(-1) === 1500, 'the grant');
+    expect(await botMaker(room, MESSAGE.build, { name: 'Bot 2', build: stalk })).toMatchObject({ ok: false });
+    expect(await botMaker(room, MESSAGE.build, { name: 'Sprout', build: stalk })).toEqual({ ok: true });
+    await until(() => balance.at(-1) === 500, 'the payment');
+    const me = () => room.state.players.get(room.sessionId);
+    await until(() => me()?.name === 'Sprout', 'the seat to pilot Sprout');
+    expect(JSON.parse(me()?.build ?? '')).toEqual(stalk);
+    expect(room.state.aboard).toBe(1);
+    expect(robots.at(-1)?.robots.map((r) => r.name)).toEqual(['Sprout', 'Mia']);
+    expect(robots.at(-1)?.nextPrice).toBe(2000);
+
+    // Pilot the first one again, in the same seat. The next login comes aboard as whichever was piloted last.
+    const first = robots.at(-1)?.robots.find((r) => r.name === 'Mia');
+    expect(await botMaker(room, MESSAGE.pilot, { robot: first?.id })).toEqual({ ok: true });
+    await until(() => me()?.name === 'Mia', 'the seat to pilot Mia again');
+    await room.leave();
+    const again = await logIn(server, 'Mia', '4321');
+    await until(() => again.state.players?.get(again.sessionId)?.name === 'Mia', 'Mia, piloted last');
+  });
+
+  it('keeps five robots at most, for 100 CC in all, and buys one robot for two quick taps', async () => {
+    const server = await boot({ ADMIN_KEY: key, ...seeded({ name: 'Zed', pin: '1111' }) });
+    const room = await logIn(server, 'Zed', '1111');
+    const balance = wallet(room);
+    const robots = garage(room);
+    await grant(server, 10);
+    await until(() => balance.at(-1) === 1000, 'the grant');
+    // Two taps with enough for one: one robot, one refusal.
+    const taps: BotMakerAnswer[] = [];
+    room.onMessage(NOTICE.botMaker, (a: BotMakerAnswer) => taps.push(a));
+    room.send(MESSAGE.build, { name: 'Two', build: stalk });
+    room.send(MESSAGE.build, { name: 'Twin', build: stalk });
+    await until(() => taps.length === 2, 'both answers');
+    expect(taps.filter((t) => t.ok)).toHaveLength(1);
+    await until(() => robots.at(-1)?.robots.length === 2, 'two robots');
+
+    await grant(server, 90);
+    for (const name of ['Three', 'Four', 'Five']) {
+      expect(await botMaker(room, MESSAGE.build, { name, build: stalk })).toEqual({ ok: true });
+    }
+    await until(() => robots.at(-1)?.robots.length === 5, 'five robots');
+    expect(robots.at(-1)?.nextPrice).toBeNull();
+    await until(() => balance.at(-1) === 0, 'every crystal spent');
+    expect(await botMaker(room, MESSAGE.build, { name: 'Six', build: stalk })).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/keep 5/),
+    });
+  });
+
+  it("doesn't sell guests robots, or let anyone pilot someone else's", async () => {
+    const server = await boot(seeded({ name: 'Mia', pin: '4321' }, { name: 'Zed', pin: '1111' }));
+    const guest = await comeAboard(server);
+    expect(await botMaker(guest, MESSAGE.build, { name: 'Sprout', build: stalk })).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/Register/),
+    });
+    const zed = await logIn(server, 'Zed', '1111');
+    const zedRobots = garage(zed);
+    await until(() => zedRobots.length > 0, "Zed's garage");
+    const mia = await logIn(server, 'Mia', '4321');
+    expect(await botMaker(mia, MESSAGE.pilot, { robot: zedRobots[0]?.robots[0]?.id })).toMatchObject({ ok: false });
+    expect(await botMaker(guest, MESSAGE.pilot, { robot: zedRobots[0]?.robots[0]?.id })).toMatchObject({ ok: false });
   });
 });
 

@@ -11,8 +11,8 @@ import type { RobotBuild } from './content/robot-parts.ts';
 
 // History: 1 = the station server; 2 = joining as a robot from the roster; 3 = robots see each other (pose.ts);
 // 4 = robots built from parts; 5 = guests and logins (players own robots); 6 = the Robot Registry;
-// 7 = the Cyber Crystal wallet.
-export const PROTOCOL_VERSION = 7;
+// 7 = the Cyber Crystal wallet; 8 = several robots per player.
+export const PROTOCOL_VERSION = 8;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';
@@ -117,7 +117,32 @@ export const MESSAGE = {
   register: 'register',
   /** At the Robot Registry, log in (a SignIn): the seat switches to that player and their robot. */
   login: 'login',
+  /** At the Bot Maker, a registered player builds another robot (a NewRobot), paying for it, and pilots it. */
+  build: 'build',
+  /** At the Bot Maker, pilot another of this player's robots (a Pilot), keeping the seat. */
+  pilot: 'pilot',
 } as const;
+
+/** What `build` carries: the new robot's name and parts. */
+export interface NewRobot {
+  name: string;
+  build: RobotBuild;
+}
+
+/** What `pilot` carries. */
+export interface Pilot {
+  robot: string;
+}
+
+/** The server's answer to `build` or `pilot`, sent to that seat alone (NOTICE.botMaker). */
+export type BotMakerAnswer = { ok: true } | { ok: false; error: string };
+
+/** A registered player's robots, sent to their seat alone (NOTICE.garage) whenever they change. */
+export interface Garage {
+  robots: OwnerRobot[];
+  /** What the next robot costs, in shards (see robotPrice), or null when they have as many as they can keep. */
+  nextPrice: number | null;
+}
 
 /** What `register` and `login` carry. */
 export interface SignIn {
@@ -136,6 +161,10 @@ export const NOTICE = {
   registry: 'registry',
   /** To a registered player's seat: their balance (a WalletNotice), on joining and whenever it changes. */
   wallet: 'wallet',
+  /** To a registered player's seat: their robots (a Garage), on joining and whenever they change. */
+  garage: 'garage',
+  /** To one seat: how its `build` or `pilot` went (a BotMakerAnswer). */
+  botMaker: 'botMaker',
 } as const;
 
 /** A registered player's Cyber Crystal balance, in shards. It's theirs alone: other players never see it. */
