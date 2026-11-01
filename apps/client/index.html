@@ -29,22 +29,17 @@
   .bl { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: calc(16px + env(safe-area-inset-left, 0px)); }
 
   .tl { padding: 10px 14px; background: var(--plate); border-radius: 6px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-  .readout { display: grid; gap: 2px; margin-top: 8px; font-size: 11px; letter-spacing: 0.03em; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .readout { display: grid; gap: 2px; font-size: 11px; letter-spacing: 0.03em; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
   .eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); }
-  h1 { margin: 2px 0 0; font-family: var(--display); font-weight: 700; font-size: clamp(28px, 5vw, 44px); line-height: 1; letter-spacing: 0.02em; color: var(--bone); text-shadow: 0 2px 0 rgba(0,0,0,0.25); }
-  h1 span { color: var(--rust); }
   #station::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #d9a441; vertical-align: 1px; }
   #station[data-state="aboard"]::before { background: #7fc46a; }
   #station[data-state="unreachable"]::before, #station[data-state="outdated"]::before { background: #c8553d; }
   #station button { pointer-events: auto; font: 500 11px var(--mono); color: var(--ink); background: transparent; border: 1px solid var(--bone-edge); border-radius: 4px; padding: 1px 6px; cursor: pointer; }
   #station button:hover { border-color: var(--rust); color: var(--rust); }
 
-  .tally { display: inline-grid; gap: 2px; padding: 10px 14px; background: var(--plate); border-radius: 6px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-  .tally b { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--bone); }
-  .tally b i { font-style: normal; color: var(--ink-dim); font-size: 18px; }
-  .tally button { pointer-events: auto; margin-top: 6px; justify-self: end; font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); background: transparent; border: 1px solid var(--bone-edge); border-radius: 4px; padding: 4px 8px; cursor: pointer; }
-  .tally button:hover { border-color: var(--rust); color: var(--rust); }
-  .tally button:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+  #reset { pointer-events: auto; font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); background: var(--plate); border: 1px solid var(--bone-edge); border-radius: 6px; padding: 6px 10px; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #reset:hover { border-color: var(--rust); color: var(--rust); }
+  #reset:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
 
   #keys { pointer-events: auto; }
   #keysbox summary { cursor: pointer; display: inline-block; padding: 6px 12px; margin-bottom: 6px; border-radius: 999px; background: var(--plate); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim); list-style: none; }
@@ -71,23 +66,17 @@
   .tb.big { width: 76px; height: 76px; border-radius: 50%; font-size: 14px; letter-spacing: 0.06em; }
   .pad .u { grid-area: 1 / 2; } .pad .l { grid-area: 2 / 1; } .pad .r { grid-area: 2 / 3; } .pad .d { grid-area: 3 / 2; }
 
-  @media (max-width: 560px) { .keys { display: none; } .tally b { font-size: 20px; } }
+  @media (max-width: 560px) { .keys { display: none; } }
 </style>
 
 <div id="stage"></div>
 
 <header class="hud tl">
-  <div class="eyebrow">Unit R-7 · Ring Seven habitat</div>
-  <h1>SABER<span>SIDE</span></h1>
-  <div class="readout"><span id="spec"></span><span id="where"></span><span id="station" hidden></span></div>
+  <div class="readout"><span id="where"></span><span id="station" hidden></span></div>
 </header>
 
 <div class="hud tr">
-  <div class="tally">
-    <span class="eyebrow">Aliens zapped</span>
-    <b id="aliens">0</b>
-    <button id="reset" type="button">Reset items (R)</button>
-  </div>
+  <button id="reset" type="button">Reset items (R)</button>
 </div>
 
 <div class="hud bl" id="keys">
