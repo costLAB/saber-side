@@ -28,6 +28,7 @@ import {
 import * as THREE from 'three';
 import { createEating } from '../app/eating';
 import { createFlightMode } from '../app/flight';
+import { createVrMode } from '../app/vr';
 import { buildBotMaker } from '../world/bot-maker';
 import { buildRobotRegistry } from '../world/robot-registry';
 import { buildRobot, disposeRobot } from '../avatar/robot';
@@ -37,7 +38,7 @@ import { makeCanvas, textureKit, wrapX } from '../render/textures';
 import { dot } from '../render/kit';
 
 /** Hooks the new modules call into (see app/aboard.ts). Filled in below, once the scene exists. */
-export const legacy = { robotKit: null, setRobotBuild(_build) {}, rollOutOfBotMaker() {}, drivingOnFloor() { return null; }, releaseKeys() {}, world: null, frameHooks: [] };
+export const legacy = { robotKit: null, setRobotBuild(_build) {}, rollOutOfBotMaker() {}, drivingOnFloor() { return null; }, releaseKeys() {}, leaveVr() {}, world: null, frameHooks: [] };
 
 (() => {
 const V3 = THREE.Vector3;
@@ -942,12 +943,12 @@ function updateBolts(dt) {
 }
 
 const promptEl = document.getElementById('prompt');
-let promptText = '';
+let promptText = '', promptHint = false;
 function updatePrompt(p, override, hintOnly) {
   const lift = override === undefined ? nearLift(p) : null, near = override === undefined && !lift ? nearestItem(p) : null;
   const txt = override !== undefined ? override : lift ? `Ride lift ${lift.k + 1} up to the hub` : near ? `${held ? 'Swap for' : 'Pick up'} the ${near.name}` : '';
   if (txt === promptText) return;
-  promptText = txt;
+  promptText = txt; promptHint = !!hintOnly;
   if (txt) promptEl.innerHTML = hintOnly ? txt : `<span class="cap">${isTouch ? 'GRAB' : 'G'}</span> ${txt}`;
   promptEl.classList.toggle('gone', !txt);
 }
@@ -1245,12 +1246,13 @@ function update(dt, t) {
 
 // ---------- loop ----------
 const clock = new THREE.Clock();
-function frame() {
+// Driven by renderer.setAnimationLoop (below), which uses the page's animation frames when flat and the headset's in VR.
+function frame(_time, xrFrame) {
   const dt = Math.min(clock.getDelta(), 1 / 30);
+  vr.beforeUpdate(dt, xrFrame);   // the headset and controllers (app/vr.ts)
   update(dt, clock.elapsedTime);
   for (const f of legacy.frameHooks) f(dt);
-  renderer.render(ships.scene || scene, camera);
-  requestAnimationFrame(frame);
+  vr.draw(ships.scene || scene, camera);   // flat: renderer.render(scene, camera), as before
 }
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -1553,8 +1555,13 @@ legacy.rollOutOfBotMaker = () => {
 legacy.drivingOnFloor = () => (st.mode === 'floor' && st.rollout <= 0 ? bot.root.position : null);
 legacy.releaseKeys = () => { for (const k in keys) keys[k] = false; };
 
+// ---- VR on a Meta Quest (app/vr.ts) ----
+const vr = createVrMode({ renderer, camera, bot, st, keys, press, prompt: () => ({ text: promptText, hint: promptHint }), drawTex });
+legacy.leaveVr = vr.leave;
+
 // Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
-if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships, eating, items };
+if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships, eating, items, vr };
 
 frame();
+renderer.setAnimationLoop(frame);
 })();
