@@ -1,19 +1,42 @@
 import { type Client, CloseCode, type Deferred, matchMaker, Room, ServerError } from '@colyseus/core';
-import { type SchemaType, schema, t } from '@colyseus/schema';
+import { type FieldBuilder, type SchemaType, schema, t } from '@colyseus/schema';
 import {
   CLOSED,
   JOIN_REFUSED,
   type JoinRequest,
+  MESSAGE,
   NOTICE,
+  POSE,
+  type PoseKind,
   PROTOCOL_VERSION,
   type RobotCard,
+  readPose,
   STATION_CAPACITY,
   STATION_ROOM,
 } from '@saber-side/shared';
 import type { Roster } from '../roster.ts';
 
 // Synced to every client. They decode it by reflection, so the client has no copy of these (see StationView).
-export const Aboard = schema({ robot: t.string(), name: t.string(), color: t.string() }, 'Aboard');
+
+/** How each kind of pose number is stored: as small as it can be without the robot looking jittery. */
+const POSE_FIELD: Record<PoseKind, () => FieldBuilder<number> | FieldBuilder<boolean>> = {
+  position: () => t.float32(),
+  unit: () => t.quantized({ min: -1, max: 1 }),
+  angle: () => t.quantized({ min: -Math.PI, max: Math.PI }),
+  turn: () => t.quantized({ min: 0, max: Math.PI * 2, mode: 'wrap' }),
+  scale: () => t.quantized({ min: 0, max: 3 }),
+  flag: () => t.boolean(),
+};
+
+export const Aboard = schema(
+  {
+    robot: t.string(),
+    name: t.string(),
+    color: t.string(),
+    ...Object.fromEntries(POSE.map(([name, kind]) => [name, POSE_FIELD[kind]()])),
+  },
+  'Aboard',
+);
 export type Aboard = SchemaType<typeof Aboard>;
 export const StationState = schema({ name: t.string(), aboard: t.number(), players: t.map(Aboard) }, 'StationState');
 export type StationState = SchemaType<typeof StationState>;
@@ -76,6 +99,15 @@ export function defineStationRoom(deps: StationRoomDeps) {
 
     override onCreate() {
       this.state.name = deps.name;
+      // Each device reports its own robot's pose; anything malformed is ignored. Colyseus passes on only what changed.
+      this.onMessage(MESSAGE.pose, (client, msg: unknown) => {
+        const pose = readPose(msg);
+        const aboard = this.state.players.get(client.sessionId) as Record<string, unknown> | undefined;
+        if (!pose || !aboard) return;
+        POSE.forEach(([name, kind], i) => {
+          aboard[name] = kind === 'flag' ? (pose[i] as number) > 0.5 : pose[i];
+        });
+      });
       deps.onReady({
         kickRobot: (robotId, code) => this.#release(robotId, code),
         refreshRobot: (robot) => {

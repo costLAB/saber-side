@@ -1,3 +1,5 @@
+import type { PoseField } from './pose.ts';
+
 // The contract between the game client and the station server.
 //
 // The client is served by Netlify and the server runs on Render, and they deploy separately: for a minute or so after a
@@ -5,8 +7,8 @@
 // the server (or the reverse). The server then turns older clients away with JOIN_REFUSED.outdated, and they offer a
 // reload instead of half-working.
 
-// History: 1 = the station server; 2 = joining as a robot from the roster.
-export const PROTOCOL_VERSION = 2;
+// History: 1 = the station server; 2 = joining as a robot from the roster; 3 = robots see each other (pose.ts).
+export const PROTOCOL_VERSION = 3;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';
@@ -75,12 +77,12 @@ export interface ApiError {
   error: string;
 }
 
-/** Someone aboard right now (keyed by session in StationView.players). */
-export interface AboardView {
+/** Someone aboard right now (keyed by session in StationView.players), with their robot's latest pose. */
+export type AboardView = {
   robot: string;
   name: string;
   color: string;
-}
+} & { [K in PoseField]: K extends 'shown' ? boolean : number };
 
 /** The synced station state, as the client sees it. */
 export interface StationView {
@@ -88,6 +90,12 @@ export interface StationView {
   aboard: number;
   players: Map<string, AboardView>;
 }
+
+/** Messages a client sends. */
+export const MESSAGE = {
+  /** This device's robot pose (a PoseMessage), a few times a second. */
+  pose: 'pose',
+} as const;
 
 /** Messages the server sends to everyone aboard. */
 export const NOTICE = {

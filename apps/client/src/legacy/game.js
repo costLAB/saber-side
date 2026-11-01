@@ -31,7 +31,7 @@ import { makeCanvas, textureKit, wrapX } from '../render/textures';
 import { dot } from '../render/kit';
 
 /** Hooks the new modules call into (see app/aboard.ts). Filled in below, once the scene exists. */
-export const legacy = { setRobotPaint(_hex) {} };
+export const legacy = { setRobotPaint(_hex) {}, world: null, frameHooks: [] };
 
 (() => {
 const V3 = THREE.Vector3;
@@ -125,6 +125,8 @@ const zCyl = (a, b, h, s = 24) => { const g = Cyl(a, b, h, s); g.rotateX(Math.PI
 // Built by avatar/robot.ts. The player's own robot keeps the shared materials and gets the eye light.
 const bot = buildRobot({ materials: M, mesh, glow, toTex }, { eyeLight: true });
 scene.add(bot.root);
+// what other modules need to add robots of their own (app/presence.ts)
+legacy.world = { scene, bot, kit: { materials: M, mesh, glow, toTex }, drawTex };
 
 // ---------- habitat: Ring Seven ----------
 // Layout across the ring (x): promenade |x|<46 with shops facing it from 26..40, parks to 115, carrot farms to 161.
@@ -1323,6 +1325,7 @@ const clock = new THREE.Clock();
 function frame() {
   const dt = Math.min(clock.getDelta(), 1 / 30);
   update(dt, clock.elapsedTime);
+  for (const f of legacy.frameHooks) f(dt);
   renderer.render(ships.scene || scene, camera);
   requestAnimationFrame(frame);
 }
