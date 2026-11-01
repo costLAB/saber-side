@@ -732,7 +732,8 @@ function dropHeld() {
   it.av.set((fx() - 0.5) * 8, (fx() - 0.5) * 6, (fx() - 0.5) * 8);
   if (it.kind === 'saber') it.target = 0;
 }
-function resetItems() {
+// lays the items out on the table at the start, with the red saber lit in the robot's hand
+function setOutItems() {
   if (held) { scene.attach(held.group); held = null; }
   for (const it of items) {
     if (it.kind === 'carrot') { it.bites = 0; it.body.scale.y = 1; }
@@ -749,7 +750,7 @@ const crateMats = [
   new THREE.MeshStandardMaterial({ map: crateTex(202, '#5d6a72', 'BOLTS'), roughness: 0.7, metalness: 0.3 }),
   new THREE.MeshStandardMaterial({ map: crateTex(303, '#cbc1b0', 'SPARE'), roughness: 0.75, metalness: 0.15 }),
 ];
-resetItems();
+setOutItems();
 
 // ---------- particles ----------
 function makePool(n, additive) {
@@ -792,7 +793,7 @@ function dustBurst(x, z, count, power) {
 
 // ---------- input ----------
 const keys = {}, pressed = {};
-const keymap = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'jump', KeyX: 'spin', ShiftLeft: 'boost', ShiftRight: 'boost', KeyR: 'reset',
+const keymap = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'jump', KeyX: 'spin', ShiftLeft: 'boost', ShiftRight: 'boost',
   KeyQ: 'camL', KeyE: 'camR', KeyC: 'camReset', KeyF: 'use', KeyG: 'grab', Equal: 'zoomIn', NumpadAdd: 'zoomIn', Minus: 'zoomOut', NumpadSubtract: 'zoomOut' };
 const hint = document.getElementById('hint');
 const dismissHint = () => hint.classList.add('gone');
@@ -830,7 +831,6 @@ function resetCam() { cam.yaw = 0; cam.pitch = 0; cam.zoom = 1; camTouched(); }
   cv.addEventListener('wheel', e => { e.preventDefault(); cam.zoom = clamp(cam.zoom * Math.exp(e.deltaY * 0.0012), ZOOM_MIN, ZOOM_MAX); camTouched(); }, { passive: false });
   cv.addEventListener('dblclick', resetCam);
 }
-document.getElementById('reset').addEventListener('click', () => { resetItems(); renderer.domElement.focus(); });
 
 const isTouch = matchMedia('(pointer: coarse) and (hover: none)').matches;
 if (isTouch) {
@@ -967,7 +967,6 @@ function update(dt, t) {
   const fwd = rolling ? 1 : (keys.up ? 1 : 0) - (keys.down ? 1 : 0);
   const turn = rolling ? 0 : (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
   const spinning = st.spin >= 0;
-  if (pressed.reset) resetItems();
 
   // drive
   const air = !st.grounded;

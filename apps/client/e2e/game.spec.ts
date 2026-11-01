@@ -12,10 +12,10 @@ interface SaberDebug {
 test('spawn view', async ({ page, errors }, info) => {
   await boot(page, 1500);
   await snap(page, 'spawn.png');
-  // The top-left panel is just where you are (and, online, the station status); the top right just the reset button.
+  // The top-left panel is just where you are (and, online, the station status). Nothing at the top right.
   await expect(page.locator('.hud.tl')).toHaveText('0° around the ring · on the center line');
   await expect(page.locator('h1, #spec, #aliens')).toHaveCount(0);
-  await expect(page.locator('#reset')).toHaveText('Reset items (R)');
+  await expect(page.locator('.hud.tr, #reset')).toHaveCount(0);
   if (info.project.name === 'macbook') await expect(page.locator('#keysbox .keys')).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -50,7 +50,6 @@ test('every action runs without errors', async ({ page, errors }, info) => {
     ['Minus', 100],
     ['Equal', 100],
     ['c', 70],
-    ['r', 70],
     ['ArrowDown', 500],
   ];
   for (const [key, ms] of steps) {
