@@ -176,7 +176,7 @@ robots(id, player_id, display_name, color, build_json, loadout_json, created_at,
 - `JoinRequest` becomes `{ protocol, guest: { build } }` or `{ protocol, login: { name, pin } }`.
 - `GET /roster` (the public list of robots) goes away. `POST /robots` is replaced by building at the Bot Maker over the
   seat.
-- New messages: `rebuild`, `register`, `login`, `build` (a new robot), and `pilot`, with results the seat can show,
+- New messages: `rebuild`, `register`, `login`, `build` (a new robot), `pilot`, and (a follow-up) `rename`, with results the seat can show,
   and a private `wallet` notice to the seat with its player's balance.
 - `JOIN_REFUSED.wrongPin` covers a wrong username too. `JOIN_REFUSED.unknownRobot` goes.
 
@@ -191,6 +191,14 @@ merges.
 | 2 | **Done** (#20) | `feature/robot-registry` | Let guests register at the Robot Registry | The Registry office next to the Bot Maker (`world/robot-registry.ts`), its kiosk, Register (username, PIN twice, the robot saved under the new player) and Log in (switching the seat to that player). The HUD nudges for guests. | `PROTOCOL_VERSION` 6 |
 | 3 | **Done** (#21) | `feature/cyber-crystal-wallet` | Give every registered player a Cyber Crystal wallet | Moved from the carrot initiative. The append-only ledger in shards, with balances derived from it. The wallet opens when a guest registers; guests have none. The `12 ◆ 45` HUD readout (12 CC, 45 shards), sent privately to the seat. Everyone starts at zero. Owner-panel grants and reversals. Removing a player posts their balance to the `removed` sink. No negative balances. | migration 5 (`ledger`), `PROTOCOL_VERSION` 7 |
 | 4 | **Done** (#22) | `feature/several-robots-per-player` | Let registered players keep several robots | Building more robots at the Bot Maker, up to `ROBOTS_PER_PLAYER` (5): the first is free, and each extra one costs 10 CC × robots already owned, paid to the `bot_maker` sink. Picking which to pilot there, and switching in place with `MESSAGE.pilot` so the seat is never let go. | `PROTOCOL_VERSION` 8 |
+
+### Follow-ups
+
+Fixes and small features after the initiative merged, from the owner's reports on the live game (2026-11-01).
+
+| # | Status | Branch | PR title | What it changes | Protocol / schema |
+| --- | --- | --- | --- | --- | --- |
+| 6 | In review | `feature/rename-robot-at-bot-maker` | Let players rename their robot at the Bot Maker | A **Rename** button in the garage, beside Rebuild, for the robot the seat pilots. `MESSAGE.rename { name }` over the seat, under the owner panel's rules for robot names (`cleanRobotName`, unique ignoring case, not `Bot <n>`), answered on `NOTICE.botMaker`. The seat's synced name changes for everyone aboard, and the garage is sent again. Guests keep their made-up name. | `PROTOCOL_VERSION` 9 |
 
 The protocol and migration numbers assume these PRs merge in this order, before the carrot initiative's PRs that bump
 them. If they land in a different order, or another PR takes a number first, use the next free one when you merge.

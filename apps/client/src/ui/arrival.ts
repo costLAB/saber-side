@@ -30,6 +30,8 @@ export type ArrivalView =
   | { kind: 'build'; rebuild?: { name: string; build: RobotBuild }; newRobot?: { price: number }; error?: string }
   /** The Bot Maker, for a registered player: their robots to pilot, rebuild the one they pilot, or buy another. */
   | { kind: 'garage'; garage: Garage; piloting: string; error?: string }
+  /** At the Bot Maker: a new name for the robot a registered player pilots. */
+  | { kind: 'rename'; name: string; error?: string }
   /** The Robot Registry's kiosk: register (guests), or log in. `name` is the registered player's. */
   | { kind: 'registry'; guest: boolean; name?: string; error?: string }
   | { kind: 'owner-key'; error?: string }
@@ -52,6 +54,8 @@ export interface ArrivalHandlers {
   onSignIn(name: string, pin: string): Promise<string | undefined>;
   /** At the Bot Maker: buy another robot and pilot it. Resolves with an error to show, or nothing once it worked. */
   onBuyRobot(name: string, build: RobotBuild): Promise<string | undefined>;
+  /** At the Bot Maker: rename the robot this seat pilots. Resolves with an error, or nothing once it worked. */
+  onRename(name: string): Promise<string | undefined>;
   /** At the Bot Maker: pilot another of this player's robots. Resolves with an error, or nothing once it worked. */
   onPilot(robotId: string): Promise<string | undefined>;
   /** "Just look around": play without coming aboard (or, from the builder, keep the robot as it is). */
@@ -127,6 +131,7 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
 
   function back() {
     if (current.kind === 'welcome' || current.kind === 'registry' || current.kind === 'garage') dismiss();
+    else if (current.kind === 'rename' && garageView) show(garageView);
     else if (current.kind === 'build' && (current.rebuild || current.newRobot) && garageView) show(garageView);
     else if (current.kind === 'build' && current.rebuild) dismiss();
     else show({ kind: 'welcome' });
@@ -150,7 +155,7 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
   function show(view: ArrivalView = { kind: 'welcome' }) {
     current = view;
     if (view.kind === 'garage') garageView = view;
-    else if (view.kind !== 'build') garageView = undefined;
+    else if (view.kind !== 'build' && view.kind !== 'rename') garageView = undefined;
     root.hidden = false;
     endPreview();
     sheet.classList.toggle('wide', view.kind === 'build');
@@ -177,6 +182,8 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
         return renderGarage(view.garage, view.piloting, view.error);
       case 'registry':
         return renderRegistry(view.guest, view.name, view.error);
+      case 'rename':
+        return renderRename(view.name, view.error);
       case 'owner-key':
         return renderOwnerKey(view.error);
       case 'owner':
@@ -405,7 +412,7 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
           );
     return [
       title('Bot Maker'),
-      h('p', {}, 'Pick a robot to pilot, rebuild this one, or build another.'),
+      h('p', {}, 'Pick a robot to pilot, rebuild or rename this one, or build another.'),
       err$,
       h('div', { class: 'robots' }, ...cards, more),
       h(
@@ -415,9 +422,42 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
           button(`Rebuild ${flying.name}`, 'ghost', () =>
             show({ kind: 'build', rebuild: { name: flying.name, build: flying.build } }),
           ),
+        flying && button(`Rename ${flying.name}`, 'ghost', () => show({ kind: 'rename', name: flying.name })),
       ),
       h('div', { class: 'foot' }, button('Leave', 'link', dismiss)),
     ];
+  }
+
+  function renderRename(current: string, err?: string): Node[] {
+    const name = textInput('robot-name', 'off');
+    name.value = current;
+    const err$ = error(err);
+    const go = button('Rename', 'primary', () => {}, 'submit');
+    const form = h(
+      'form',
+      {},
+      h('label', {}, 'New name', name),
+      err$,
+      h('div', { class: 'actions' }, button('Back', 'ghost', back), go),
+    );
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const clean = cleanRobotName(name.value);
+      if (!clean) {
+        err$.textContent = 'Pick a name of 1 to 16 letters or numbers.';
+        return;
+      }
+      if (isGuestName(clean)) {
+        err$.textContent = 'Names like "Bot 7" are for guests. Pick another.';
+        return;
+      }
+      go.disabled = true;
+      const failed = await handlers.onRename(clean);
+      go.disabled = false;
+      if (failed) err$.textContent = failed;
+      else hide();
+    });
+    return [title(`Rename ${current}`), form];
   }
 
   /**

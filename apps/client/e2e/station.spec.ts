@@ -207,7 +207,7 @@ test('rebuilds the robot by driving back into the Bot Maker', async ({ page, err
   expect(errors).toEqual([]);
 });
 
-test('registers at the Robot Registry, logs back in on the next visit, and buys a second robot', async ({
+test('registers at the Robot Registry, logs back in on the next visit, renames its robot, and buys a second one', async ({
   page,
   errors,
   request,
@@ -266,11 +266,30 @@ test('registers at the Robot Registry, logs back in on the next visit, and buys 
   expect(await saber(page, 's.bot.build.head.part')).toBe('stalk');
   await eventually(page, () => page.locator('#wallet').textContent()).toBe('12 ◆ 45');
 
-  // At the Bot Maker: a second robot costs 10 CC. Buy one, and it rolls out instead.
+  // At the Bot Maker: one robot in the garage, named after the player. Rename it; a guest's name is refused.
   await advance(page, 6000);
   await driveInto(page, BOT_MAKER);
   await expect(page.getByRole('heading', { name: 'Bot Maker' })).toBeVisible();
-  await expect(sheet.locator('.robot.here')).toContainText(name);
+  await expect(sheet.locator('.robots .robot[data-robot]')).toHaveCount(1);
+  await page.getByRole('button', { name: `Rename ${name}` }).click();
+  await page.getByLabel('New name').fill('Bot 3');
+  await page.getByRole('button', { name: 'Rename', exact: true }).click();
+  await expect(sheet.locator('.error')).toHaveText('Names like "Bot 7" are for guests. Pick another.');
+  const renamed = fresh('Pip');
+  await page.getByLabel('New name').fill(renamed);
+  await page.getByRole('button', { name: 'Rename', exact: true }).click();
+  await expect(sheet).toBeHidden();
+  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${renamed}`);
+
+  // A second robot costs 10 CC. Buy one, and it rolls out instead.
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    (window as any).__saber.st.yaw = Math.PI / 2;
+  });
+  await hold(page, 'ArrowUp', 3000);
+  await driveInto(page, BOT_MAKER);
+  await expect(page.getByRole('heading', { name: 'Bot Maker' })).toBeVisible();
+  await expect(sheet.locator('.robot.here')).toContainText(renamed);
   await page.getByRole('button', { name: '+ New robot · 10 CC' }).click();
   const second = fresh('Sprout');
   await page.getByLabel('Name').fill(second);
@@ -287,9 +306,9 @@ test('registers at the Robot Registry, logs back in on the next visit, and buys 
   await driveInto(page, BOT_MAKER);
   await expect(sheet.locator('.robots .robot[data-robot]')).toHaveCount(2);
   await expect(page.getByRole('button', { name: '+ New robot · 20 CC' })).toBeVisible();
-  await sheet.locator('.robot', { hasText: name }).click();
+  await sheet.locator('.robot', { hasText: renamed }).click();
   await expect(sheet).toBeHidden();
-  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
+  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${renamed}`);
   await eventually(page, () => saber(page, 's.bot.build.head.part')).toBe('stalk');
   expect(errors).toEqual([]);
 });
@@ -298,7 +317,7 @@ test("sees another player's robot, and sends its own", async ({ page, errors }, 
   test.skip(info.project.name === 'ipad', 'one profile is enough');
   await online(page);
   await page.goto('/?debug');
-  await playAsGuest(page);
+  const name = await playAsGuest(page);
 
   // The other player is a bot: it joins over the network like a browser would, standing a few steps away.
   const bot = await new Client(STATION).join<StationView>(STATION_ROOM, {
@@ -315,9 +334,10 @@ test("sees another player's robot, and sends its own", async ({ page, errors }, 
     // And this page's robot reaches the bot, where it really is. (Let it finish rolling out of the Bot Maker first.)
     await advance(page, 6000);
     const here = await saber<number[]>(page, '[s.bot.root.position.x, s.bot.root.position.z]');
+    // Find this page's robot by name: a robot from an earlier test may still be aboard, its seat held for a while.
     const seen = () => {
       for (const [id, p] of bot.state.players ?? [])
-        if (id !== bot.sessionId) return p as unknown as Record<string, number | boolean>;
+        if (id !== bot.sessionId && p.name === name) return p as unknown as Record<string, number | boolean>;
     };
     await eventually(page, async () => seen()?.shown).toBe(true);
     expect(seen()?.px).toBeCloseTo(here[0] as number, 2);
