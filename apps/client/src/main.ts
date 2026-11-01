@@ -5,11 +5,10 @@ import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 
 import './legacy/game.js';
+import { comeAboard } from './app/aboard';
 import { stationServerUrl } from './net/server-url';
-import { linkToStation } from './net/station-link';
-import { showStationStatus } from './ui/station-status';
 
-// Online: join the shared station when this build has a server. Single-player play doesn't wait on it.
+// Online: come aboard the shared station when this build has a server. Single-player play doesn't wait on it.
 const server = stationServerUrl();
 const statusEl = document.getElementById('station');
-if (server && statusEl) linkToStation(server, (status) => showStationStatus(statusEl, status));
+if (server && statusEl) comeAboard(server, statusEl);

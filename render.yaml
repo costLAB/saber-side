@@ -40,6 +40,10 @@ services:
       # Only the game's own pages may join. Add a custom domain here if the site gets one.
       - key: ALLOWED_ORIGINS
         value: https://saberside.netlify.app
+      # Unlocks the owner panel (Owner, at the bottom of the roster). Render makes up a long random one; read it from
+      # the service's Environment page.
+      - key: ADMIN_KEY
+        generateValue: true
 
   - type: web
     name: saber-side-staging
@@ -67,3 +71,5 @@ services:
       # Netlify's deploy previews and branch deploys.
       - key: ALLOWED_ORIGINS
         value: https://*--saberside.netlify.app
+      - key: ADMIN_KEY
+        generateValue: true

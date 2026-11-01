@@ -16,6 +16,17 @@ export const MIGRATIONS: readonly string[] = [
      created_at TEXT NOT NULL
    );
    INSERT INTO station (id, name, created_at) VALUES (1, 'Ring Seven', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));`,
+
+  // 2: the roster. Names are unique ignoring case, so two kids can't both be "Zed" and "zed".
+  `CREATE TABLE players (
+     id TEXT PRIMARY KEY,
+     display_name TEXT NOT NULL,
+     color TEXT NOT NULL,
+     pin_hash TEXT,
+     loadout_json TEXT NOT NULL DEFAULT '{}',
+     created_at TEXT NOT NULL
+   );
+   CREATE UNIQUE INDEX players_name ON players (display_name COLLATE NOCASE);`,
 ];
 
 /** Opens (creating if needed) the station database and brings its schema up to date. */
