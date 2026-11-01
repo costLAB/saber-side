@@ -31,6 +31,31 @@ export const MIGRATIONS: readonly string[] = [
   // 3: robots built from parts (RobotBuild as JSON). NULL is a robot made before the builder: the classic build,
   // painted its color.
   `ALTER TABLE players ADD COLUMN build_json TEXT;`,
+
+  // 4: players own robots (docs/initiatives/players-and-robots.md). The old roster, where each row was a robot, is
+  // wiped: an owner decision, since nothing of value was saved on it yet. A player is a username and a PIN (a reset
+  // stores 'reset' until they pick a new one). Names are unique ignoring case: player names among players, robot names
+  // among robots. Guests aren't saved.
+  `DROP TABLE players;
+   CREATE TABLE players (
+     id TEXT PRIMARY KEY,
+     display_name TEXT NOT NULL,
+     pin_hash TEXT NOT NULL,
+     created_at TEXT NOT NULL
+   );
+   CREATE UNIQUE INDEX players_name ON players (display_name COLLATE NOCASE);
+   CREATE TABLE robots (
+     id TEXT PRIMARY KEY,
+     player_id TEXT NOT NULL REFERENCES players (id) ON DELETE CASCADE,
+     display_name TEXT NOT NULL,
+     color TEXT NOT NULL,
+     build_json TEXT NOT NULL,
+     loadout_json TEXT NOT NULL DEFAULT '{}',
+     created_at TEXT NOT NULL,
+     piloted_at TEXT
+   );
+   CREATE UNIQUE INDEX robots_name ON robots (display_name COLLATE NOCASE);
+   CREATE INDEX robots_player ON robots (player_id);`,
 ];
 
 /** Opens (creating if needed) the station database and brings its schema up to date. */

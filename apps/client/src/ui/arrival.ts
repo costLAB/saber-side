@@ -3,6 +3,7 @@ import {
   cleanRobotName,
   isPin,
   ORIGINAL_PAINT,
+  type OwnerPlayer,
   PART_SLOTS,
   type PartSlot,
   REQUIRED_SLOTS,
@@ -10,32 +11,40 @@ import {
   ROBOT_NAME_MAX,
   ROBOT_PARTS,
   type RobotBuild,
-  type RobotCard,
 } from '@saber-side/shared';
-import { ApiFailure, type RosterApi } from '../net/roster-api';
+import { ApiFailure, type OwnerApi } from '../net/owner-api';
 import type { RobotPreview } from './robot-preview';
-import './roster.css';
+import './arrival.css';
 
-/** What the roster screen can show. Each view can carry an error to show (say, "Wrong PIN" after a join). */
-export type RosterView =
-  | { kind: 'list'; robots?: RobotCard[]; error?: string }
-  | { kind: 'new'; error?: string }
-  | { kind: 'pin'; robot: RobotCard; error?: string }
+/** What the arrival sheet can show. Each view can carry an error to show (say, a wrong PIN after a join). */
+export type ArrivalView =
+  /** Play, or log in. `name` fills in the username. */
+  | { kind: 'welcome'; name?: string; error?: string }
+  /** The robot builder: a new guest's robot, or new parts for the robot being piloted (at the Bot Maker). */
+  | { kind: 'build'; rebuild?: { name: string; build: RobotBuild }; error?: string }
   | { kind: 'owner-key'; error?: string }
   | { kind: 'owner'; key: string; error?: string };
 
-export interface RosterHandlers {
-  /** A robot was picked (or just made). The PIN is whatever was typed, checked by the server on join. */
-  onPick(robot: RobotCard, pin?: string): void;
-  /** "Just look around": play without coming aboard. */
+export interface ArrivalHandlers {
+  /** Play as a guest. Returns the build to come aboard with, or undefined to open the builder first. */
+  onPlay(): RobotBuild | undefined;
+  /** A guest's robot is built: come aboard with it. */
+  onBuilt(build: RobotBuild): void;
+  /** New parts for the robot being piloted. */
+  onRebuilt(build: RobotBuild): void;
+  /** Log in. The server checks the PIN when the seat joins. */
+  onLogin(name: string, pin: string): void;
+  /** "Just look around": play without coming aboard (or, from the builder, keep the robot as it is). */
   onDismiss(): void;
   /** A turntable for the robot builder, if this device can draw one. */
   preview?(): RobotPreview | undefined;
+  /** The owner panel's API, for a key. */
+  owner(key: string): OwnerApi;
   ownerKey: { get(): string | undefined; set(key: string | undefined): void };
 }
 
-export interface RosterPicker {
-  show(view?: RosterView): void;
+export interface ArrivalSheet {
+  show(view?: ArrivalView): void;
   hide(): void;
   readonly open: boolean;
 }
@@ -72,15 +81,16 @@ const SLOT_NAMES: Record<PartSlot, string> = { mobility: 'Mobility', body: 'Body
 const message = (e: unknown) => (e instanceof ApiFailure ? e.message : 'Something went wrong. Try again.');
 
 /**
- * The "Who's playing?" sheet over the game: pick your robot, make a new one, type a PIN, or (for owners) tidy the
- * roster. It stops key presses from reaching the game, so typing a name doesn't drive the robot around.
+ * The sheet over the game when a player arrives: one big **Play** (a guest: build a robot and roll out), and a quieter
+ * **Log in** for registered players. It also holds the robot builder, which the Bot Maker opens to rebuild a robot,
+ * and the owner panel. It stops key presses from reaching the game, so typing a name doesn't drive the robot around.
  */
-export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): RosterPicker {
+export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
   const body = h('div', { class: 'view' });
   const root = h(
     'div',
-    { class: 'roster', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'roster-title', hidden: '' },
-    h('div', { class: 'sheet' }, h('div', { class: 'eyebrow' }, 'Ring Seven · roster'), body),
+    { class: 'arrival', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'arrival-title', hidden: '' },
+    h('div', { class: 'sheet' }, h('div', { class: 'eyebrow' }, 'Ring Seven · Saber Side'), body),
   );
   for (const type of ['keydown', 'keyup', 'keypress'] as const) {
     root.addEventListener(type, (e) => {
@@ -90,12 +100,12 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
   }
   document.body.append(root);
   const sheet = root.firstElementChild as HTMLElement;
-  let current: RosterView = { kind: 'list' };
+  let current: ArrivalView = { kind: 'welcome' };
   let preview: RobotPreview | undefined;
 
   function back() {
-    if (current.kind === 'list') dismiss();
-    else show({ kind: 'list' });
+    if (current.kind === 'welcome' || (current.kind === 'build' && current.rebuild)) dismiss();
+    else show({ kind: 'welcome' });
   }
 
   function dismiss() {
@@ -113,31 +123,30 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
     preview = undefined;
   }
 
-  function show(view: RosterView = { kind: 'list' }) {
+  function show(view: ArrivalView = { kind: 'welcome' }) {
     current = view;
     root.hidden = false;
     endPreview();
-    sheet.classList.toggle('wide', view.kind === 'new');
+    sheet.classList.toggle('wide', view.kind === 'build');
     body.replaceChildren(...render(view));
-    body.querySelector<HTMLElement>('input:not([type=radio]), .robot')?.focus();
+    const focus = view.kind === 'welcome' ? '.play' : 'input:not([type=radio])';
+    body.querySelector<HTMLElement>(focus)?.focus();
   }
 
   function title(text: string) {
-    return h('h2', { id: 'roster-title' }, text);
+    return h('h2', { id: 'arrival-title' }, text);
   }
 
   function error(text?: string) {
     return h('p', { class: 'error', role: 'alert' }, text ?? '');
   }
 
-  function render(view: RosterView): Node[] {
+  function render(view: ArrivalView): Node[] {
     switch (view.kind) {
-      case 'list':
-        return renderList(view.robots, view.error);
-      case 'new':
-        return renderNew(view.error);
-      case 'pin':
-        return renderPin(view.robot, view.error);
+      case 'welcome':
+        return renderWelcome(view.name, view.error);
+      case 'build':
+        return renderBuild(view.rebuild, view.error);
       case 'owner-key':
         return renderOwnerKey(view.error);
       case 'owner':
@@ -145,35 +154,55 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
     }
   }
 
-  function renderList(robots: RobotCard[] | undefined, err?: string): Node[] {
-    if (!robots) {
-      api.roster().then(
-        (r) => current.kind === 'list' && show({ kind: 'list', robots: r.robots, error: err }),
-        (e) => current.kind === 'list' && show({ kind: 'list', robots: [], error: message(e) }),
-      );
-      return [title("Who's playing?"), h('p', {}, 'Loading the roster…')];
-    }
-    const cards = robots.map((robot) => {
-      const card = h(
-        'button',
-        { type: 'button', class: 'robot', 'data-robot': robot.id },
-        paint(robot.color),
-        h('span', { class: 'name' }, robot.name),
-        robot.pin && h('span', { class: 'lock' }, 'PIN'),
-      );
-      card.addEventListener('click', () => (robot.pin ? show({ kind: 'pin', robot }) : handlers.onPick(robot)));
-      return card;
+  function renderWelcome(lastName?: string, err?: string): Node[] {
+    const play = button('Play', 'primary play', () => {
+      const build = handlers.onPlay();
+      if (!build) show({ kind: 'build' });
     });
-    const nodes: (Node | false)[] = [
-      title("Who's playing?"),
-      robots.length === 0 && h('p', {}, 'No robots yet. Make the first one!'),
-      error(err),
-      h(
-        'div',
-        { class: 'robots' },
-        ...cards,
-        button('+ New robot', 'robot new', () => show({ kind: 'new' })),
-      ),
+    const name = h('input', {
+      type: 'text',
+      name: 'username',
+      maxlength: String(ROBOT_NAME_MAX),
+      autocomplete: 'username',
+      autocapitalize: 'words',
+      spellcheck: 'false',
+      enterkeyhint: 'next',
+    });
+    name.value = lastName ?? '';
+    const pin = h('input', {
+      type: 'password',
+      name: 'pin',
+      inputmode: 'numeric',
+      maxlength: '4',
+      autocomplete: 'current-password',
+    });
+    const err$ = error(err);
+    const login = h(
+      'form',
+      { class: 'login' },
+      h('label', {}, 'Username', name),
+      h('label', {}, 'PIN', pin),
+      button('Log in', 'ghost', () => {}, 'submit'),
+      err$,
+    );
+    login.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!cleanRobotName(name.value)) {
+        err$.textContent = 'Type your username.';
+        return;
+      }
+      if (!isPin(pin.value)) {
+        err$.textContent = 'Your PIN is 4 digits.';
+        return;
+      }
+      handlers.onLogin(name.value, pin.value);
+    });
+    return [
+      title('Welcome aboard'),
+      h('p', {}, 'Build a robot and roll out onto the station. No sign-up needed.'),
+      play,
+      h('div', { class: 'or' }, 'Already registered?'),
+      login,
       h(
         'div',
         { class: 'foot' },
@@ -184,71 +213,35 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
         }),
       ),
     ];
-    return nodes.filter((n): n is Node => n !== false);
   }
 
-  function renderNew(err?: string): Node[] {
-    const name = h('input', {
-      type: 'text',
-      name: 'name',
-      maxlength: String(ROBOT_NAME_MAX),
-      autocomplete: 'off',
-      autocapitalize: 'words',
-      spellcheck: 'false',
-      enterkeyhint: 'next',
-    });
-    const parts = renderParts(classicBuild());
-    const pin = h('input', {
-      type: 'password',
-      name: 'pin',
-      inputmode: 'numeric',
-      maxlength: '4',
-      pattern: '[0-9]{4}',
-      autocomplete: 'off',
-      placeholder: 'none',
-    });
+  function renderBuild(rebuild: { name: string; build: RobotBuild } | undefined, err?: string): Node[] {
+    const parts = renderParts(rebuild?.build ?? classicBuild());
     const err$ = error(err);
-    const submit = button('Come aboard', 'primary', () => {}, 'submit');
     const form = h(
       'form',
       {},
-      h('label', {}, 'Name', name),
       parts.node,
-      h('label', {}, 'PIN (optional, 4 digits)', pin),
       err$,
       h(
         'div',
         { class: 'actions' },
-        button('Back', 'ghost', () => show({ kind: 'list' })),
-        submit,
+        button(rebuild ? 'Keep it' : 'Back', 'ghost', back),
+        button('Roll out', 'primary', () => {}, 'submit'),
       ),
     );
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const clean = cleanRobotName(name.value);
-      if (!clean) {
-        err$.textContent = 'Pick a name of 1 to 16 letters or numbers.';
-        return;
-      }
-      if (pin.value && !isPin(pin.value)) {
-        err$.textContent = 'A PIN is exactly 4 digits, or leave it empty.';
-        return;
-      }
       const build = parts.read();
       if (!build.mobility) {
         err$.textContent = 'Every robot needs a wheel to roll on.';
         return;
       }
-      submit.disabled = true;
-      try {
-        const robot = await api.create({ name: clean, build, ...(pin.value ? { pin: pin.value } : {}) });
-        handlers.onPick(robot, pin.value || undefined);
-      } catch (e) {
-        err$.textContent = message(e);
-        submit.disabled = false;
-      }
+      hide();
+      if (rebuild) handlers.onRebuilt(build);
+      else handlers.onBuilt(build);
     });
-    return [title('Build a robot'), form];
+    return [title(rebuild ? `Rebuild ${rebuild.name}` : 'Build your robot'), form];
   }
 
   /**
@@ -323,54 +316,30 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
     return { node, read };
   }
 
-  function renderPin(robot: RobotCard, err?: string): Node[] {
-    const pin = h('input', {
-      type: 'password',
-      name: 'pin',
-      inputmode: 'numeric',
-      maxlength: '4',
-      autocomplete: 'off',
-      'aria-label': `${robot.name}'s PIN`,
-    });
-    const form = h(
-      'form',
-      {},
-      h('label', {}, `${robot.name}'s PIN`, pin),
-      error(err),
-      h(
-        'div',
-        { class: 'actions' },
-        button('Back', 'ghost', () => show({ kind: 'list' })),
-        button('Come aboard', 'primary', () => {}, 'submit'),
-      ),
-    );
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      handlers.onPick(robot, pin.value);
-    });
-    return [title(`Hi, ${robot.name}`), form];
-  }
-
   function renderOwnerKey(err?: string): Node[] {
     const key = h('input', { type: 'password', name: 'key', autocomplete: 'off', 'aria-label': 'Owner key' });
     const err$ = error(err);
     const form = h(
       'form',
       {},
-      h('p', {}, 'Owners can rename robots, clear a forgotten PIN, or remove a robot. The key is ADMIN_KEY on Render.'),
+      h(
+        'p',
+        {},
+        'Owners can rename players and robots, reset a forgotten PIN, or remove them. The key is ADMIN_KEY on Render.',
+      ),
       h('label', {}, 'Owner key', key),
       err$,
       h(
         'div',
         { class: 'actions' },
-        button('Back', 'ghost', () => show({ kind: 'list' })),
+        button('Back', 'ghost', () => show({ kind: 'welcome' })),
         button('Unlock', 'primary', () => {}, 'submit'),
       ),
     );
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       try {
-        await api.owner(key.value).check();
+        await handlers.owner(key.value).check();
         handlers.ownerKey.set(key.value);
         show({ kind: 'owner', key: key.value });
       } catch (e) {
@@ -381,8 +350,8 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
   }
 
   function renderOwner(key: string, err?: string): Node[] {
-    const owner = api.owner(key);
-    const list = h('div', {}, h('p', {}, 'Loading the roster…'));
+    const owner = handlers.owner(key);
+    const list = h('div', {}, h('p', {}, 'Loading players…'));
     const err$ = error(err);
     const act = async (work: () => Promise<unknown>) => {
       try {
@@ -395,25 +364,48 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
         } else err$.textContent = message(e);
       }
     };
-    api.roster().then(
-      ({ robots }) =>
+    const rename = (what: string, current: string, run: (name: string) => Promise<unknown>) =>
+      button('Rename', '', () => {
+        const name = prompt(`New name for ${what} ${current}`, current);
+        if (name !== null) act(() => run(name));
+      });
+    const playerRows = (player: OwnerPlayer) => [
+      h(
+        'div',
+        { class: 'owner-row', 'data-player': player.id },
+        h(
+          'span',
+          { class: 'name' },
+          player.name,
+          player.pinReset && h('span', { class: 'need' }, ' · new PIN next login'),
+        ),
+        rename('player', player.name, (name) => owner.renamePlayer(player.id, name)),
+        button('Reset PIN', '', () => {
+          if (confirm(`Reset ${player.name}'s PIN? The next PIN they log in with becomes their new one.`))
+            act(() => owner.resetPin(player.id));
+        }),
+        button('Remove', '', () => {
+          if (confirm(`Remove ${player.name} and all their robots?`)) act(() => owner.removePlayer(player.id));
+        }),
+      ),
+      ...player.robots.map((robot) =>
+        h(
+          'div',
+          { class: 'owner-row robot-row', 'data-robot': robot.id },
+          h('span', { class: 'name' }, h('span', { class: 'dot', style: `--paint: ${robot.color}` }), robot.name),
+          rename('robot', robot.name, (name) => owner.renameRobot(robot.id, name)),
+          player.robots.length > 1 &&
+            button('Remove', '', () => {
+              if (confirm(`Remove the robot ${robot.name}?`)) act(() => owner.removeRobot(robot.id));
+            }),
+        ),
+      ),
+    ];
+    owner.players().then(
+      (players) =>
         list.replaceChildren(
-          ...(robots.length ? [] : [h('p', {}, 'No robots yet.')]),
-          ...robots.map((robot) =>
-            h(
-              'div',
-              { class: 'owner-row' },
-              h('span', { class: 'name' }, h('span', { class: 'dot', style: `--paint: ${robot.color}` }), robot.name),
-              button('Rename', '', () => {
-                const name = prompt(`New name for ${robot.name}`, robot.name);
-                if (name !== null) act(() => owner.rename(robot.id, name));
-              }),
-              robot.pin && button('Clear PIN', '', () => act(() => owner.clearPin(robot.id))),
-              button('Remove', '', () => {
-                if (confirm(`Remove ${robot.name} from the roster?`)) act(() => owner.remove(robot.id));
-              }),
-            ),
-          ),
+          ...(players.length ? [] : [h('p', {}, 'No registered players yet.')]),
+          ...players.flatMap(playerRows),
         ),
       (e) => list.replaceChildren(error(message(e))),
     );
@@ -424,10 +416,10 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
       h(
         'div',
         { class: 'foot' },
-        button('Back', 'link', () => show({ kind: 'list' })),
+        button('Back', 'link', () => show({ kind: 'welcome' })),
         button('Lock this device', 'link', () => {
           handlers.ownerKey.set(undefined);
-          show({ kind: 'list' });
+          show({ kind: 'welcome' });
         }),
       ),
     ];

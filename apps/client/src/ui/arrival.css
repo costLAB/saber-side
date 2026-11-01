@@ -1,5 +1,6 @@
-/* The roster screen: who's playing? A sheet over the game, sized for thumbs on an iPad. */
-.roster {
+/* The arrival screen (Play, or log in), the robot builder, and the owner panel: a sheet over the game, sized for thumbs
+   on an iPad. */
+.arrival {
   position: fixed;
   inset: 0;
   z-index: 20;
@@ -11,10 +12,10 @@
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
 }
-.roster[hidden] {
+.arrival[hidden] {
   display: none;
 }
-.roster .sheet {
+.arrival .sheet {
   box-sizing: border-box;
   width: min(560px, 100%);
   max-height: 100%;
@@ -26,30 +27,30 @@
   color: var(--ink);
   font-family: var(--mono);
 }
-.roster h2 {
+.arrival h2 {
   margin: 2px 0 14px;
   font: 700 28px / 1.05 var(--display);
   letter-spacing: 0.02em;
   color: var(--bone);
 }
-.roster p {
+.arrival p {
   margin: 0 0 12px;
   font-size: 13px;
   line-height: 1.45;
   color: var(--ink-dim);
 }
-.roster .error {
+.arrival .error {
   min-height: 1.3em;
   margin: 0;
   color: #f2a48c;
 }
 
-.roster .robots {
+.arrival .robots {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
 }
-.roster .robot {
+.arrival .robot {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -63,23 +64,17 @@
   text-align: left;
   cursor: pointer;
 }
-.roster .robot:hover,
-.roster .robot:focus-visible {
+.arrival .robot:hover,
+.arrival .robot:focus-visible {
   border-color: var(--rust);
   outline: none;
 }
-.roster .robot.new {
+.arrival .robot.new {
   justify-content: center;
   border-style: dashed;
   color: var(--ink-dim);
 }
-.roster .robot .lock {
-  margin-left: auto;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: var(--ink-dim);
-}
-.roster .paint {
+.arrival .paint {
   flex: none;
   width: 26px;
   height: 26px;
@@ -90,12 +85,39 @@
     0 0 0 1px rgba(0, 0, 0, 0.3);
 }
 
-.roster form {
+.arrival form {
   display: grid;
   gap: 14px;
 }
-.roster label,
-.roster legend {
+
+/* Arrival: one big Play button, and a quieter login under it. */
+.arrival button.play {
+  width: 100%;
+  min-height: 64px;
+  font-size: 22px;
+}
+.arrival .or {
+  margin: 18px 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.arrival .login {
+  grid-template-columns: 1fr 110px auto;
+  align-items: end;
+  gap: 10px;
+}
+.arrival .login .error {
+  grid-column: 1 / -1;
+}
+@media (max-width: 480px) {
+  .arrival .login {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.arrival label,
+.arrival legend {
   display: grid;
   gap: 6px;
   padding: 0;
@@ -104,8 +126,8 @@
   text-transform: uppercase;
   color: var(--ink-dim);
 }
-.roster input[type="text"],
-.roster input[type="password"] {
+.arrival input[type="text"],
+.arrival input[type="password"] {
   box-sizing: border-box;
   width: 100%;
   min-height: 44px;
@@ -120,50 +142,50 @@
   -webkit-user-select: text;
   user-select: text;
 }
-.roster input:focus-visible {
+.arrival input:focus-visible {
   outline: 2px solid var(--rust);
   outline-offset: 1px;
 }
-.roster fieldset {
+.arrival fieldset {
   margin: 0;
   padding: 0;
   border: 0;
 }
-.roster .paints {
+.arrival .paints {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 6px;
 }
-.roster .paints input {
+.arrival .paints input {
   position: absolute;
   opacity: 0;
   pointer-events: none;
 }
-.roster .paints .paint {
+.arrival .paints .paint {
   width: var(--swatch, 38px);
   height: var(--swatch, 38px);
   cursor: pointer;
 }
-.roster .paints input:checked + .paint {
+.arrival .paints input:checked + .paint {
   box-shadow:
     inset 0 -3px 0 rgba(0, 0, 0, 0.25),
     0 0 0 3px var(--soot),
     0 0 0 5px var(--rust);
 }
-.roster .paints input:focus-visible + .paint {
+.arrival .paints input:focus-visible + .paint {
   outline: 2px solid var(--bone);
   outline-offset: 4px;
 }
 
-.roster .actions {
+.arrival .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
 }
-.roster button.primary,
-.roster button.ghost {
+.arrival button.primary,
+.arrival button.ghost {
   min-height: 44px;
   padding: 0 18px;
   border-radius: 6px;
@@ -172,28 +194,28 @@
   text-transform: uppercase;
   cursor: pointer;
 }
-.roster button.primary {
+.arrival button.primary {
   border: 0;
   background: var(--rust);
   color: var(--ink);
   box-shadow: inset 0 -3px 0 #8a4517;
 }
-.roster button.ghost {
+.arrival button.ghost {
   border: 1px solid var(--bone-edge);
   background: transparent;
   color: var(--ink);
 }
-.roster button:disabled {
+.arrival button:disabled {
   opacity: 0.6;
   cursor: progress;
 }
-.roster .foot {
+.arrival .foot {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   margin-top: 16px;
 }
-.roster .link {
+.arrival .link {
   padding: 6px 0;
   border: 0;
   background: none;
@@ -203,7 +225,7 @@
   cursor: pointer;
 }
 
-.roster .owner-row {
+.arrival .owner-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -212,20 +234,26 @@
   border-top: 1px solid rgba(228, 220, 205, 0.12);
   font-size: 14px;
 }
-.roster .owner-row .name {
+.arrival .owner-row.robot-row {
+  padding-left: 18px;
+  border-top: 0;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+.arrival .owner-row .name {
   flex: 1 1 120px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.roster .dot {
+.arrival .dot {
   flex: none;
   width: 18px;
   height: 18px;
   border-radius: 50%;
   background: var(--paint);
 }
-.roster .owner-row button {
+.arrival .owner-row button {
   min-height: 36px;
   padding: 0 10px;
   border: 1px solid var(--bone-edge);
@@ -237,22 +265,22 @@
 }
 
 /* The robot builder: a turntable beside one row of parts (and their paint) per slot. */
-.roster .sheet.wide {
+.arrival .sheet.wide {
   width: min(820px, 100%);
 }
-.roster .paint.original {
+.arrival .paint.original {
   background:
     radial-gradient(circle at 30% 35%, rgba(150, 82, 38, 0.75) 0 3px, transparent 4px),
     radial-gradient(circle at 68% 62%, rgba(120, 70, 40, 0.6) 0 4px, transparent 5px),
     radial-gradient(circle at 60% 25%, rgba(90, 80, 70, 0.5) 0 2px, transparent 3px), #ddd4c4;
 }
-.roster .builder {
+.arrival .builder {
   display: grid;
   grid-template-columns: minmax(180px, 250px) 1fr;
   gap: 14px;
   align-items: start;
 }
-.roster .stage {
+.arrival .stage {
   position: sticky;
   top: 0;
   display: grid;
@@ -263,56 +291,56 @@
   background: radial-gradient(ellipse at 50% 85%, rgba(208, 112, 44, 0.22), transparent 65%), rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
-.roster .robot-preview {
+.arrival .robot-preview {
   display: block;
   width: 100%;
   height: 100%;
 }
-.roster .no-preview {
+.arrival .no-preview {
   margin: 0;
   padding: 12px;
   text-align: center;
 }
-.roster .slots {
+.arrival .slots {
   display: grid;
   gap: 12px;
 }
-.roster .slot {
+.arrival .slot {
   display: grid;
   gap: 2px;
   padding: 8px 10px 10px;
   border: 1px solid rgba(228, 220, 205, 0.12);
   border-radius: 8px;
 }
-.roster .slot legend {
+.arrival .slot legend {
   display: flex;
   align-items: baseline;
   gap: 8px;
   padding: 0 4px;
 }
-.roster .slot .need {
+.arrival .slot .need {
   font-size: 10px;
   letter-spacing: 0.08em;
   color: var(--rust);
 }
-.roster .parts {
+.arrival .parts {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
-.roster .chip {
+.arrival .chip {
   display: block;
   font-size: 13px;
   letter-spacing: 0.02em;
   text-transform: none;
   color: var(--ink);
 }
-.roster .chip input {
+.arrival .chip input {
   position: absolute;
   opacity: 0;
   pointer-events: none;
 }
-.roster .chip span {
+.arrival .chip span {
   display: block;
   min-height: 36px;
   box-sizing: border-box;
@@ -322,29 +350,29 @@
   background: rgba(228, 220, 205, 0.06);
   cursor: pointer;
 }
-.roster .chip input:checked + span {
+.arrival .chip input:checked + span {
   border-color: var(--rust);
   background: rgba(208, 112, 44, 0.28);
 }
-.roster .chip input:focus-visible + span {
+.arrival .chip input:focus-visible + span {
   outline: 2px solid var(--bone);
   outline-offset: 2px;
 }
-.roster .slot .paints {
+.arrival .slot .paints {
   --swatch: 30px;
   gap: 6px;
 }
-.roster .slot .paints:disabled {
+.arrival .slot .paints:disabled {
   opacity: 0.3;
 }
-.roster .slot .paints:disabled .paint {
+.arrival .slot .paints:disabled .paint {
   cursor: default;
 }
 @media (max-width: 640px) {
-  .roster .builder {
+  .arrival .builder {
     grid-template-columns: 1fr;
   }
-  .roster .stage {
+  .arrival .stage {
     position: static;
     height: 220px;
   }

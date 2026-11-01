@@ -1,18 +1,11 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import {
-  type ApiError,
-  CLOSED,
-  PROTOCOL_VERSION,
-  type RobotCard,
-  type RosterResponse,
-  type StationHealth,
-} from '@saber-side/shared';
+import { type ApiError, CLOSED, type OwnerPlayer, type StationHealth } from '@saber-side/shared';
 import express, { type Application, type RequestHandler, type Response } from 'express';
+import { type Outcome, ownerRobot, type Players } from './players.ts';
 import type { StationControl } from './rooms/station-room.ts';
-import type { Roster, RosterResult } from './roster.ts';
 
 export interface RouteDeps {
-  roster: Roster;
+  players: Players;
   health(): StationHealth;
   allowed(origin: string | undefined): boolean;
   /** The owner panel's key (ADMIN_KEY). Unset turns the owner endpoints off. */
@@ -24,7 +17,8 @@ export interface RouteDeps {
 /**
  * The HTTP side, next to Colyseus's own /matchmake routes:
  * - `GET /healthz` for Render's health check and uptime monitors
- * - `/api/*` for the roster screen (anyone) and the owner panel (ADMIN_KEY)
+ * - `/api/owner/*` for the owner panel (ADMIN_KEY). Players come aboard through matchmaking alone: there's no public
+ *   list of who's registered.
  */
 export function addRoutes(app: Application, deps: RouteDeps) {
   app.get('/healthz', (_req, res) => {
@@ -35,40 +29,48 @@ export function addRoutes(app: Application, deps: RouteDeps) {
   api.use(cors(deps.allowed));
   api.use(express.json({ limit: '2kb' }));
 
-  api.get('/roster', (_req, res) => {
-    res.json({ protocol: PROTOCOL_VERSION, robots: deps.roster.list() } satisfies RosterResponse);
-  });
-  api.post('/robots', (req, res) => send(res, deps.roster.create(req.body ?? {}), 201));
-
   const owner = express.Router();
   owner.use(requireOwner(deps.adminKey));
   owner.get('/check', (_req, res) => {
     res.status(204).end();
   });
-  owner.post('/robots/:id/rename', (req, res) => {
-    const result = deps.roster.rename(req.params.id, String(req.body?.name ?? ''));
-    if (result.ok) deps.station()?.refreshRobot(result.robot);
-    send(res, result);
+  owner.get('/players', (_req, res) => {
+    res.json(deps.players.list() satisfies OwnerPlayer[]);
   });
-  owner.post('/robots/:id/clear-pin', (req, res) => send(res, deps.roster.clearPin(req.params.id)));
+  owner.post('/players/:id/rename', (req, res) => {
+    send(res, deps.players.renamePlayer(req.params.id, String(req.body?.name ?? '')));
+  });
+  owner.post('/players/:id/reset-pin', (req, res) => send(res, deps.players.resetPin(req.params.id)));
+  owner.delete('/players/:id', (req, res) => {
+    deps.station()?.kickPlayer(req.params.id, CLOSED.removed);
+    if (deps.players.removePlayer(req.params.id)) res.status(204).end();
+    else res.status(404).json({ error: 'No such player.' } satisfies ApiError);
+  });
+  owner.post('/robots/:id/rename', (req, res) => {
+    const result = deps.players.renameRobot(req.params.id, String(req.body?.name ?? ''));
+    if (result.ok) deps.station()?.refreshRobot(result.value);
+    send(res, result.ok ? { ok: true, value: ownerRobot(result.value) } : result);
+  });
   owner.delete('/robots/:id', (req, res) => {
-    deps.station()?.kickRobot(req.params.id, CLOSED.removed);
-    if (deps.roster.remove(req.params.id)) res.status(204).end();
-    else res.status(404).json({ error: 'No such robot.' } satisfies ApiError);
+    const result = deps.players.removeRobot(req.params.id);
+    if (result.ok) {
+      deps.station()?.kickRobot(req.params.id, CLOSED.removed);
+      res.status(204).end();
+    } else send(res, result);
   });
   api.use('/owner', owner);
 
   app.use('/api', api);
 }
 
-function send(res: Response, result: RosterResult, okStatus = 200) {
-  if (result.ok) res.status(okStatus).json(result.robot satisfies RobotCard);
+function send(res: Response, result: Outcome<unknown>) {
+  if (result.ok) res.status(200).json(result.value);
   else res.status(result.status).json({ error: result.error } satisfies ApiError);
 }
 
 /**
  * Same rule as matchmaking: only the game's own pages get CORS headers. Requests from other sites' pages are refused
- * outright, so a form on some other page can't create robots either.
+ * outright, so a page on some other site can't use an owner's key either.
  */
 function cors(allowed: RouteDeps['allowed']): RequestHandler {
   return (req, res, next) => {

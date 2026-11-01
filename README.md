@@ -37,7 +37,7 @@ Netlify hosts the game (`netlify.toml`) and gives each PR a preview link. Render
 
 ### Coming aboard
 
-With a station server (always in `pnpm dev`, and on the hosted game), the game opens on the station's roster: **Who's playing?** Pick your robot or make a new one (a name, a paint color, and an optional 4-digit PIN). There are no accounts: the same robot works on the iPad, the MacBook, and the Quest, and each device remembers who last played on it. Coming aboard from a second device takes over from the first. Owners can unlock the owner panel (**Owner**, with the server's `ADMIN_KEY`) to rename robots, clear a forgotten PIN, or remove a robot.
+With a station server (always in `pnpm dev`, and on the hosted game), the game opens on the arrival screen. **Play** builds a robot and rolls it out as a guest, with a name like "Bot 1" and nothing saved. Registered players **Log in** with a username and a 4-digit PIN instead, and find their robots as they left them; there are no accounts beyond that, so the same login works on the iPad, the MacBook, and the Quest. Each player has one seat: coming aboard from a second device takes over from the first. Drive back into the Bot Maker to rebuild your robot. Owners can unlock the owner panel (**Owner**, with the server's `ADMIN_KEY`) to rename players and robots, reset a forgotten PIN, or remove them. The plan is in [Players, their robots, and seats](docs/initiatives/players-and-robots.md).
 
 ### Controls
 
