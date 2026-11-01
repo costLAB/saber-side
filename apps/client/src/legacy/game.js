@@ -35,7 +35,7 @@ import { makeCanvas, textureKit, wrapX } from '../render/textures';
 import { dot } from '../render/kit';
 
 /** Hooks the new modules call into (see app/aboard.ts). Filled in below, once the scene exists. */
-export const legacy = { robotKit: null, setRobotBuild(_build) {}, rollOutOfBotMaker() {}, world: null, frameHooks: [] };
+export const legacy = { robotKit: null, setRobotBuild(_build) {}, rollOutOfBotMaker() {}, drivingOnFloor() { return null; }, releaseKeys() {}, world: null, frameHooks: [] };
 
 (() => {
 const V3 = THREE.Vector3;
@@ -1543,6 +1543,8 @@ legacy.rollOutOfBotMaker = () => {
   st.rollout = S.maxSeconds;
   camPos.set(S.camera.x, S.camera.y, S.camera.z); started = true;
 };
+legacy.drivingOnFloor = () => (st.mode === 'floor' && st.rollout <= 0 ? bot.root.position : null);
+legacy.releaseKeys = () => { for (const k in keys) keys[k] = false; };
 
 // Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
 if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships };
