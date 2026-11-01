@@ -1,6 +1,5 @@
 import {
   airlockOpen,
-  altitude,
   BOARD_RANGE,
   board,
   climbingOut,
@@ -8,7 +7,6 @@ import {
   enterSpace,
   type Flight,
   type FlightEvent,
-  FT,
   flightFlame,
   HUB_CRADLES,
   type HubCradle,
@@ -20,6 +18,7 @@ import {
   mulberry,
   OMEGA,
   type Planet,
+  placeName,
   type ShipInput,
   stepFlight,
   type XYZ,
@@ -207,7 +206,7 @@ export function createFlightMode(kit: StationKit): FlightMode {
       camera.position.copy(camPos);
       camera.up.set(0, 1, 0);
       camera.lookAt(m.root.position);
-      kit.setWhere('Launching · airlock open');
+      kit.setWhere(placeName({ kind: 'airlock' }));
       kit.setPrompt('');
       return;
     }
@@ -229,14 +228,11 @@ export function createFlightMode(kit: StationKit): FlightMode {
 
     if (onSurface && flight.planet) {
       surface?.sync(flight.aliens.get(flight.planet.name) ?? []);
-      kit.setWhere(`${flight.planet.name} · ${Math.round(altitude(flight) / FT)} ft up · climb high to leave orbit`);
+      kit.setWhere(placeName({ kind: 'planet', name: flight.planet.name }));
       kit.setPrompt(climbingOut(flight) ? 'Keep climbing to return to space' : '');
     } else {
       if (space) space.ring.rotation.x = OMEGA * t;
-      const ft = (d: number) => Math.round(d / FT).toLocaleString();
-      kit.setWhere(
-        `Space · ${flight.nearest.name} ${ft(flight.nearestDist)} ft · Ring Seven dock ${ft(flight.dockDist)} ft`,
-      );
+      kit.setWhere(placeName({ kind: 'space' }));
       kit.setPrompt('Fly into a planet to land · fly into a glowing Ring dock to return');
     }
 

@@ -12,8 +12,8 @@ interface SaberDebug {
 test('spawn view', async ({ page, errors }, info) => {
   await boot(page, 1500);
   await snap(page, 'spawn.png');
-  // The top-left panel is just where you are (and, online, the station status). Nothing at the top right.
-  await expect(page.locator('.hud.tl')).toHaveText('0° around the ring · on the center line');
+  // The top-left panel names where you are (and, online, shows the station status). Nothing at the top right.
+  await expect(page.locator('.hud.tl')).toHaveText('Ring Seven');
   await expect(page.locator('h1, #spec, #aliens')).toHaveCount(0);
   await expect(page.locator('.hud.tr, #reset')).toHaveCount(0);
   if (info.project.name === 'macbook') await expect(page.locator('#keysbox .keys')).toBeVisible();
@@ -111,18 +111,18 @@ test('flying a ship out of the hub, to a planet and back', async ({ page, errors
     s.st.boardNext = s.lifts[0];
   });
   await advance(page, 9500);
-  await expect(where).toHaveText('Hub · zero g · floating');
+  await expect(where).toHaveText('Ring Seven · Hub');
   await saber.evaluate((s) => s.bot.root.position.set(12, 5, 0));
   await advance(page, 100);
   await expect(page.locator('#prompt')).toContainText('Board the ship');
 
   // board it and launch through the airlock
   await hold(page, 'g', 70);
-  await expect(where).toHaveText('Launching · airlock open');
+  await expect(where).toHaveText('Ring Seven · Airlock');
   await advance(page, 1300);
   await snap(page, 'launch.png');
   await advance(page, 1700);
-  await expect(where).toContainText('Space · ');
+  await expect(where).toHaveText('Space');
   await advance(page, 1000);
   await settled();
   await snap(page, 'space.png');
@@ -135,7 +135,7 @@ test('flying a ship out of the hub, to a planet and back', async ({ page, errors
     ship.pitch = 0;
   }, PLANETS[0] as Planet);
   await advance(page, 2000);
-  await expect(where).toContainText('EARTH · ');
+  await expect(where).toHaveText('Earth');
   await settled();
   await snap(page, 'planet.png');
 
@@ -157,7 +157,7 @@ test('flying a ship out of the hub, to a planet and back', async ({ page, errors
     s.ships.state.ship.pos.y = 600;
   });
   await advance(page, 1000);
-  await expect(where).toContainText('Space · ');
+  await expect(where).toHaveText('Space');
   await saber.evaluate((s, dockX) => {
     const f = s.ships.state;
     f.dockCooldown = 0;
@@ -166,7 +166,7 @@ test('flying a ship out of the hub, to a planet and back', async ({ page, errors
     f.ship.pitch = 0;
   }, RING_DOCKS[0]?.x ?? 0);
   await advance(page, 1500);
-  await expect(where).toHaveText('Hub · zero g · floating');
+  await expect(where).toHaveText('Ring Seven · Hub');
   expect(await saber.evaluate((s) => [s.st.mode, s.bot.root.visible, s.ships.state.phase])).toEqual([
     'hub',
     true,
