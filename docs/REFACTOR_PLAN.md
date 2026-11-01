@@ -20,7 +20,7 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **No free money.** Everyone **starts with nothing** and there's no allowance. Opening your (free) first shop starts a small, steady trickle of shards.
 - **Currency (renamed 2026-11-01):** **Cyber Crystals**, "CC" for short, and **Cyber Shards** (100 shards = 1 CC), plus raw **Cyber Ore** that must be refined at the **Refinery**: 1 ore chunk = 25 shards, less a 10% fee. (Earlier drafts said "Kyber".)
 - **Pets:** up to **3 pet bots** at a time.
-- **Clerk bots** keep a shop open for up to **8 hours** after the owner leaves.
+- **Clerk bots** keep a shop open for up to **8 hours** after the owner leaves. **A clerk is one of your own robots** put on duty (2026-11-01). Clerks earn **no wages** and cost nothing to run: the only cost is capex, buying the robot.
 - **Internal only.** This is never published, so the Star Wars names are fine.
 - **No day/night cycle.** It's space. The economy runs in **real time**.
 - **Shops sell:** carrots, hats, **pet bots** (that follow on foot or fly overhead), and a **wide assortment of lightsabers and blasters**.
@@ -30,7 +30,7 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **Voice chat:** wanted, friends only, no moderation. Lower priority.
 - **Owner panel:** just the owners.
 - **Permissions:** **as light as possible.** No accounts, passwords, or roles for players, and every player can use every feature.
-- **Players, robots, and guests (2026-11-01).** A **player** (the kid) is a unique username and a 4-digit PIN, and owns the wallet, shops, farms, and many **robots**. No emails or phone numbers. Kids come in as **guests** first: **Play** builds a robot with an auto-generated name, and nothing is saved. Guests can eat carrots and cure their paint. Registering at the **Robot Registry**, a free office next to the Bot Maker and the only place to register, saves their robot and cure and creates their Cyber Crystal wallet. Registered players log in with username and PIN, on the arrival screen or at the Registry. One seat per player: a second device takes over from the first. Existing robots are wiped. The details and the PRs are in the initiative [Players, their robots, and seats](initiatives/players-and-robots.md).
+- **Players, robots, and guests (2026-11-01).** A **player** (the kid) is a unique username and a 4-digit PIN, and owns the wallet, shops, farms, and many **robots**. No emails or phone numbers. Kids come in as **guests** first: **Play** builds a robot with an auto-generated name, and nothing is saved. Guests can eat carrots and cure their paint. Registering at the **Robot Registry**, a free office next to the Bot Maker and the only place to register, saves their robot and cure and creates their Cyber Crystal wallet. Registered players log in with username and PIN, on the arrival screen or at the Registry. One seat per player: a second device takes over from the first. Existing robots are wiped. **The first robot is free, and extra robots cost CC** at the Bot Maker, **up to 5 per player** for now. The details and the PRs are in the initiative [Players, their robots, and seats](initiatives/players-and-robots.md).
 - **Carrot-first economy, and paint that cures (2026-11-01).** A robot's paint is a see-through coat that cures 1 percentage point per carrot eaten, from 10% to the chosen color at full opacity. Robots eat through a jaw that opens on the panel seam below the eye. Economy v1 starts with carrots: carrot stands, the **Farmers** who sell carrots wholesale, and farms players can buy. The details and the PRs are in the initiative [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md).
 
 ## Initiatives
@@ -39,7 +39,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 
 | Initiative | Phase | Status |
 | --- | --- | --- |
-| [Players, their robots, and seats](initiatives/players-and-robots.md) | P3 | Planned: next `feature/guest-arrival`; lands before the carrot initiative's paint cure and wallet |
+| [Players, their robots, and seats](initiatives/players-and-robots.md) | P3 | In progress: next `feature/guest-arrival`; builds the wallet, and lands before the carrot initiative's paint cure |
 | [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 done (#13), next `feature/robot-mouth` |
 
 ---
@@ -168,7 +168,6 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
 - **Money leaves the world through:**
   - rent
   - utilities
-  - clerk wages
   - Refinery fees
   - wholesale stock
   - shop build-outs and upgrades (capex)
@@ -190,7 +189,7 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
 - **Rent per hour** = base × size × traffic. Busy spots earn more and cost more. That's the core decision.
 - Vacant spots show a "FOR LEASE" sign. Walk up and lease from the kiosk.
 - **First shop: free to open (no capex)**, and its window-shopper trickle always covers its rent. **Each additional shop costs capex**: a build-out fee scaled by size that rises with each shop you already own, so one kid can't buy the whole ring.
-- **Upgrades are capex too:** more shelf slots, a better sign, display lighting (raises appeal), and a **clerk bot**.
+- **Upgrades are capex too:** more shelf slots, a better sign, display lighting (raises appeal). **Clerks** aren't an upgrade: any robot you own can be put on duty behind your counter, and buying that robot is the only cost.
 
 ### What shops sell (launch catalog)
 
@@ -220,8 +219,8 @@ All item types are **data-driven variants of procedural generators**, so "a wide
 ### Real time, no day cycle
 
 - **A shop is open while its owner is on the station, or while a clerk bot is on shift.** A clerk keeps the shop open for up to 8 hours after the owner leaves (configurable).
-- **Rent, utilities, and wages build up only while a shop is open**, so kids aren't charged while they're at school with no clerk.
-- **Settlement:** robot sales, rent, utilities, and wages are posted to the ledger every 5 real minutes as summarized entries. Sales between players post immediately.
+- **Rent and utilities build up only while a shop is open**, so kids aren't charged while they're at school with no clerk.
+- **Settlement:** robot sales, rent, and utilities are posted to the ledger every 5 real minutes as summarized entries. Sales between players post immediately.
 - **Reports instead of daily statements:**
   - a **shift report** when you leave: sales, costs, profit
   - a **"While you were away"** summary when you return, if a clerk worked
@@ -246,7 +245,7 @@ station(id, name, settings_json)                          -- one row: Ring Seven
 players(id, display_name, pin_hash, created_at)          -- registered players only; guests aren't saved
 robots(id, player_id, display_name, color, build_json, loadout_json, created_at, piloted_at, paint_cure)
 spots(spot_id, size, traffic)                             -- seeded from shared/content
-shops(id, spot_id, owner_id, name, sign_json, status, upgrades_json, clerk_until, opened_at)
+shops(id, spot_id, owner_id, name, sign_json, status, upgrades_json, clerk_robot_id, clerk_until, opened_at)
 plots(plot_id, row_count)                                 -- farm plots, seeded from shared/content/farms.ts
 farms(id, plot_id, owner_id, bought_at, grown_until, bin_qty)
 items(id, catalog_id, variant_json, qty, owner_id, location_kind, location_ref, price_shards)
@@ -513,7 +512,7 @@ P5 starts with the initiative [Building the carrot and Cyber Crystal economy](in
 
 ### P6: Economy v2 and social (M)
 
-- Upgrades: shelf slots, sign, lighting, **clerk bots** with the "While you were away" summary.
+- Upgrades: shelf slots, sign, lighting. **Clerk bots** (your own robots on duty, no wages) with the "While you were away" summary.
 - Visible robot shoppers on the promenade, shop customization (name, sign, colors, layout).
 - Rotating Depot stock with rare saber drops, and direct player-to-player trades with a confirm step.
 - **Proximity voice chat** (section 7).

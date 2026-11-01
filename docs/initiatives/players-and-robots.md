@@ -2,10 +2,10 @@
 
 | | |
 | --- | --- |
-| **Status** | Planned: next is `feature/guest-arrival` |
+| **Status** | In progress: next is `feature/guest-arrival` |
 | **Phase** | P3, Online free roam ([plan, section 8](../REFACTOR_PLAN.md#p3-online-free-roam-m)), ahead of the carrot initiative's wallet |
 | **Started** | 2026-11-01 |
-| **Done when** | A kid opens the game, taps **Play**, builds a robot, eats carrots as a guest, walks into the Robot Registry, registers, and from then on logs in with a username and PIN on any device to find their robots, cure, and wallet as they left them. |
+| **Done when** | A kid opens the game, taps **Play**, builds a robot, eats carrots as a guest, walks into the Robot Registry, registers, and from then on logs in with a username and PIN on any device to find their robots, cure, and wallet as they left them, and can buy a second robot with Cyber Crystals. |
 
 Today one `players` row is both the kid and their robot. Where the game is heading, one kid owns many robots: some they
 play as, and some that work for them (clerk bots in their shop, farmhand bots on their farm). Money, shops, and farms
@@ -18,8 +18,9 @@ belong to the kid, not to any one robot. So this initiative splits three things 
 - **Seat:** one connection to the station, piloting at most one robot. The station is still capped at 10 seats, and
   robots on duty don't take one.
 
-It lands before the carrot initiative's `feature/paint-cure` and `feature/cyber-crystal-wallet`, so the cure is stored
-on robots and the wallet on players from the start.
+It lands before the carrot initiative's `feature/paint-cure`, so the cure is stored on robots from the start. Extra
+robots cost Cyber Crystals, so this initiative also builds the wallet (`feature/cyber-crystal-wallet`, moved here from
+the carrot initiative), on players from the start.
 
 ## Decisions
 
@@ -46,6 +47,11 @@ All by the owner, 2026-11-01.
   different robot. A guest is one player.
 - **First come, first served.** A registered player doesn't bump a guest from a full station.
 - **Existing robots are wiped.** No migration of the old rows: the next schema migration drops them.
+- **The first robot is free. Extra robots cost CC**, paid at the Bot Maker. That keeps "no free money" true once robots
+  can work: a robot on duty is labor, so it has to be bought.
+- **At most 5 robots per player** for now (`ROBOTS_PER_PLAYER = 5`).
+- **Clerks are your own robots.** A clerk (and later a farmhand) is a robot you own, put on duty. There are **no wages
+  and no running costs**: the only cost is capex, buying the robot. (Robots on duty arrive in P6.)
 
 ## Design
 
@@ -107,9 +113,41 @@ All by the owner, 2026-11-01.
   A correct PIN resets it. (With a flat minute, all 10,000 PINs take about a day and a half to try.)
 - **A forgotten PIN:** an owner resets it from the owner panel, and the kid picks a new one at their next login.
 
+### Robots and what they cost
+
+- A registered player has **1 to 5 robots**. The robot they register with is the free one.
+- **Building another** at the Bot Maker costs CC, paid from the player's wallet to the `bot_maker` ledger sink (money
+  leaving the world). Starting prices (config, tunable from the owner panel later):
+
+  | Robot | Price |
+  | --- | --- |
+  | 1st | free |
+  | 2nd | 10 CC |
+  | 3rd | 20 CC |
+  | 4th | 30 CC |
+  | 5th | 40 CC |
+
+  The price is `10 CC × robots already owned`, so it rises with each one, like extra shops and farm plots.
+- The server checks the cap and the balance and charges in one transaction, so two taps can't buy a robot twice, and a
+  robot is never made without its payment.
+- Removing a robot (owner panel only, for now) doesn't refund it.
+- **Rebuilding** a robot you own (new parts or paint) at the Bot Maker is free.
+- **On duty (P6):** a robot behind your shop counter is a clerk. It earns no wage and costs nothing per hour; it only
+  keeps the shop open (up to 8 hours after you leave). The same goes for farmhands. Since robots aren't free after the
+  first, labor is still paid for, once.
+
+### The wallet
+
+Moved here from the carrot initiative, because buying a robot needs it. The design is unchanged: an append-only
+`ledger` in shards with balances derived from it, the `12 ◆ 45` HUD readout, everyone starting at zero, owner-panel
+grants and reversals, and no negative balances. Guests have none. The Robot Registry opens a player's wallet when they
+register. When the owner removes a player, their balance is posted to a `removed` sink first, so money in − money out
+still equals the sum of balances.
+
 ### The owner panel
 
-- Players: list, rename, reset PIN, remove (with their robots).
+- Players: list, rename, reset PIN, remove (with their robots). Once the wallet lands: each player's balance, grants,
+  and reversing a ledger entry.
 - Robots: rename, remove (kicking the seat piloting it back to the arrival screen).
 - Guests aren't listed; there's nothing saved to tidy.
 
@@ -127,15 +165,17 @@ robots(id, player_id, display_name, color, build_json, loadout_json, created_at,
 - `pin_hash` is `NOT NULL`: a saved player always has a PIN (a reset stores a "pick a new one" marker instead).
 - `robots.player_id` references `players(id)`, `ON DELETE CASCADE`.
 - `piloted_at` picks the robot a login comes aboard as.
-- Limits in config: `PLAYERS_MAX = 60`, `ROBOTS_PER_PLAYER = 8`, replacing `ROSTER_MAX`.
-- Later: `robots.paint_cure` (carrot initiative), and robot duty columns for clerks and farmhands (P6).
+- Limits in config: `PLAYERS_MAX = 60`, `ROBOTS_PER_PLAYER = 5`, replacing `ROSTER_MAX`.
+- Migration 5 (with the wallet): `ledger(id, ts, from_acct, to_acct, amount_shards, reason, ref)`.
+- Later: `robots.paint_cure` (carrot initiative), and robot duty (a clerk's shop, a farmhand's farm) for P6.
 
 ### Protocol
 
 - `JoinRequest` becomes `{ protocol, guest: { build } }` or `{ protocol, login: { name, pin } }`.
 - `GET /roster` (the public list of robots) goes away. `POST /robots` is replaced by building at the Bot Maker over the
   seat.
-- New messages: `register`, `login`, and `pilot`, with results the seat can show.
+- New messages: `rebuild`, `register`, `login`, `build` (a new robot), and `pilot`, with results the seat can show,
+  and a private `wallet` notice to the seat with its player's balance.
 - `JOIN_REFUSED.wrongPin` covers a wrong username too. `JOIN_REFUSED.unknownRobot` goes.
 
 ## The PRs
@@ -145,9 +185,10 @@ merges.
 
 | # | Status | Branch | PR title | What it adds | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Next | `feature/guest-arrival` | Let kids play straight away as a guest | Migration 4 (the old robots go). The arrival screen: **Play**, the builder with no name or PIN, auto-named guests held in the room's memory, and the **Log in** form with the last username filled in. `players` and `robots` tables, PINs per player with growing lockouts, one seat per player, the full-station takeover fix. The owner panel on players and robots. Nobody can register until PR 2, so for one PR everyone is a guest. | migration 4, `PROTOCOL_VERSION` 5 |
-| 2 | | `feature/robot-registry` | Let guests register at the Robot Registry | The Registry office next to the Bot Maker (`world/robot-registry.ts`), its kiosk, Register (username, PIN twice, the robot saved under the new player) and Log in (switching the seat to that player). The HUD nudges for guests. The server refuses registered-only requests from guests. | `PROTOCOL_VERSION` 6 |
-| 3 | | `feature/several-robots-per-player` | Let registered players keep several robots | Building more robots at the Bot Maker (`ROBOTS_PER_PLAYER`), picking which to pilot there, and switching in place with `MESSAGE.pilot` so the seat is never let go. | `PROTOCOL_VERSION` 7 |
+| 1 | Next | `feature/guest-arrival` | Let kids play straight away as a guest | Migration 4 (the old robots go). The arrival screen: **Play**, the builder with no name or PIN, auto-named guests held in the room's memory, and the **Log in** form with the last username filled in. `players` and `robots` tables, PINs per player with growing lockouts, one seat per player, the full-station takeover fix. Rebuilding your robot at the Bot Maker over the seat. The owner panel on players and robots. Nobody can register until PR 2, so for one PR everyone is a guest. | migration 4, `PROTOCOL_VERSION` 5 |
+| 2 | | `feature/robot-registry` | Let guests register at the Robot Registry | The Registry office next to the Bot Maker (`world/robot-registry.ts`), its kiosk, Register (username, PIN twice, the robot saved under the new player) and Log in (switching the seat to that player). The HUD nudges for guests. | `PROTOCOL_VERSION` 6 |
+| 3 | | `feature/cyber-crystal-wallet` | Give every registered player a Cyber Crystal wallet | Moved from the carrot initiative. The append-only ledger in shards, with balances derived from it. The wallet opens when a guest registers; guests have none. The `12 ◆ 45` HUD readout (12 CC, 45 shards), sent privately to the seat. Everyone starts at zero. Owner-panel grants and reversals. Removing a player posts their balance to the `removed` sink. No negative balances. | migration 5 (`ledger`), `PROTOCOL_VERSION` 7 |
+| 4 | | `feature/several-robots-per-player` | Let registered players keep several robots | Building more robots at the Bot Maker, up to `ROBOTS_PER_PLAYER` (5): the first is free, and each extra one costs 10 CC × robots already owned, paid to the `bot_maker` sink. Picking which to pilot there, and switching in place with `MESSAGE.pilot` so the seat is never let go. | `PROTOCOL_VERSION` 8 |
 
 The protocol and migration numbers assume these PRs merge in this order, before the carrot initiative's PRs that bump
 them. If they land in a different order, or another PR takes a number first, use the next free one when you merge.
@@ -166,6 +207,9 @@ first-run check) describe today's roster until PR 1 replaces it.
     name or a `Bot <n>` name is refused.
   - Log in at the Registry switches the seat to that player and discards the guest.
   - Guests can't hold a wallet, lease, buy a farm, or build a second robot.
+  - A second robot costs 10 CC, a fifth 40 CC, and a sixth is refused; a player who can't pay is refused, and nothing
+    is charged. Two taps at once buy one robot.
+  - Ledger invariants: money in − money out = the sum of balances, including after a player is removed.
   - `pilot` switches robots without the seat being let go, and refuses another player's robot.
   - Owner panel: rename, reset a PIN, remove a player and their robots (kicking their seat).
 - **E2E:** Play → build → roll out as `Bot 1`. The Log in form fills in the last username. Register at the Registry,
