@@ -1,3 +1,4 @@
+export * from './content/places.ts';
 export * from './content/robot-parts.ts';
 export * from './content/space.ts';
 export * from './content/spawn.ts';

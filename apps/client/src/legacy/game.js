@@ -16,6 +16,7 @@ import {
   lerp,
   mulberry,
   OMEGA,
+  placeName,
   R_IN,
   R_OUT,
   RPM,
@@ -1230,7 +1231,7 @@ function update(dt, t) {
   for (const f of spinners) f(dt, t);
   sky.rotation.x = -OMEGA * t;
   syncLights();
-  updateWhere(p);
+  updateWhere();
 
   for (const k in pressed) pressed[k] = false;
 }
@@ -1362,7 +1363,7 @@ function updateReal(dt, t) {
       const r = st.mode === 'up' ? lerp(R_IN, HUB_R - 1.5, e) : lerp(HUB_R - 1.5, R_IN, e);
       P.copy(L.u).multiplyScalar(r);
       g = r / R_IN;
-      where = `Lift ${L.k + 1} · ${Math.round((r - HUB_R) / FT)} ft to the hub · ${g.toFixed(2)} g`;
+      where = placeName({ kind: 'lift', lift: L.k });
       if (s >= 1) {
         if (st.mode === 'up') { st.mode = 'hub'; fl.V.copy(L.u).multiplyScalar(-1.2); }
         else { landLift(L); updatePrompt(bot.root.position); return; }
@@ -1394,7 +1395,7 @@ function updateReal(dt, t) {
       if (pressed.grab) { st.mode = 'ship'; bot.root.visible = false; cab.visible = false; ships.board(ship.cradle); return; }
       prompt = 'Board the ship and fly out the airlock'; best = null;
     }
-    where = 'Hub · zero g · floating';
+    where = placeName({ kind: 'hub' });
     if (best && pressed.grab) {
       st.mode = 'down'; st.lift = best; st.rideT = 0;
       fl.startPos.copy(P); fl.startQ.copy(R0.quaternion); fl.V.set(0, 0, 0);
@@ -1505,9 +1506,8 @@ function syncLights() {
 }
 const whereEl = document.getElementById('where');
 let whereTxt = '';
-function updateWhere(p) {
-  const deg = Math.round(((p.z / R_IN) * 180 / Math.PI % 360 + 360) % 360), ft = Math.round(Math.abs(p.x) / FT);
-  const txt = `${deg}° around the ring · ${ft < 3 ? 'on the center line' : `${ft} ft toward the ${p.x > 0 ? 'east' : 'west'} cap`}`;
+function updateWhere() {
+  const txt = placeName({ kind: 'ring' });
   if (txt !== whereTxt) { whereTxt = txt; whereEl.textContent = txt; }
 }
 
