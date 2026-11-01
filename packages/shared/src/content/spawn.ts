@@ -1,9 +1,10 @@
-import type { XYZ } from '../ring-space.ts';
+import { wrapD, type XYZ } from '../ring-space.ts';
 
 /**
  * The Bot Maker: the workshop on the promenade where new robots are made. It stands on the west (-x) side of the
  * start plaza, between two lamp posts, with its bay door facing the walkway. Coming aboard, a robot is put together
- * inside and rolls itself out through the door into the walkway, and then it's yours to drive.
+ * inside and rolls itself out through the door into the walkway, and then it's yours to drive. Driving back in
+ * through the door is how a player switches robots: it opens the roster, to pick another robot or build a new one.
  *
  * Floor-strip coordinates (x across the ring, z around it).
  */
@@ -29,3 +30,12 @@ export const BOT_MAKER = {
     camera: { x: -12, y: 3.4, z: 31 } satisfies XYZ,
   },
 } as const;
+
+/** How far past the front wall a robot has to drive before it counts as inside the Bot Maker. */
+const THRESHOLD = 1;
+
+/** Whether a floor-strip point is inside the Bot Maker, past its doorway. */
+export function insideBotMaker(x: number, z: number): boolean {
+  const B = BOT_MAKER;
+  return x > B.back && x < B.front - THRESHOLD && Math.abs(wrapD(z - B.z)) < B.width / 2;
+}

@@ -7,12 +7,14 @@ import { createRosterPicker, type RosterView } from '../ui/roster-picker';
 import { type StatusLine, showStationStatus } from '../ui/station-status';
 import { device } from './device';
 import { createPresence } from './presence';
+import { switchAtBotMaker } from './switch-robot';
 
 const ROSTER_RETRY_MS = [1000, 2000, 5000, 10_000, 20_000, 30_000];
 
 /**
  * Coming aboard: load the roster, pick (or build) a robot, and keep this device aboard as it. Once the station lets
- * it in, the robot is assembled from its parts and rolls out of the Bot Maker onto the promenade.
+ * it in, the robot is assembled from its parts and rolls out of the Bot Maker onto the promenade. Driving back into
+ * the Bot Maker opens the roster again, to switch robots.
  *
  * A device remembers the robot it last played, so the next visit goes straight aboard. Robots with a PIN always ask
  * for it, since siblings often share a device. The game stays playable behind all of this.
@@ -31,7 +33,6 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
 
   const status = (line: StatusLine) =>
     showStationStatus(statusEl, line, robot?.name, {
-      switchRobot: () => picker.show(),
       comeAboard: () => picker.show(),
       playHere: () => robot && board(robot, pin),
     });
@@ -49,6 +50,8 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
       },
     },
   });
+
+  switchAtBotMaker({ open: () => picker.show(), isOpen: () => picker.open });
 
   function board(picked: RobotCard, typedPin?: string) {
     link?.stop();

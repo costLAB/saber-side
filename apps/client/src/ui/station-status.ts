@@ -4,15 +4,19 @@ import type { StationStatus } from '../net/station-link';
 export type StatusLine = StationStatus | { kind: 'ashore' };
 
 export interface StatusActions {
-  /** Open the roster to play as someone else. */
-  switchRobot(): void;
   /** Open the roster after "Just look around". */
   comeAboard(): void;
   /** Take the robot back from the other device. */
   playHere(): void;
 }
 
-/** Status line under the title. The game works alone whatever it says, so it stays small and calm. */
+/**
+ * Status line under the title. The game works alone whatever it says, so it stays small and calm. (Switching robots
+ * isn't here: it's done by driving into the Bot Maker.)
+ *
+ * The station reports its state many times a second, so the line is only rebuilt when what it says changes. Rebuilding
+ * it every time would swap its buttons out from under a press, and the click would never land.
+ */
 export function showStationStatus(
   el: HTMLElement,
   status: StatusLine,
@@ -26,6 +30,9 @@ export function showStationStatus(
     b.addEventListener('click', run);
     return b;
   };
+  const said = JSON.stringify([status, robotName]);
+  if (!el.hidden && el.dataset.said === said) return;
+  el.dataset.said = said;
   el.hidden = false;
   el.dataset.state = status.kind;
   el.replaceChildren();
@@ -35,7 +42,7 @@ export function showStationStatus(
       break;
     case 'aboard':
       el.append(`Station · online · ${status.aboard} aboard`);
-      if (robotName) el.append(` · as ${robotName} `, action('Switch', actions.switchRobot));
+      if (robotName) el.append(` · as ${robotName}`);
       break;
     case 'restarting':
       el.append('Station restarting · back in a moment');

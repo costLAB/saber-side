@@ -1,7 +1,7 @@
 import { Client } from '@colyseus/sdk';
 import type { Page } from '@playwright/test';
 import { BOT_MAKER, MESSAGE, POSE, PROTOCOL_VERSION, STATION_ROOM, type StationView } from '@saber-side/shared';
-import { advance, boot, expect, test } from './fixtures';
+import { advance, boot, expect, hold, test } from './fixtures';
 import { STATION_PORT } from './ports';
 
 // Coming aboard the station through the roster screen, against a real station server (started by
@@ -114,6 +114,66 @@ test('asks for the PIN of a robot that has one', async ({ page, errors, request 
   await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
   // The browser logs the refused join (HTTP 401) itself; that one is expected.
   expect(errors.filter((e) => !e.includes('status of 401'))).toEqual([]);
+});
+
+test('switches robots by driving back into the Bot Maker', async ({ page, errors, request }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  const make = async (name: string, color: string) =>
+    (await request.post(`${STATION}/api/robots`, { data: { name, color } })).json();
+  const first = await make(fresh('Ada'), '#8fc4f2');
+  const second = await make(fresh('Bo'), '#f4a2c8');
+  const sheet = page.locator('.roster');
+  /** Points the robot along the walkway (into the Bot Maker, or back out of it) and drives for a few seconds. */
+  const drive = async (into: boolean) => {
+    await page.evaluate(
+      (yaw) => {
+        // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+        (window as any).__saber.st.yaw = yaw;
+      },
+      (into ? -Math.PI : Math.PI) / 2,
+    );
+    await hold(page, 'ArrowUp', 3000);
+  };
+
+  await online(page);
+  await page.goto('/?debug');
+  await page.locator('.roster .robot', { hasText: first.name }).click();
+  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${first.name}`);
+  await expect(page.locator('#station button')).toHaveCount(0);
+  // Rolling out of the Bot Maker, where every robot starts, doesn't open the roster.
+  await advance(page, 6000);
+  expect(await saber<number>(page, 's.st.rollout')).toBe(0);
+  await expect(sheet).toBeHidden();
+
+  // Driving back in through the door does, and lets go of the key that drove it there.
+  await drive(true);
+  await expect(sheet).toBeVisible();
+  await expect(page.getByRole('heading', { name: "Who's playing?" })).toBeVisible();
+  await expect(page.getByRole('button', { name: '+ New robot' })).toBeVisible();
+  expect(await saber<number>(page, 's.bot.root.position.x')).toBeLessThan(BOT_MAKER.front);
+  expect(await saber(page, 's.keys.up')).toBe(false);
+
+  // "Just look around" keeps this robot, and the roster stays shut until the robot has left and come back.
+  await page.getByRole('button', { name: 'Just look around' }).click();
+  await expect(sheet).toBeHidden();
+  await advance(page, 1000);
+  await expect(sheet).toBeHidden();
+  await expect(page.locator('#station')).toContainText(`as ${first.name}`);
+  await drive(false);
+  await expect(sheet).toBeHidden();
+  expect(await saber<number>(page, 's.bot.root.position.x')).toBeGreaterThan(BOT_MAKER.front);
+  await drive(true);
+  await expect(sheet).toBeVisible();
+
+  // Picking another robot comes aboard as it, and it rolls out of the Bot Maker like any new robot.
+  await page.locator('.roster .robot', { hasText: second.name }).click();
+  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${second.name}`);
+  await expect(sheet).toBeHidden();
+  expect(await saber<number>(page, 's.st.rollout')).toBeGreaterThan(0);
+  expect(await saber(page, 's.bot.build.body.paint')).toBe(second.color);
+  await advance(page, 6000);
+  await expect(sheet).toBeHidden();
+  expect(errors).toEqual([]);
 });
 
 test("sees another player's robot, and sends its own", async ({ page, errors, request }, info) => {
