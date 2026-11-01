@@ -1,6 +1,8 @@
 import {
   type AboardView,
   ARM_POSE,
+  classicBuild,
+  cleanRobotBuild,
   MESSAGE,
   POSE,
   POSE_HZ,
@@ -14,7 +16,7 @@ import type { DrawTexFn } from '../render/kit';
 import { textLabel } from '../render/label';
 import { bendMaterial } from '../render/ring/bend';
 
-// Other players' robots: built when they come aboard, painted their color, labeled with their name, and moved to
+// Other players' robots: built from their parts when they come aboard, labeled with their name, and moved to
 // follow the poses the station passes on. Remote robots are drawn a little in the past (DELAY_MS) and blended between
 // the two poses either side of that moment, so they move smoothly even though poses arrive only a few times a second.
 // This device's own pose goes out at POSE_HZ.
@@ -66,6 +68,7 @@ interface Remote {
   label: THREE.Sprite;
   name: string;
   color: string;
+  build: string;
   snaps: Snapshot[];
 }
 
@@ -101,6 +104,15 @@ function readPose(bot: Robot): number[] {
     for (const k of ARM_POSE) v[`arm${i}${k}`] = arm.cur[k];
   });
   return POSE.map(([name]) => v[name] ?? 0);
+}
+
+/** A player's parts, from their synced entry. Anything unreadable draws as the classic robot in their color. */
+function parseBuild(entry: AboardView) {
+  try {
+    return cleanRobotBuild(JSON.parse(entry.build)) ?? classicBuild(entry.color);
+  } catch {
+    return classicBuild(entry.color);
+  }
 }
 
 /** The pose numbers from a player's synced entry, in POSE order. */
@@ -157,17 +169,14 @@ export function createPresence(world: PresenceWorld, now: () => number = () => p
   let lastSent = '';
 
   function build(entry: AboardView): Remote {
-    const M = world.kit.materials;
-    // Each remote robot wears its own paint, on its own copies of the shell and head materials. No eye light: a
-    // point light per robot would cost every lit pixel.
-    const shell = (M.shell as THREE.MeshStandardMaterial).clone();
-    const head = (M.head as THREE.MeshStandardMaterial).clone();
-    shell.color.set(entry.color);
-    head.color.set(entry.color);
-    const robot = buildRobot({ ...world.kit, materials: { ...M, shell, head } });
+    // Built from its own parts, each in its own paint (painted parts get their own copies of the materials). No eye
+    // light: a point light per robot would cost every lit pixel.
+    const robot = buildRobot(world.kit, parseBuild(entry));
+    // The name floats just over the top of the robot, however tall its parts make it.
+    const top = new THREE.Box3().setFromObject(robot.core).max.y;
     const label = textLabel(world.drawTex, entry.name, entry.color);
     label.scale.set(0.16, 0.03, 1);
-    label.position.y = 3.9;
+    label.position.y = top + 0.55;
     robot.root.add(label);
     // Bend it onto the ring like everything else on the floor (shared materials already are; the copies and the
     // robot's own sprites aren't yet). Bent things can't be frustum-culled by their unbent bounds.
@@ -183,7 +192,7 @@ export function createPresence(world: PresenceWorld, now: () => number = () => p
     });
     robot.root.visible = false;
     world.scene.add(robot.root);
-    return { robot, label, name: entry.name, color: entry.color, snaps: [] };
+    return { robot, label, name: entry.name, color: entry.color, build: entry.build, snaps: [] };
   }
 
   function remove(id: string) {
@@ -213,8 +222,8 @@ export function createPresence(world: PresenceWorld, now: () => number = () => p
       if (id === room?.sessionId) return;
       here.add(id);
       let r = remotes.get(id);
-      // A rename or repaint by the owner: rebuild with the new look.
-      if (r && (r.name !== entry.name || r.color !== entry.color)) {
+      // A rename, or a new look: rebuild.
+      if (r && (r.name !== entry.name || r.color !== entry.color || r.build !== entry.build)) {
         remove(id);
         r = undefined;
       }

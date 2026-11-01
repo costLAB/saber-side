@@ -1,5 +1,19 @@
-import { cleanRobotName, isPin, ROBOT_COLORS, ROBOT_NAME_MAX, type RobotCard } from '@saber-side/shared';
+import {
+  classicBuild,
+  cleanRobotName,
+  isPin,
+  ORIGINAL_PAINT,
+  PART_SLOTS,
+  type PartSlot,
+  REQUIRED_SLOTS,
+  ROBOT_COLORS,
+  ROBOT_NAME_MAX,
+  ROBOT_PARTS,
+  type RobotBuild,
+  type RobotCard,
+} from '@saber-side/shared';
 import { ApiFailure, type RosterApi } from '../net/roster-api';
+import type { RobotPreview } from './robot-preview';
 import './roster.css';
 
 /** What the roster screen can show. Each view can carry an error to show (say, "Wrong PIN" after a join). */
@@ -15,6 +29,8 @@ export interface RosterHandlers {
   onPick(robot: RobotCard, pin?: string): void;
   /** "Just look around": play without coming aboard. */
   onDismiss(): void;
+  /** A turntable for the robot builder, if this device can draw one. */
+  preview?(): RobotPreview | undefined;
   ownerKey: { get(): string | undefined; set(key: string | undefined): void };
 }
 
@@ -44,7 +60,14 @@ function button(label: Child, cls: string, onClick: () => void, type: 'button' |
   return b;
 }
 
-const paint = (hex: string) => h('span', { class: 'paint', style: `--paint: ${hex}`, 'aria-hidden': 'true' });
+const paint = (hex: string) =>
+  h('span', {
+    class: hex === ORIGINAL_PAINT ? 'paint original' : 'paint',
+    style: `--paint: ${hex}`,
+    'aria-hidden': 'true',
+  });
+
+const SLOT_NAMES: Record<PartSlot, string> = { mobility: 'Mobility', body: 'Body', head: 'Head', arms: 'Arms' };
 
 const message = (e: unknown) => (e instanceof ApiFailure ? e.message : 'Something went wrong. Try again.');
 
@@ -66,7 +89,9 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
     });
   }
   document.body.append(root);
+  const sheet = root.firstElementChild as HTMLElement;
   let current: RosterView = { kind: 'list' };
+  let preview: RobotPreview | undefined;
 
   function back() {
     if (current.kind === 'list') dismiss();
@@ -80,11 +105,19 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
 
   function hide() {
     root.hidden = true;
+    endPreview();
+  }
+
+  function endPreview() {
+    preview?.dispose();
+    preview = undefined;
   }
 
   function show(view: RosterView = { kind: 'list' }) {
     current = view;
     root.hidden = false;
+    endPreview();
+    sheet.classList.toggle('wide', view.kind === 'new');
     body.replaceChildren(...render(view));
     body.querySelector<HTMLElement>('input:not([type=radio]), .robot')?.focus();
   }
@@ -164,11 +197,7 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
       spellcheck: 'false',
       enterkeyhint: 'next',
     });
-    const paints = ROBOT_COLORS.map((c, i) => {
-      const radio = h('input', { type: 'radio', name: 'paint', value: c.hex, 'aria-label': c.name });
-      if (i === 0) radio.checked = true;
-      return h('label', { title: c.name }, radio, paint(c.hex));
-    });
+    const parts = renderParts(classicBuild());
     const pin = h('input', {
       type: 'password',
       name: 'pin',
@@ -184,7 +213,7 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
       'form',
       {},
       h('label', {}, 'Name', name),
-      h('fieldset', {}, h('legend', {}, 'Paint'), h('div', { class: 'paints' }, ...paints)),
+      parts.node,
       h('label', {}, 'PIN (optional, 4 digits)', pin),
       err$,
       h(
@@ -205,17 +234,93 @@ export function createRosterPicker(api: RosterApi, handlers: RosterHandlers): Ro
         err$.textContent = 'A PIN is exactly 4 digits, or leave it empty.';
         return;
       }
-      const color = form.querySelector<HTMLInputElement>('input[name=paint]:checked')?.value ?? ROBOT_COLORS[0].hex;
+      const build = parts.read();
+      if (!build.mobility) {
+        err$.textContent = 'Every robot needs a wheel to roll on.';
+        return;
+      }
       submit.disabled = true;
       try {
-        const robot = await api.create({ name: clean, color, ...(pin.value ? { pin: pin.value } : {}) });
+        const robot = await api.create({ name: clean, build, ...(pin.value ? { pin: pin.value } : {}) });
         handlers.onPick(robot, pin.value || undefined);
       } catch (e) {
         err$.textContent = message(e);
         submit.disabled = false;
       }
     });
-    return [title('New robot'), form];
+    return [title('Build a robot'), form];
+  }
+
+  /**
+   * The parts picker: a row of parts for each slot (mobility, body, head, arms), each with its own paint, beside a
+   * turntable of the robot so far. Every slot but mobility can be left empty.
+   */
+  function renderParts(start: RobotBuild) {
+    const slots = PART_SLOTS.map((slot) => {
+      const required = REQUIRED_SLOTS.includes(slot);
+      const pick = start[slot];
+      const choices: [string, string][] = [
+        ...(required ? [] : ([['', 'None']] as [string, string][])),
+        ...ROBOT_PARTS[slot].map((p): [string, string] => [p.id, p.name]),
+      ];
+      const partRadios = choices.map(([id, label]) => {
+        const radio = h('input', { type: 'radio', name: `part-${slot}`, value: id });
+        radio.checked = (pick?.part ?? '') === id;
+        return h('label', { class: 'chip' }, radio, h('span', {}, label));
+      });
+      const paintRadios = ROBOT_COLORS.map((c) => {
+        const radio = h('input', {
+          type: 'radio',
+          name: `paint-${slot}`,
+          value: c.hex,
+          'aria-label': `${SLOT_NAMES[slot]} paint: ${c.name}`,
+        });
+        radio.checked = (pick?.paint ?? ORIGINAL_PAINT) === c.hex;
+        return h('label', { title: c.name }, radio, paint(c.hex));
+      });
+      const paints = h('fieldset', { class: 'paints' }, ...paintRadios);
+      return {
+        slot,
+        paints,
+        node: h(
+          'fieldset',
+          { class: 'slot', 'data-slot': slot },
+          h(
+            'legend',
+            {},
+            SLOT_NAMES[slot],
+            required && h('span', { class: 'need' }, slot === 'mobility' ? 'needed to roll' : 'needed'),
+          ),
+          h('div', { class: 'parts' }, ...partRadios),
+          paints,
+        ),
+      };
+    });
+    const stage = h('div', { class: 'stage' });
+    const node = h('div', { class: 'builder' }, stage, h('div', { class: 'slots' }, ...slots.map((x) => x.node)));
+
+    const value = (name: string) => node.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)?.value ?? '';
+    function read(): RobotBuild {
+      const build: Record<string, { part: string; paint: string } | null> = {};
+      for (const { slot } of slots) {
+        const part = value(`part-${slot}`);
+        build[slot] = part ? { part, paint: value(`paint-${slot}`) || ORIGINAL_PAINT } : null;
+      }
+      return build as unknown as RobotBuild;
+    }
+    function update() {
+      const build = read();
+      // A slot left empty has nothing to paint.
+      for (const { slot, paints } of slots) paints.disabled = !build[slot];
+      preview?.show(build);
+    }
+    node.addEventListener('change', update);
+
+    preview = handlers.preview?.();
+    if (preview) stage.append(preview.canvas);
+    else stage.append(h('p', { class: 'no-preview' }, 'Pick a part for each slot.'));
+    update();
+    return { node, read };
   }
 
   function renderPin(robot: RobotCard, err?: string): Node[] {

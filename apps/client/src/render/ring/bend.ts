@@ -5,6 +5,9 @@ import type * as THREE from 'three';
 // cylinder in the vertex shader. The CPU uses the same mapping (bendPoint in @saber-side/shared) for the camera and
 // lights. Anything parked above y = 5000 is "real space" (lift tubes, hub, end caps): drawn unbent, 10000 lower.
 
+/** How high real space is parked: anything above half of this is drawn as-is, this much lower (see BEND_GLSL). */
+export const REAL_OFF = 10000;
+
 /** The GLSL twin of `bendPoint` / `bendUp`: `bendPos` for positions, `bendDir` for normals. */
 export const BEND_GLSL = `
 #define BEND_R ${R_IN.toFixed(4)}

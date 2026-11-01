@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   CLOSED,
+  classicBuild,
   JOIN_REFUSED,
   MESSAGE,
   NOTICE,
@@ -40,6 +41,7 @@ describe('station server', () => {
     await until(() => a.state.aboard === 2, 'both players to be counted');
     expect(a.state.name).toBe('Ring Seven');
     expect(a.state.players.get(a.sessionId)).toMatchObject({ robot: zed.id, name: 'Zed', color: '#8fc4f2' });
+    expect(JSON.parse(a.state.players.get(a.sessionId)?.build ?? '')).toEqual(classicBuild('#8fc4f2'));
     expect(a.state.players.size).toBe(2);
     expect((await health(server)).aboard).toBe(2);
 

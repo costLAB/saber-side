@@ -33,6 +33,8 @@ export const Aboard = schema(
     robot: t.string(),
     name: t.string(),
     color: t.string(),
+    /** The robot's parts and paint (RobotBuild as JSON). */
+    build: t.string(),
     ...Object.fromEntries(POSE.map(([name, kind]) => [name, POSE_FIELD[kind]()])),
   },
   'Aboard',
@@ -115,6 +117,7 @@ export function defineStationRoom(deps: StationRoomDeps) {
             if (aboard.robot === robot.id) {
               aboard.name = robot.name;
               aboard.color = robot.color;
+              aboard.build = JSON.stringify(robot.build);
             }
           });
         },
@@ -134,6 +137,7 @@ export function defineStationRoom(deps: StationRoomDeps) {
       aboard.robot = robot.id;
       aboard.name = robot.name;
       aboard.color = robot.color;
+      aboard.build = JSON.stringify(robot.build);
       this.state.players.set(client.sessionId, aboard);
       this.#countAboard();
     }

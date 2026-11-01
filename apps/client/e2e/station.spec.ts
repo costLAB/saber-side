@@ -35,7 +35,7 @@ async function saber<T>(page: Page, read: string): Promise<T> {
   return page.evaluate((expr) => new Function('s', `return ${expr}`)((window as any).__saber), read);
 }
 
-test('makes a robot, comes aboard in its paint, and is remembered on the next visit', async ({
+test('builds a robot from parts, is fired into the hub, and is remembered on the next visit', async ({
   page,
   errors,
 }, info) => {
@@ -55,18 +55,40 @@ test('makes a robot, comes aboard in its paint, and is remembered on the next vi
   expect(await saber<number>(page, 's.bot.root.position.z')).toBe(before);
   expect(await saber<number>(page, 's.st.spin')).toBeLessThan(0);
 
-  await page.locator('label[title="Sky"]').click();
+  // Every slot starts on the classic part. Swap some, paint some, and leave the arms off.
+  const slot = (name: string) => page.locator(`[data-slot=${name}]`);
+  await expect(slot('mobility').locator('.chip')).toHaveText(['Single wheel']);
+  await slot('body').getByText('Barrel').click();
+  await slot('body').locator('label[title="Sky"]').click();
+  await slot('head').getByText('Visor').click();
+  await slot('arms').getByText('None').click();
+  await expect(page.getByLabel('Arms paint: Sky')).toBeDisabled();
+  await slot('mobility').locator('label[title="Rust"]').click();
   await page.getByRole('dialog').getByRole('button', { name: 'Come aboard' }).click();
   await eventually(page, () => page.locator('#station').textContent()).toMatch(
     new RegExp(`online · \\d+ aboard · as ${name}`),
   );
   await expect(sheet).toBeHidden();
-  expect(await saber<string>(page, 's.paint()')).toBe('#8fc4f2');
+  const built = {
+    mobility: { part: 'wheel', paint: '#e8935a' },
+    body: { part: 'barrel', paint: '#8fc4f2' },
+    head: { part: 'visor', paint: '#ffffff' },
+    arms: null,
+  };
+  expect(await saber(page, 's.bot.build')).toEqual(built);
+  expect(await saber(page, 's.bot.arms.length')).toBe(0);
+  // Spawning fires the new robot out of the end cap into the zero-g hub, and it drifts in along the axis.
+  expect(await saber(page, 's.st.mode')).toBe('hub');
+  const x0 = await saber<number>(page, 's.bot.root.position.x');
+  await advance(page, 500);
+  expect(await saber<number>(page, 's.bot.root.position.x')).toBeGreaterThan(x0 + 2);
 
   // Next visit on this device: straight aboard, no roster.
   await page.reload();
   await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
   await expect(sheet).toBeHidden();
+  expect(await saber(page, 's.bot.build')).toEqual(built);
+  expect(await saber(page, 's.st.mode')).toBe('hub');
   expect(errors).toEqual([]);
 });
 
@@ -117,7 +139,10 @@ test("sees another player's robot, and sends its own", async ({ page, errors, re
       page.evaluate(() => (window as unknown as { __presence: { count: number } }).__presence.count),
     ).toBe(1);
 
-    // And this page's robot reaches the bot, where it really is.
+    // And this page's robot reaches the bot, where it really is. (Coming aboard fired it into the hub, so stop its
+    // drift first.)
+    await saber(page, 's.fl.V.set(0, 0, 0)');
+    await advance(page, 300);
     const here = await saber<number[]>(page, '[s.bot.root.position.x, s.bot.root.position.z]');
     const seen = () => {
       for (const [id, p] of bot.state.players ?? [])

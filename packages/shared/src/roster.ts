@@ -1,9 +1,13 @@
-// The station roster: the robots players pick from when they come aboard. There are no accounts. A robot is a name and
-// a color, and an optional 4-digit PIN if siblings start spending each other's crystals (plan D8).
+// The station roster: the robots players pick from when they come aboard. There are no accounts. A robot is a name, a
+// build (its parts and their paint, content/robot-parts.ts), and an optional 4-digit PIN if siblings start spending
+// each other's crystals (plan D8).
 
-/** Paint colors a robot can have. They tint the robot's off-white shell, so they're light enough to read as a color. */
+/**
+ * Paint colors a robot's parts can have. They tint the parts' off-white skin, so they're light enough to read as a
+ * color. The first, white, tints nothing: the part keeps its original skin.
+ */
 export const ROBOT_COLORS = [
-  { name: 'Classic', hex: '#ffffff' },
+  { name: 'Original', hex: '#ffffff' },
   { name: 'Rust', hex: '#e8935a' },
   { name: 'Lemon', hex: '#f3df72' },
   { name: 'Lime', hex: '#b5e06a' },

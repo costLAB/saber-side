@@ -27,6 +27,10 @@ export const MIGRATIONS: readonly string[] = [
      created_at TEXT NOT NULL
    );
    CREATE UNIQUE INDEX players_name ON players (display_name COLLATE NOCASE);`,
+
+  // 3: robots built from parts (RobotBuild as JSON). NULL is a robot made before the builder: the classic build,
+  // painted its color.
+  `ALTER TABLE players ADD COLUMN build_json TEXT;`,
 ];
 
 /** Opens (creating if needed) the station database and brings its schema up to date. */
