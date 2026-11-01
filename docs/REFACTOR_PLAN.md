@@ -18,7 +18,7 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **Players:** 10 per room. **One shared world** for the whole friend group.
 - **No fighting yet.** The core loop is **running shops and selling things to each other**. It's a fun economy with no real money. Shop owners earn a regular income and pay rent and other operating costs. New shops cost money to open, but the first one is free.
 - **No free money.** Everyone **starts with nothing** and there's no allowance. Opening your (free) first shop starts a small, steady trickle of shards.
-- **Currency:** **Kyber Shards** and **Kyber Crystals** (100 shards = 1 crystal), plus raw **Kyber Ore** that must be refined at the **Refinery**: 1 ore chunk = 25 shards, less a 10% fee.
+- **Currency (renamed 2026-11-01):** **Cyber Crystals**, "CC" for short, and **Cyber Shards** (100 shards = 1 CC), plus raw **Cyber Ore** that must be refined at the **Refinery**: 1 ore chunk = 25 shards, less a 10% fee. (Earlier drafts said "Kyber".)
 - **Pets:** up to **3 pet bots** at a time.
 - **Clerk bots** keep a shop open for up to **8 hours** after the owner leaves.
 - **Internal only.** This is never published, so the Star Wars names are fine.
@@ -29,9 +29,15 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **Voice chat:** wanted, friends only, no moderation. Lower priority.
 - **Owner panel:** just the owners.
 - **Permissions:** **as light as possible.** No accounts, passwords, or roles for players, and every player can use every feature.
-- **Paint cures by eating carrots (2026-11-01).** A robot's paint is a see-through coat over its original skin. A fresh coat starts sheer, and **each carrot eaten cures it by 1 percentage point**, up to the chosen color at full opacity (100%). See [Carrots, paint cure, and farms](#carrots-paint-cure-and-farms).
-- **Robots eat with a mouth (2026-11-01).** On the big-eye head, the panel seam just below the eye is the mouth: a chunk of the skull below it swings down on a hinge to gulp the carrot.
-- **The economy is built carrot-first (2026-11-01).** Carrots are the first thing everyone needs, so Economy v1 starts with them. Any shop can be a **carrot stand**. Stands buy their stock wholesale from the **Farmers**, which leaves a thin margin. A player with enough **Kyber Crystals** ("CC") can **buy a farm**, grow their own carrots, and make their stand very profitable. Sabers, pets, hats, and ore follow on the same ledger.
+- **Carrot-first economy, and paint that cures (2026-11-01).** A robot's paint is a see-through coat that cures 1 percentage point per carrot eaten, from 10% to the chosen color at full opacity. Robots eat through a jaw that opens on the panel seam below the eye. Economy v1 starts with carrots: carrot stands, the **Farmers** who sell carrots wholesale, and farms players can buy. The details and the PRs are in the initiative [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md).
+
+## Initiatives
+
+Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initiatives/): the decisions, the design, and the PRs with their status. This plan keeps the roadmap and links to each one.
+
+| Initiative | Phase | Status |
+| --- | --- | --- |
+| [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 done (#13), next `feature/robot-mouth` |
 
 ---
 
@@ -42,7 +48,7 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **The ring-bend technique** (`index.html:161-199`). Floor content is simulated on a flat strip (x across, z around, y up) and bent onto the cylinder in the vertex shader. This keeps physics simple and works per eye in VR, because the bend happens in world space before `viewMatrix`.
 - **Procedural shops already exist** (`buildShop`, `makeSign`, `index.html:675-809`). They become the rentable shop spots.
 - **Procedural items:** `makeSaber(color)`, `makeBlaster()`, `makeCarrot()`. These become the generators for a wide, data-driven catalog.
-- **Bashable crates and the zero-g hub.** These become places to find **Kyber Ore**.
+- **Bashable crates and the zero-g hub.** These become places to find **Cyber Ore**.
 - **Abstract actions:** input fills `keys` / `pressed` with action names, and there's a touch pad that feeds the same map (`index.html:1241-1294`).
 - **Blob shadows instead of shadow maps**, plus instanced and batched static parts. Both are right for Quest performance.
 
@@ -112,7 +118,7 @@ Profiles hot-swap: a keyboard on the iPad hides the touch UI, a gamepad switches
 ### D7. Multiplayer: clients own their bodies, the server owns the world and every shard
 
 - **Movement is client-owned.** VR arm locomotion can't be predicted well by a server. Clients stream poses at about 30 Hz, and the server applies light sanity checks.
-- **The server is authoritative** for item ownership, crates, ore, lifts, shops, inventory, prices, and **every currency change**. Clients *request* ("buy item 812 for 3 crystals 20 shards"), and the server validates, applies, and broadcasts the result.
+- **The server is authoritative** for item ownership, crates, ore, lifts, shops, inventory, prices, and **every currency change**. Clients *request* ("buy item 812 for 3 CC 20 shards"), and the server validates, applies, and broadcasts the result.
 - Remote avatars render about 100 ms behind, from an interpolation buffer.
 - **Stack:** Node + **Colyseus** (rooms, reconnection, binary state sync) over WebSocket, which works everywhere including Quest Browser and Safari.
 
@@ -136,15 +142,15 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
 
 ### Loop
 
-> Find Kyber Ore (bash crates, catch floating chunks in the hub) → refine it into crystals at the Refinery → open your free first shop → buy stock at the Depot → set prices and fill shelves → earn from robot shoppers and friends → pay rent and running costs → save up → open another shop or upgrade.
+> Find Cyber Ore (bash crates, catch floating chunks in the hub) → refine it into crystals at the Refinery → open your free first shop → buy stock at the Depot → set prices and fill shelves → earn from robot shoppers and friends → pay rent and running costs → save up → open another shop or upgrade.
 
 ### Currency
 
 | | What it is | Notes |
 | --- | --- | --- |
-| **Kyber Shards** | Small change | The base unit. The ledger stores every amount as an integer number of shards. |
-| **Kyber Crystals** | Main money | **1 crystal = 100 shards**, converted automatically. Displayed as `12 ◆ 45` (12 crystals, 45 shards). |
-| **Kyber Ore** | A raw resource, not money | A physical item you carry. It must be taken to the **Refinery**, which turns it into crystals and keeps a fee. Ore can also be traded or sold between players. |
+| **Cyber Shards** | Small change | The base unit. The ledger stores every amount as an integer number of shards. |
+| **Cyber Crystals (CC)** | Main money | **1 CC = 100 shards**, converted automatically. Displayed as `12 ◆ 45` (12 CC, 45 shards). |
+| **Cyber Ore** | A raw resource, not money | A physical item you carry. It must be taken to the **Refinery**, which turns it into crystals and keeps a fee. Ore can also be traded or sold between players. |
 
 - **Every currency change is a ledger entry**: who, to whom, how many shards, why, and when. Balances are derived from the ledger. This rules out duplication bugs and makes shop reports trivial.
 - **New players start with nothing.** There's no starter purse and no allowance.
@@ -164,7 +170,7 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
 
   Sales between players just move money from one player to another.
 
-### Kyber Ore and the Refinery
+### Cyber Ore and the Refinery
 
 - **Where ore comes from:**
   - bashing crates on the promenade, which sometimes drops ore chunks
@@ -227,81 +233,7 @@ All item types are **data-driven variants of procedural generators**, so "a wide
 
 ### Carrots, paint cure, and farms
 
-Carrots are the first thing every player wants, because eating them is how a robot grows into its chosen colors. That
-gives the economy steady demand from day one: friends buy carrots from each other's stands to cure their paint.
-
-#### Paint cure
-
-- **One cure value per robot**, from 0 to 100 (%), kept by the server. It applies to every painted part at once. Parts
-  left in their original skin don't change.
-- **How it looks:** each painted part draws its coat over the skin texture as `mix(skin, coat, cure)`. The coat is the
-  chosen paint, lit by the skin's own light and shade, so the panel seams, rivets, grime, and bump still read through
-  faintly at 100%. That matters because the mouth opens on one of those seams. Today's `tint` (a flat multiply) becomes
-  a `coat` material with one `uCure` uniform. `partKit` already gives each robot its own painted copies, so every robot
-  can have its own cure. A coat that's still curing looks a little glossy, like wet paint, and goes to the skin's
-  roughness at 100%. When a carrot lands, the change eases in over about a second.
-- **Rates (config):** a fresh coat starts at **10%**, and each carrot adds **1 point** (`CURE_PER_CARROT = 1`), so 90
-  carrots take a fresh coat to full color. The cure is capped at 100. A fully cured robot can still eat carrots for fun,
-  with the animation and no effect.
-- **Where it shows:** the HUD (`Paint 37%`), and the roster and builder, which show the target color with a cure ring.
-  The builder can preview the robot at 100%, so a kid sees what they're working toward.
-- **Repainting** a part, once the Bot Maker can do that, starts a fresh coat at 10%.
-- **Rule location:** `packages/shared/src/sim/paint-cure.ts`, plain functions such as `cureAfter(cure, carrots)` and
-  `freshCoat()`, so the server and client agree.
-
-#### Eating, with a mouth
-
-- **Controls:** hold a carrot and press use (F, the Use button, or in VR, bring the carrot up to the face). The arm
-  brings the carrot to the mouth and the jaw swings open. Each of the existing **three bites** is a chomp with the jaw
-  snapping shut and crumbs flying. The last bite is a **gulp**: the jaw closes, the head bobs, and the body squashes a
-  little. The server credits the cure on the gulp, so one carrot is one point.
-- **The big-eye dome's jaw:** the head texture has a horizontal panel seam at `v = 0.63` (`seamsV` in `game.js`), about
-  23° below the skull's equator and just under the eye's rim. The skull splits there.
-  - The jaw is the front chunk of the skull below that seam, about 120° wide. It hangs from a hinge group whose axis is
-    horizontal, running through the seam's two back corners, and it swings down about 35° to open.
-  - A dark mouth cavity (`M.dark`) sits behind it.
-  - Closed, it lines up with the skull, so the robot looks as it does today.
-  - A partial `SphereGeometry` gets UVs from 0 to 1 over its own range. Remap them to the full sphere's UVs so the
-    texture and the seam line up across the cut.
-  - Keep the skull's `scale.y = 0.9` on the meshes, not on the hinge group, so the swing doesn't shear.
-- **The other heads:** the visor's jaw is the chin below its brim. The stalk eye's ball splits along a new horizontal
-  seam under its eye; its existing seam ring is vertical. A robot with no head eats through a hatch that flips open on
-  the front of its body. Every robot has to be able to eat, since that's how it cures.
-- **Friends see it:** the jaw angle is a new `jaw` field in the pose (`pose.ts`), which needs a `PROTOCOL_VERSION` bump.
-- **Animation code:** the eating timeline (bite times and jaw angle over time) is pure data in
-  `shared/sim/eating.ts`. The jaw meshes go in `avatar/parts/head.ts` (`BuiltHead.jaw`), and the glue in
-  `app/eating.ts`. The legacy bite code only calls a hook.
-
-#### Carrot stands, the Farmers, and farms
-
-- **The Farmers** are NPC growers with a **Farm Stand** out on the ring farms (`x` 116 to 161, by the silos and barns).
-  They sell carrots wholesale for shards, with unlimited stock, and that money leaves the world. Carrots come from the
-  Farmers, not the Depot, so the trip out to the farms matters the way the lift ride to the Depot does.
-- **Any shop can be a carrot stand.** Buy carrots from the Farmers, put them on your shelves, and set a price. Friends
-  buy them to eat. Robot shoppers buy them too, with the usual demand curve against the carrot's reference price.
-  Buying from the Farmers leaves a thin margin. That's on purpose: the stand covers its rent, but you won't get rich.
-- **Your own farm:** with enough crystals you can buy a **farm plot** on the farm strips. It's capex, and each extra
-  plot costs more.
-  - A plot grows carrots in real time, even while you're away, into a bin with a cap. A full bin stops growing, so you
-    have to come back.
-  - Each carrot grown costs a small **seed fee**, and nothing else.
-  - Walk up to the bin to pull the carrots into your pocket, then stock your stand with them. A delivery bot that
-    carries them for you can be an upgrade later.
-  - Farm carrots cost almost nothing to stock, so a stand fed by your own farm is **very profitable**.
-- **Starting numbers** (all in config, tunable from the owner panel):
-
-  | | Value | Why |
-  | --- | --- | --- |
-  | Farmers' wholesale price | 8 shards per carrot | |
-  | Carrot reference price (what robot shoppers think is fair) | 10 shards | A stand stocked from the Farmers earns about 2 shards a carrot. |
-  | First farm plot | 25 crystals (2,500 shards) | It takes a while of running a stand to save up. |
-  | Farm growth | 1 carrot every 2 minutes, bin of 60 | A full bin lasts 2 hours of being away. |
-  | Seed fee | 1 shard per carrot grown | A farm-fed stand earns about 9 shards a carrot, 4.5 times as much. |
-  | Paint cure | starts at 10%, +1 point per carrot | A full coat takes 90 carrots, about 9 crystals at a friend's stand. |
-
-  The plot pays for itself after about 280 carrots sold, roughly 9 hours of growing.
-- **Where carrots go:** carrots enter the world only from the Farmers and from farms. They leave only by being eaten or
-  bought by robot shoppers. Tests check that carrots are conserved, just like shards.
+Carrots come first: eating them cures a robot's paint, so everyone wants them. Any shop can be a carrot stand stocked from the **Farmers**, and a player with enough CC can buy a farm to grow their own. The design, the starting numbers, and the PRs are in the initiative [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md).
 
 ### Data model (SQLite)
 
@@ -473,6 +405,20 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 
 **Free roam comes first**: P3 delivers it online for everyone. P4 and P5 can go in either order; do P5 first if the kids mostly play on iPad.
 
+### Where we are (2026-11-01)
+
+| Phase | Status | Done | Still to do |
+| --- | --- | --- | --- |
+| P0 Groundwork | **Done** | Everything | |
+| P1 Decompose | **Partly done** | `packages/shared` and its tests, ships and planets on the new layout, render modules, the robot factory, seeded cosmetic RNG | Meters (units are still feet-scaled, `FT`), the entity/world model (the player, crates, items, and lifts still live on meshes), a fixed tick, emissive sabers (each saber still has a point light), the three.js upgrade (still r128), and most of `game.js` (1,661 lines, `update()` included) |
+| P2 Input + avatar | Not started | | Action map and device adapters, `PilotedController`, the embodied avatar, the iPad touch rework (including the legend/d-pad overlap) |
+| P3 Online free roam | **Partly done** | The station server on Render, the roster with PINs, the owner panel skeleton, robots built from parts, the Bot Maker spawn, seeing friends' robots | Server-authoritative item pickup/drop, crates, and lifts (sabers and blasters as shared toys); off-site backups (Litestream) |
+| P4 Quest VR | Not started | | |
+| P5 Economy v1 | **Started** | Step 0 of the [carrot initiative](initiatives/carrot-economy.md) (#13) | The rest of the carrot initiative, then the rest of P5 |
+| P6, P7 | Not started | | |
+
+P5 is going ahead of P2-P4 on purpose: the carrot initiative is the next feature work. Its PRs build in modules, the way `app/flight.ts` did, so they don't wait on the rest of P1.
+
 ### P0: Groundwork (S): done
 
 - [x] pnpm workspace (`apps/*`, `packages/*`), Vite 8, strict TypeScript, Biome, Playwright.
@@ -547,50 +493,14 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 
 ### P5: Economy v1 (L)
 
-#### The carrot-first PR series
+P5 starts with the initiative [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md), a series of PRs that build the wallet, the first shop, the Farmers, carrot stands, and farms, with carrots as the only goods. Its PR table is the source of truth for that slice's order and status. The rest of P5 then builds on the same ledger, shops, and inventory:
 
-P5 starts with the carrot loop (section 3, [Carrots, paint cure, and farms](#carrots-paint-cure-and-farms)). Each PR
-branches from `main`, merges on its own, and leaves the game playable, in this order:
-
-| # | Branch | PR title | What it adds | Protocol / schema |
-| --- | --- | --- | --- | --- |
-| 0 | `foundation/cosmetic-rng` | Give the legacy cosmetic effects their own random numbers | *Optional, but recommended.* Robot glances and dust move off `Math.random` onto their own seeded RNG (D2), so adding the jaw's meshes doesn't shift the seeded effects. With this in, PR 1's screenshots change only where the mouth shows. | none |
-| 1 | `feature/robot-mouth` | Let robots open their mouths to eat carrots | The jaw on every head (the dome's seam, the visor's chin, the stalk's new seam, and a body hatch with no head). The eating timeline in `shared/sim/eating.ts`: three chomps and a gulp, with crumbs. Friends see it through the new `jaw` pose field. Eating is still just a snack: no rules change. | `PROTOCOL_VERSION` 5 |
-| 2 | `feature/paint-cure` | Let robot paint cure from a sheer coat to full color | The `coat` material with `uCure`, which has to work alongside the ring bend's `onBeforeCompile` patch. `shared/sim/paint-cure.ts`. Each robot's cure is stored, sent with the roster card and the aboard view, and shown in the HUD, roster, and builder (with a 100% preview). The owner panel can set a robot's cure. The server credits a gulp only for a carrot that came from your pocket, which the Farmers bring in PR 5. Until then, the free table carrot stays a snack and doesn't cure. A station setting (`paintCure`, in `settings_json`) leaves every coat drawn at 100% until the owner turns it on, so robots don't sit pale before carrots can be bought. | migration 4 (`players.paint_cure`), `PROTOCOL_VERSION` 6 |
-| 3 | `feature/crystal-wallet` | Give every robot a crystal wallet | The append-only ledger in shards, balances derived from it, the `12 ◆ 45` HUD readout, everyone at zero, and owner-panel grants and reversals. Server-authoritative requests with no negative balances. | migration 5 (`ledger`), `PROTOCOL_VERSION` 7 |
-| 4 | `feature/first-shop` | Let players open their first shop | Spots as data, the "FOR LEASE" kiosk, the free first shop, open while its owner is aboard, the window-shopper trickle against rent, 5-minute settlement, and "Closed for repairs". For now, shelves hold carrots only. | migration 6 (`spots`, `shops`), `PROTOCOL_VERSION` 8 |
-| 5 | `feature/carrot-farmers` | Sell carrots at the Farmers' stand | The Farm Stand on the ring farms (a `world/` builder), the pocket inventory (`items`), buying carrots wholesale, and eating pocket carrots to cure. The owner turns on `paintCure` once this ships. From here the whole loop runs: trickle → buy → eat → cure. | migration 7 (`items`), `PROTOCOL_VERSION` 9 |
-| 6 | `feature/carrot-stand` | Let players sell carrots from their shops | Stocking shelves from your pocket, price tags, friends buying (tap or click to buy; VR waits for P4), and robot shoppers buying carrots by the demand curve, posted at settlement. A simple shift report. | `PROTOCOL_VERSION` 10 |
-| 7 | `feature/carrot-farms` | Let players buy a farm and grow their own carrots | Farm plots as data (`shared/content/farms.ts`) on the farm strips, the plot kiosk, capex in crystals that rises with each plot, growth worked out from time up to the bin cap, the seed fee, pulling a bin into your pocket, and rows that visibly fill (`world/farm-plot.ts`). | migration 8 (`plots`, `farms`), `PROTOCOL_VERSION` 11 |
-| 8 | `feature/economy-tuning` | Tune the carrot economy from the owner panel | Every carrot, cure, farm, and shop number editable in the owner panel, a "last hour" view, and "While you were away" for farms that grew. | maybe |
-
-The protocol and migration numbers assume the PRs merge in this order. If they land in a different order, take the next
-free number when you merge.
-
-**Tests for the series:**
-- Unit tests for cure math (start, the cap, and that a fully cured robot eats with no effect), the eating timeline, farm
-  growth (bin cap, seed fee, a long time away), and the demand curve for carrots.
-- Server tests: a gulp credits only a carrot from your pocket, and a carrot is never counted twice when two devices
-  race. Ledger invariants: money in − money out = the sum of balances. **Carrots are conserved**: carrots from the
-  Farmers + carrots grown = carrots eaten + carrots bought by robot shoppers + carrots in pockets, on shelves, and in
-  bins. Two kids buying the last carrot on a shelf at once.
-- E2E: an "eat a carrot" action that checks the jaw angle and the cure through the `?debug` hook. A close-up screenshot
-  mid-gulp, and painted robots at 10% and 100%.
-
-**Exit for the series:** a kid starting with nothing opens a free carrot stand, earns its trickle, buys carrots from
-the Farmers, eats them and watches the paint cure, sells carrots to friends, saves 25 crystals, buys a farm, and turns
-the stand into a money-maker.
-
-#### The rest of P5
-
-- Ledger in shards, crystal display, everyone starts at zero, the first-shop window-shopper trickle.
-- **Kyber Ore**: crate drops, hub drifters, respawn. The **Refinery** with its fee.
-- Spots, the lease kiosk, the free first shop, capex for additional shops.
-- The item catalog and generators: a wide saber and blaster assortment, hats, carrots, and **pet bots** (walkers + flyers, up to 3 equipped through the loadout).
-- The Depot (wholesale and buyback), inventory, shelves, price tags, buying from player shops (flat UI first, VR interactions once P4 lands).
-- Real-time robot shopper demand, open/closed rules, 5-minute settlement, shift reports.
-- Guardrails (no negative balances, closed for repairs, stock returned) and economy tuning in the owner panel.
-- Tests: ledger invariants (money in − money out = sum of balances), currency math, demand curve, Refinery yield, settlement, two kids buying the last item at once.
+- **Cyber Ore**: crate drops, hub drifters, respawn. The **Refinery** with its fee.
+- Capex for additional shops.
+- The item catalog and generators: a wide saber and blaster assortment, hats, golden and giant carrots, and **pet bots** (walkers + flyers, up to 3 equipped through the loadout).
+- The Depot (wholesale and buyback), and shelves and buying for every item, not just carrots (flat UI first, VR interactions once P4 lands).
+- Guardrails (stock returned when a spot is reclaimed) and economy tuning in the owner panel for every item.
+- Tests: currency math, Refinery yield, settlement, and two kids buying the last item at once, for every item.
 
 **Exit:** a kid starting with nothing can open a free shop, earn its trickle, refine ore, stock it with sabers and pets, earn from robot shoppers and friends, pay rent, and save up for a second shop.
 
@@ -670,22 +580,9 @@ The **station itself is the game** (free roam plus the economy). Other modes com
 | VR comfort in a curved, rotating world | "Up" follows the local floor, comfort options, early playtests |
 | Host restarts mid-session | Always-on tier, Colyseus reconnection, ledger written on every change |
 | The refactor stalls fun features | Strangler migration: playable and deployed after every PR |
-| The paint coat's shader fights the ring bend (both use `onBeforeCompile`, and `tint` copies drop the bend flag today) | One shader-patch helper that chains patches, plus a screenshot of a painted robot on the bent floor and in real space |
-| Curing to full color feels like a grind, or goes too fast | `CURE_PER_CARROT`, the starting cure, and carrot prices are config, tunable from the owner panel; watch real play before changing them |
-| The jaw's cut shows a gap or a texture jump when closed | UVs remapped to the full sphere, plus a close-up screenshot of the closed head next to today's |
 
 ---
 
 ## 13. Open questions
 
-Answers so far are recorded under [Owner decisions](#owner-decisions). Open for the carrot series. Each has a default
-the PRs will use unless the owner says otherwise:
-
-- **Robots made before paint cure:** do they start a fresh coat at 10% like everyone else (*default*: nobody has earned
-  their paint yet, and everyone starts level), or keep their paint at 100%?
-- **Starting cure:** 10% (*default*), so 90 carrots to full color? Or 0%, so 100 carrots and new robots start in bare
-  skin?
-- **Golden and giant carrots:** worth more cure (say 5 points and 3 points)? *Default:* not in this series; every carrot
-  is 1 point.
-- **Is the farm's bin capped while you're away?** *Default:* yes, at 60 carrots, so a farm doesn't pile up carrots
-  while a kid is at school.
+None right now. All answers so far are recorded under [Owner decisions](#owner-decisions), and each initiative keeps its own open questions.

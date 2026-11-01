@@ -4,6 +4,11 @@ A multiplayer shop-and-trade game on a spinning space station (Ring Seven) for M
 browsers. The roadmap and every product decision live in [docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md). Read it
 before starting work.
 
+Work that takes a series of PRs is an **initiative**, with its own doc in [docs/initiatives/](docs/initiatives/): its
+decisions, design, and a PR table with each PR's status. The plan lists the initiatives and links to them. When a PR
+is part of an initiative, update that PR's row in the same PR (mark it done, note its PR number, fix the protocol and
+migration numbers if they moved).
+
 ## Branches and pull requests
 
 Name every branch and PR for its **purpose**: what the work is for, not a list of what it touches.
