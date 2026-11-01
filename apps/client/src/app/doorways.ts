@@ -23,6 +23,8 @@ export function onDoorway(inside: (x: number, z: number) => boolean, { open, isO
       armed = false;
       // The sheet stops key presses reaching the game, key-ups included, so a held key would stay down behind it.
       legacy.releaseKeys();
+      // the sheet is on the page, which can't be seen from inside VR
+      legacy.leaveVr();
       open();
     }
   });

@@ -14,5 +14,6 @@ export * from './sim/flight.ts';
 export * from './sim/lasers.ts';
 export * from './sim/paint-cure.ts';
 export * from './sim/ship.ts';
+export * from './sim/vr-rig.ts';
 export * from './sim/wallet.ts';
 export * from './vec3.ts';

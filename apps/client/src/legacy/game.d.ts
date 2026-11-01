@@ -15,6 +15,8 @@ export declare const legacy: {
   drivingOnFloor(): { x: number; z: number } | null;
   /** Lets go of every held key, for when a sheet opens over the game and will swallow their key-ups. */
   releaseKeys(): void;
+  /** Ends the VR session, if there is one, so the flat page (and whatever sheet opens on it) can be seen. */
+  leaveVr(): void;
   /** The scene, the player's own robot, and what it takes to build more robots. */
   world: { scene: THREE.Scene; bot: Robot; kit: RobotKit; drawTex: DrawTexFn };
   /** Called every frame after the game updates and before it draws, with the frame time in seconds. */
