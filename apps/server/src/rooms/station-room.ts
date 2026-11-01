@@ -18,7 +18,9 @@ import {
   readPose,
   type SignIn,
   STATION_CAPACITY,
+  type WalletNotice,
 } from '@saber-side/shared';
+import { type Ledger, playerAccount } from '../ledger.ts';
 import type { Players, RobotRecord } from '../players.ts';
 
 // Synced to every client. They decode it by reflection, so the client has no copy of these (see StationView).
@@ -64,11 +66,14 @@ export interface StationControl {
   kickRobot(robotId: string, code: number): void;
   /** Shows a renamed or rebuilt robot's new look to everyone aboard. */
   refreshRobot(robot: RobotRecord): void;
+  /** Tells a player's seat (if they're aboard) their new balance. */
+  walletChanged(playerId: string): void;
 }
 
 export interface StationRoomDeps {
   name: string;
   players: Players;
+  ledger: Ledger;
   /** Told whenever the number of players aboard changes (the health check reports it). */
   onAboardChange(aboard: number): void;
   /** Handed the room once it exists. */
@@ -91,6 +96,12 @@ const refuse = (code: number, message: string) => new ServerError(code, message)
 export function defineStationRoom(deps: StationRoomDeps) {
   /** The live room, once created. */
   let live: StationRoom | undefined;
+
+  /** A player's balance goes to their own seat only: other players never see it. */
+  const sendWallet = (client: Client, playerId: string) => {
+    const notice: WalletNotice = { shards: deps.ledger.balance(playerAccount(playerId)) };
+    client.send(NOTICE.wallet, notice);
+  };
 
   class StationRoom extends Room<{ state: StationState }> {
     override maxClients = STATION_CAPACITY;
@@ -168,7 +179,7 @@ export function defineStationRoom(deps: StationRoomDeps) {
         }
         const made = deps.players.register(name, pin, build);
         if (!made.ok) return answer(client, { ok: false, error: made.error });
-        this.#seat(aboard, made.value.player.id, made.value.robot);
+        this.#seat(client, aboard, made.value.player.id, made.value.robot);
         answer(client, { ok: true, name: made.value.player.name });
       });
       this.onMessage(MESSAGE.login, (client, msg: unknown) => {
@@ -185,12 +196,18 @@ export function defineStationRoom(deps: StationRoomDeps) {
         }
         // One seat per player: logging in here takes over from any other device.
         this.#release((a) => a.player === result.player.id, CLOSED.replaced, client.sessionId);
-        this.#seat(aboard, result.player.id, result.robot);
+        this.#seat(client, aboard, result.player.id, result.robot);
         answer(client, { ok: true, name: result.player.name });
       });
       deps.onReady({
         kickPlayer: (playerId, code) => this.#release((a) => a.player === playerId, code),
         kickRobot: (robotId, code) => this.#release((a) => a.player !== '' && a.robot === robotId, code),
+        walletChanged: (playerId) => {
+          this.state.players.forEach((aboard, sessionId) => {
+            const client = this.clients.find((c) => c.sessionId === sessionId);
+            if (aboard.player === playerId && client) sendWallet(client, playerId);
+          });
+        },
         refreshRobot: (robot) => {
           this.state.players.forEach((aboard) => {
             if (aboard.player && aboard.robot === robot.id) show(aboard, robot);
@@ -215,7 +232,7 @@ export function defineStationRoom(deps: StationRoomDeps) {
         }
         // One seat per player. onAuth already let go of any other seat; this catches two devices racing.
         this.#release((a) => a.player === auth.player, CLOSED.replaced, client.sessionId);
-        this.#seat(aboard, auth.player, robot);
+        this.#seat(client, aboard, auth.player, robot);
       }
       this.state.players.set(client.sessionId, aboard);
       this.#countAboard();
@@ -273,12 +290,13 @@ export function defineStationRoom(deps: StationRoomDeps) {
       });
     }
 
-    /** Makes a seat a registered player's, piloting this robot. */
-    #seat(aboard: Aboard, playerId: string, robot: RobotRecord) {
+    /** Makes a seat a registered player's, piloting this robot, and tells it their balance. */
+    #seat(client: Client, aboard: Aboard, playerId: string, robot: RobotRecord) {
       aboard.player = playerId;
       aboard.robot = robot.id;
       show(aboard, robot);
       deps.players.piloted(robot.id);
+      sendWallet(client, playerId);
     }
 
     /** Ends every seat that matches (except `keep`): connected ones are closed, held ones let go. */

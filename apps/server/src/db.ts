@@ -56,6 +56,22 @@ export const MIGRATIONS: readonly string[] = [
    );
    CREATE UNIQUE INDEX robots_name ON robots (display_name COLLATE NOCASE);
    CREATE INDEX robots_player ON robots (player_id);`,
+
+  // 5: the Cyber Crystal ledger. Every change of money is an entry, never edited or deleted: balances are worked out
+  // from it. Amounts are whole shards (100 to a crystal), always positive: the direction is from one account to
+  // another. Accounts are `player:<id>` and system accounts (`owner`, `removed`, `bot_maker`, ...).
+  `CREATE TABLE ledger (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     ts TEXT NOT NULL,
+     from_acct TEXT NOT NULL,
+     to_acct TEXT NOT NULL,
+     amount_shards INTEGER NOT NULL CHECK (amount_shards > 0),
+     reason TEXT NOT NULL,
+     ref TEXT
+   );
+   CREATE INDEX ledger_from ON ledger (from_acct);
+   CREATE INDEX ledger_to ON ledger (to_acct);
+   CREATE INDEX ledger_ref ON ledger (ref);`,
 ];
 
 /** Opens (creating if needed) the station database and brings its schema up to date. */

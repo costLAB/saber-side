@@ -1,11 +1,13 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { type ApiError, CLOSED, type OwnerPlayer, type StationHealth } from '@saber-side/shared';
+import { type ApiError, CLOSED, type LedgerEntry, type OwnerPlayer, type StationHealth } from '@saber-side/shared';
 import express, { type Application, type RequestHandler, type Response } from 'express';
+import { type Ledger, playerAccount } from './ledger.ts';
 import { type Outcome, ownerRobot, type Players } from './players.ts';
 import type { StationControl } from './rooms/station-room.ts';
 
 export interface RouteDeps {
   players: Players;
+  ledger: Ledger;
   health(): StationHealth;
   allowed(origin: string | undefined): boolean;
   /** The owner panel's key (ADMIN_KEY). Unset turns the owner endpoints off. */
@@ -35,16 +37,46 @@ export function addRoutes(app: Application, deps: RouteDeps) {
     res.status(204).end();
   });
   owner.get('/players', (_req, res) => {
-    res.json(deps.players.list() satisfies OwnerPlayer[]);
+    const players = deps.players.list().map((p) => ({ ...p, shards: deps.ledger.balance(playerAccount(p.id)) }));
+    res.json(players satisfies OwnerPlayer[]);
   });
   owner.post('/players/:id/rename', (req, res) => {
     send(res, deps.players.renamePlayer(req.params.id, String(req.body?.name ?? '')));
   });
   owner.post('/players/:id/reset-pin', (req, res) => send(res, deps.players.resetPin(req.params.id)));
   owner.delete('/players/:id', (req, res) => {
+    if (!deps.players.player(req.params.id)) {
+      res.status(404).json({ error: 'No such player.' } satisfies ApiError);
+      return;
+    }
     deps.station()?.kickPlayer(req.params.id, CLOSED.removed);
-    if (deps.players.removePlayer(req.params.id)) res.status(204).end();
-    else res.status(404).json({ error: 'No such player.' } satisfies ApiError);
+    // Their balance leaves the world first, so money in minus money out still equals the sum of balances.
+    deps.ledger.close(req.params.id);
+    deps.players.removePlayer(req.params.id);
+    res.status(204).end();
+  });
+  // The wallet: a player's ledger, grants (positive) and removals (negative), and reversing an entry.
+  owner.get('/players/:id/ledger', (req, res) => {
+    res.json(deps.ledger.entries(playerAccount(req.params.id)) satisfies LedgerEntry[]);
+  });
+  owner.post('/players/:id/grant', (req, res) => {
+    if (!deps.players.player(req.params.id)) {
+      res.status(404).json({ error: 'No such player.' } satisfies ApiError);
+      return;
+    }
+    const reason = String(req.body?.reason ?? '').slice(0, 80) || 'grant';
+    const result = deps.ledger.grant(req.params.id, Number(req.body?.shards), reason);
+    if (result.ok) deps.station()?.walletChanged(req.params.id);
+    send(res, result);
+  });
+  owner.post('/ledger/:id/reverse', (req, res) => {
+    const result = deps.ledger.reverse(Number(req.params.id));
+    if (result.ok) {
+      for (const account of [result.value.from, result.value.to]) {
+        if (account.startsWith('player:')) deps.station()?.walletChanged(account.slice('player:'.length));
+      }
+    }
+    send(res, result);
   });
   owner.post('/robots/:id/rename', (req, res) => {
     const result = deps.players.renameRobot(req.params.id, String(req.body?.name ?? ''));

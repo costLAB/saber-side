@@ -1,8 +1,10 @@
 import {
+  ccToShards,
   classicBuild,
   cleanRobotName,
   isGuestName,
   isPin,
+  type LedgerEntry,
   ORIGINAL_PAINT,
   type OwnerPlayer,
   PART_SLOTS,
@@ -12,6 +14,7 @@ import {
   ROBOT_NAME_MAX,
   ROBOT_PARTS,
   type RobotBuild,
+  walletText,
 } from '@saber-side/shared';
 import { ApiFailure, type OwnerApi } from '../net/owner-api';
 import type { RobotPreview } from './robot-preview';
@@ -26,7 +29,9 @@ export type ArrivalView =
   /** The Robot Registry's kiosk: register (guests), or log in. `name` is the registered player's. */
   | { kind: 'registry'; guest: boolean; name?: string; error?: string }
   | { kind: 'owner-key'; error?: string }
-  | { kind: 'owner'; key: string; error?: string };
+  | { kind: 'owner'; key: string; error?: string }
+  /** One player's ledger, with a Reverse button on each entry. */
+  | { kind: 'ledger'; key: string; player: OwnerPlayer; error?: string };
 
 export interface ArrivalHandlers {
   /** Play as a guest. Returns the build to come aboard with, or undefined to open the builder first. */
@@ -161,6 +166,8 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
         return renderOwnerKey(view.error);
       case 'owner':
         return renderOwner(view.key, view.error);
+      case 'ledger':
+        return renderLedger(view.key, view.player, view.error);
     }
   }
 
@@ -295,7 +302,7 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
       h(
         'p',
         {},
-        'Register to keep your robot. Pick a username and a PIN, and log in with them on any device. Keep your PIN secret.',
+        'Register to keep your robot and open your Cyber Crystal wallet. Pick a username and a PIN, and log in with them on any device. Keep your PIN secret.',
       ),
       form,
       h('div', { class: 'or' }, 'Already registered?'),
@@ -467,7 +474,16 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
           { class: 'name' },
           player.name,
           player.pinReset && h('span', { class: 'need' }, ' · new PIN next login'),
+          h('span', { class: 'shards' }, walletText(player.shards)),
         ),
+        button('Grant', '', () => {
+          const typed = prompt(`How many CC for ${player.name}? (Negative takes them away.)`, '1');
+          if (typed === null) return;
+          const shards = ccToShards(Number(typed));
+          if (!shards) err$.textContent = 'Type an amount of CC, like 5 or 0.25.';
+          else act(() => owner.grant(player.id, shards));
+        }),
+        button('Ledger', '', () => show({ kind: 'ledger', key, player })),
         rename('player', player.name, (name) => owner.renamePlayer(player.id, name)),
         button('Reset PIN', '', () => {
           if (confirm(`Reset ${player.name}'s PIN? The next PIN they log in with becomes their new one.`))
@@ -510,6 +526,55 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
           handlers.ownerKey.set(undefined);
           show({ kind: 'welcome' });
         }),
+      ),
+    ];
+  }
+
+  function renderLedger(key: string, player: OwnerPlayer, err?: string): Node[] {
+    const owner = handlers.owner(key);
+    const list = h('div', {}, h('p', {}, 'Loading the ledger…'));
+    const err$ = error(err);
+    const account = `player:${player.id}`;
+    const reverse = (entry: LedgerEntry) =>
+      button('Reverse', '', async () => {
+        try {
+          await owner.reverse(entry.id);
+          show({ kind: 'ledger', key, player });
+        } catch (e) {
+          err$.textContent = message(e);
+        }
+      });
+    const row = (entry: LedgerEntry) => {
+      const into = entry.to === account;
+      const other = (into ? entry.from : entry.to).startsWith('player:') ? 'a player' : into ? entry.from : entry.to;
+      return h(
+        'div',
+        { class: 'owner-row', 'data-entry': String(entry.id) },
+        h(
+          'span',
+          { class: 'name' },
+          `${into ? '+' : '−'}${walletText(entry.shards)}`,
+          h('span', { class: 'need' }, ` ${entry.reason} · ${into ? 'from' : 'to'} ${other}`),
+        ),
+        entry.reversed ? h('span', { class: 'need' }, 'reversed') : entry.reason !== 'reversal' && reverse(entry),
+      );
+    };
+    owner.ledger(player.id).then(
+      (entries) =>
+        list.replaceChildren(
+          ...(entries.length ? [] : [h('p', {}, 'No entries yet: everyone starts with nothing.')]),
+          ...entries.map(row),
+        ),
+      (e) => list.replaceChildren(error(message(e))),
+    );
+    return [
+      title(`${player.name}'s ledger`),
+      err$,
+      list,
+      h(
+        'div',
+        { class: 'foot' },
+        button('Back', 'link', () => show({ kind: 'owner', key })),
       ),
     ];
   }
