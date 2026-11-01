@@ -20,6 +20,24 @@ test('spawn view', async ({ page, errors }, info) => {
   expect(errors).toEqual([]);
 });
 
+test('the Bot Maker and the Robot Registry next door', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await page.goto('/?debug');
+  await page.evaluate(() => document.fonts.ready);
+  await advance(page, 300);
+  // Stand out in the plaza, with the camera looking at the Registry's door and the Bot Maker beside it.
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const s = (window as any).__saber;
+    s.bot.root.position.set(-13, 0, -6);
+    // A robot sitting still has the camera drift round to its front (0.8 of a half turn), so it faces away.
+    s.st.yaw = Math.atan2(-12, 13) - Math.PI * 0.8 + 0.28;
+  });
+  await advance(page, 8000);
+  await snap(page, 'plaza-west.png');
+  expect(errors).toEqual([]);
+});
+
 test('rolling and turning', async ({ page, errors }, info) => {
   test.skip(info.project.name === 'ipad', 'keyboard driving is covered on the MacBook profile');
   await boot(page);

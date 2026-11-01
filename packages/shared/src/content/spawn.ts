@@ -39,3 +39,25 @@ export function insideBotMaker(x: number, z: number): boolean {
   const B = BOT_MAKER;
   return x > B.back && x < B.front - THRESHOLD && Math.abs(wrapD(z - B.z)) < B.width / 2;
 }
+
+/**
+ * The Robot Registry: a small civic office right next to the Bot Maker (on its -z side, between the next two lamp
+ * posts), and the only place a guest can register. Driving in through its door opens the Registry's kiosk: register
+ * (a username and a PIN), or log in. Floor-strip coordinates, like the Bot Maker's.
+ */
+export const ROBOT_REGISTRY = {
+  front: -26,
+  back: -34,
+  z: 3.2,
+  width: 12,
+  height: 6.5,
+  door: { width: 4.4, height: 4.2 },
+  /** The kiosk inside, facing the door. */
+  kiosk: { x: -31.5 },
+} as const;
+
+/** Whether a floor-strip point is inside the Robot Registry, past its doorway. */
+export function insideRegistry(x: number, z: number): boolean {
+  const R = ROBOT_REGISTRY;
+  return x > R.back && x < R.front - THRESHOLD && Math.abs(wrapD(z - R.z)) < R.width / 2;
+}

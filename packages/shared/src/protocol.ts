@@ -10,8 +10,8 @@ import type { PoseField } from './pose.ts';
 import type { RobotBuild } from './content/robot-parts.ts';
 
 // History: 1 = the station server; 2 = joining as a robot from the roster; 3 = robots see each other (pose.ts);
-// 4 = robots built from parts; 5 = guests and logins (players own robots).
-export const PROTOCOL_VERSION = 5;
+// 4 = robots built from parts; 5 = guests and logins (players own robots); 6 = the Robot Registry.
+export const PROTOCOL_VERSION = 6;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';
@@ -110,12 +110,27 @@ export const MESSAGE = {
   pose: 'pose',
   /** New parts and paint for the robot this seat pilots (a RobotBuild), from the Bot Maker. */
   rebuild: 'rebuild',
+  /** At the Robot Registry, a guest signs up (a SignIn): their robot is saved under a new player. */
+  register: 'register',
+  /** At the Robot Registry, log in (a SignIn): the seat switches to that player and their robot. */
+  login: 'login',
 } as const;
 
-/** Messages the server sends to everyone aboard. */
+/** What `register` and `login` carry. */
+export interface SignIn {
+  name: string;
+  pin: string;
+}
+
+/** The server's answer to `register` or `login`, sent to that seat alone (NOTICE.registry). */
+export type RegistryAnswer = { ok: true; name: string } | { ok: false; error: string };
+
+/** Messages the server sends. */
 export const NOTICE = {
-  /** The server is shutting down for a deploy or restart and will be back in a moment. */
+  /** To everyone: the server is shutting down for a deploy or restart and will be back in a moment. */
   restarting: 'restarting',
+  /** To one seat: how its `register` or `login` went (a RegistryAnswer). */
+  registry: 'registry',
 } as const;
 
 /** `GET /healthz`: what the host's health check and the uptime monitor see. */

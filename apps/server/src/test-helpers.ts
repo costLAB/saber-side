@@ -8,7 +8,9 @@ import { Client, MatchMakeError, type Room } from '@colyseus/sdk';
 import {
   classicBuild,
   type JoinRequest,
+  NOTICE,
   PROTOCOL_VERSION,
+  type RegistryAnswer,
   type RobotBuild,
   STATION_ROOM,
   type StationHealth,
@@ -127,6 +129,18 @@ export async function comeAboard(
 /** Joins as a registered player. */
 export function logIn(server: Booted, name: string, pin: string) {
   return comeAboard(server, { login: { name, pin } });
+}
+
+/** Sends a Registry request (register or login) and waits for the station's answer. */
+export function ask(room: Room, type: string, signIn: { name: string; pin: string }): Promise<RegistryAnswer> {
+  const answered = new Promise<RegistryAnswer>((resolve) => {
+    const stop = room.onMessage(NOTICE.registry, (reply: RegistryAnswer) => {
+      stop();
+      resolve(reply);
+    });
+  });
+  room.send(type, signIn);
+  return answered;
 }
 
 /** Expects a join to be refused and returns the refusal code. */

@@ -14,7 +14,7 @@ import {
   STATION_ROOM,
 } from '@saber-side/shared';
 import { describe, expect, it } from 'vitest';
-import { api, boot, comeAboard, health, leaveCode, logIn, refusal, seeded, until } from './test-helpers.ts';
+import { api, ask, boot, comeAboard, health, leaveCode, logIn, refusal, seeded, until } from './test-helpers.ts';
 
 const visor = { ...classicBuild(), head: { part: 'visor', paint: '#8fc4f2' } } as const;
 const others = (room: { sessionId: string; state: { players: Map<string, { name: string }> } }) =>
@@ -246,6 +246,62 @@ describe('station server', () => {
     const server = await boot(seeded({ name: 'Mia', pin: '4321' }));
     expect((await api(server, 'GET', '/roster')).status).toBe(404);
     expect((await api(server, 'POST', '/robots', { name: 'Sneaky' })).status).toBe(404);
+  });
+});
+
+describe('the Robot Registry', () => {
+  it('registers a guest: their robot is saved under the new player, and the seat becomes theirs', async () => {
+    const server = await boot();
+    const guest = await comeAboard(server, { guest: { build: visor } });
+    await until(() => guest.state.players?.get(guest.sessionId)?.name === 'Bot 1', 'the guest to be aboard');
+    expect(await ask(guest, MESSAGE.register, { name: 'Mia', pin: '4321' })).toEqual({ ok: true, name: 'Mia' });
+    const me = () => guest.state.players.get(guest.sessionId);
+    await until(() => me()?.name === 'Mia', 'the seat to be renamed');
+    expect(me()?.player).not.toBe('');
+    expect(JSON.parse(me()?.build ?? '')).toEqual(visor);
+
+    // Registered once is enough, and the name is Mia's now.
+    expect(await ask(guest, MESSAGE.register, { name: 'Mia2', pin: '4321' })).toMatchObject({ ok: false });
+    const other = await comeAboard(server);
+    expect(await ask(other, MESSAGE.register, { name: 'mia', pin: '1111' })).toMatchObject({ ok: false });
+    expect(await ask(other, MESSAGE.register, { name: 'Bot 5', pin: '1111' })).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/guests/),
+    });
+    expect(await ask(other, MESSAGE.register, { name: 'Kai', pin: '12' })).toMatchObject({ ok: false });
+
+    // Saved: Mia logs in from another visit and gets the same robot.
+    await guest.leave();
+    const again = await logIn(server, 'Mia', '4321');
+    await until(() => again.state.players?.get(again.sessionId)?.name === 'Mia', 'Mia to be back');
+    expect(JSON.parse(again.state.players.get(again.sessionId)?.build ?? '')).toEqual(visor);
+  });
+
+  it("logs a guest in: the seat switches to that player's robot, and their other device lets go", async () => {
+    const server = await boot(seeded({ name: 'Zed', pin: '1111', build: visor }));
+    const ipad = await logIn(server, 'Zed', '1111');
+    const ipadLeft = leaveCode(ipad);
+    const guest = await comeAboard(server);
+    expect(await ask(guest, MESSAGE.login, { name: 'Zed', pin: '0000' })).toEqual({
+      ok: false,
+      error: "That username and PIN don't match.",
+    });
+    expect(await ask(guest, MESSAGE.login, { name: 'zed', pin: '1111' })).toEqual({ ok: true, name: 'Zed' });
+    expect(await ipadLeft).toBe(CLOSED.replaced);
+    await until(() => guest.state.aboard === 1, 'one seat for Zed');
+    const me = guest.state.players.get(guest.sessionId);
+    expect(me?.name).toBe('Zed');
+    expect(JSON.parse(me?.build ?? '')).toEqual(visor);
+  });
+
+  it('locks a username after too many wrong PINs at the Registry too', async () => {
+    const server = await boot(seeded({ name: 'Zed', pin: '1111' }));
+    const guest = await comeAboard(server);
+    for (let i = 0; i < PIN_TRIES; i++) await ask(guest, MESSAGE.login, { name: 'Zed', pin: '0000' });
+    expect(await ask(guest, MESSAGE.login, { name: 'Zed', pin: '1111' })).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/wrong PIN/i),
+    });
   });
 });
 

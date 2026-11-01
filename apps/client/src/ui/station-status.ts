@@ -21,6 +21,7 @@ export function showStationStatus(
   el: HTMLElement,
   status: StatusLine,
   robotName: string | undefined,
+  guest: boolean,
   actions: StatusActions,
 ) {
   const action = (label: string, run: () => void) => {
@@ -30,7 +31,7 @@ export function showStationStatus(
     b.addEventListener('click', run);
     return b;
   };
-  const said = JSON.stringify([status, robotName]);
+  const said = JSON.stringify([status, robotName, guest]);
   if (!el.hidden && el.dataset.said === said) return;
   el.dataset.said = said;
   el.hidden = false;
@@ -43,6 +44,8 @@ export function showStationStatus(
     case 'aboard':
       el.append(`Station · online · ${status.aboard} aboard`);
       if (robotName) el.append(` · as ${robotName}`);
+      // Guests aren't saved, so point them at the place that saves them.
+      if (guest) el.append(' · Register at the Robot Registry to keep your robot');
       break;
     case 'restarting':
       el.append('Station restarting · back in a moment');

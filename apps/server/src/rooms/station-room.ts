@@ -13,8 +13,10 @@ import {
   POSE,
   type PoseKind,
   PROTOCOL_VERSION,
+  type RegistryAnswer,
   type RobotBuild,
   readPose,
+  type SignIn,
   STATION_CAPACITY,
 } from '@saber-side/shared';
 import type { Players, RobotRecord } from '../players.ts';
@@ -150,6 +152,42 @@ export function defineStationRoom(deps: StationRoomDeps) {
         const result = deps.players.rebuild(aboard.robot, msg);
         if (result.ok) show(aboard, result.value);
       });
+      // The Robot Registry. A guest registers: their robot (as built) is saved under a new player, and the seat becomes
+      // that player's. Anyone logs in: the seat switches to that player and the robot they piloted last. The robot
+      // stays where it stands. Like other requests, the server doesn't check where it stands (movement is client-owned).
+      this.onMessage(MESSAGE.register, (client, msg: unknown) => {
+        const aboard = this.state.players.get(client.sessionId);
+        if (!aboard) return;
+        const { name, pin } = signIn(msg);
+        if (aboard.player) return answer(client, { ok: false, error: "You're registered already." });
+        let build: unknown;
+        try {
+          build = JSON.parse(aboard.build);
+        } catch {
+          build = undefined;
+        }
+        const made = deps.players.register(name, pin, build);
+        if (!made.ok) return answer(client, { ok: false, error: made.error });
+        this.#seat(aboard, made.value.player.id, made.value.robot);
+        answer(client, { ok: true, name: made.value.player.name });
+      });
+      this.onMessage(MESSAGE.login, (client, msg: unknown) => {
+        const aboard = this.state.players.get(client.sessionId);
+        if (!aboard) return;
+        const { name, pin } = signIn(msg);
+        const result = deps.players.login(name, pin);
+        if (!result.ok) {
+          const error =
+            result.why === 'locked'
+              ? 'Too many wrong PINs. Wait a while and try again.'
+              : "That username and PIN don't match.";
+          return answer(client, { ok: false, error });
+        }
+        // One seat per player: logging in here takes over from any other device.
+        this.#release((a) => a.player === result.player.id, CLOSED.replaced, client.sessionId);
+        this.#seat(aboard, result.player.id, result.robot);
+        answer(client, { ok: true, name: result.player.name });
+      });
       deps.onReady({
         kickPlayer: (playerId, code) => this.#release((a) => a.player === playerId, code),
         kickRobot: (robotId, code) => this.#release((a) => a.player !== '' && a.robot === robotId, code),
@@ -177,10 +215,7 @@ export function defineStationRoom(deps: StationRoomDeps) {
         }
         // One seat per player. onAuth already let go of any other seat; this catches two devices racing.
         this.#release((a) => a.player === auth.player, CLOSED.replaced, client.sessionId);
-        aboard.player = auth.player;
-        aboard.robot = robot.id;
-        show(aboard, robot);
-        deps.players.piloted(robot.id);
+        this.#seat(aboard, auth.player, robot);
       }
       this.state.players.set(client.sessionId, aboard);
       this.#countAboard();
@@ -238,6 +273,14 @@ export function defineStationRoom(deps: StationRoomDeps) {
       });
     }
 
+    /** Makes a seat a registered player's, piloting this robot. */
+    #seat(aboard: Aboard, playerId: string, robot: RobotRecord) {
+      aboard.player = playerId;
+      aboard.robot = robot.id;
+      show(aboard, robot);
+      deps.players.piloted(robot.id);
+    }
+
     /** Ends every seat that matches (except `keep`): connected ones are closed, held ones let go. */
     #release(match: (aboard: Aboard) => boolean, code: number, keep?: string) {
       this.state.players.forEach((aboard, sessionId) => {
@@ -255,6 +298,16 @@ export function defineStationRoom(deps: StationRoomDeps) {
     }
   }
   return StationRoom;
+}
+
+/** A `register` or `login` message's name and PIN, as strings whatever was sent. */
+function signIn(msg: unknown): SignIn {
+  const m = (msg && typeof msg === 'object' ? msg : {}) as Partial<Record<keyof SignIn, unknown>>;
+  return { name: typeof m.name === 'string' ? m.name : '', pin: typeof m.pin === 'string' ? m.pin : '' };
+}
+
+function answer(client: Client, reply: RegistryAnswer) {
+  client.send(NOTICE.registry, reply);
 }
 
 /** Puts a robot's name and looks on its seat, for everyone aboard to see. */
