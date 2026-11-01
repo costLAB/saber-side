@@ -2,7 +2,8 @@ import type * as THREE from 'three';
 
 /**
  * Helpers the legacy game lends to new modules until they move out of `legacy/game.js` (Phase 1).
- * Each matches the legacy function of the same name.
+ * Each matches the function of the same name. `drawTex` already lives in `render/textures.ts`; the others are still in
+ * the legacy file.
  */
 
 /** An additive glow sprite. */
