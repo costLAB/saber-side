@@ -192,6 +192,14 @@ merges.
 | 3 | **Done** (#21) | `feature/cyber-crystal-wallet` | Give every registered player a Cyber Crystal wallet | Moved from the carrot initiative. The append-only ledger in shards, with balances derived from it. The wallet opens when a guest registers; guests have none. The `12 ◆ 45` HUD readout (12 CC, 45 shards), sent privately to the seat. Everyone starts at zero. Owner-panel grants and reversals. Removing a player posts their balance to the `removed` sink. No negative balances. | migration 5 (`ledger`), `PROTOCOL_VERSION` 7 |
 | 4 | **Done** (#22) | `feature/several-robots-per-player` | Let registered players keep several robots | Building more robots at the Bot Maker, up to `ROBOTS_PER_PLAYER` (5): the first is free, and each extra one costs 10 CC × robots already owned, paid to the `bot_maker` sink. Picking which to pilot there, and switching in place with `MESSAGE.pilot` so the seat is never let go. | `PROTOCOL_VERSION` 8 |
 
+### Follow-ups
+
+Fixes and small features after the initiative merged, from the owner's reports on the live game (2026-11-01).
+
+| # | Status | Branch | PR title | What it changes | Protocol / schema |
+| --- | --- | --- | --- | --- | --- |
+| 5 | In review | `fix/bot-maker-opens-login` | Stop the Bot Maker opening the login when you're not aboard | When the page isn't aboard, the Bot Maker (and the Registry) showed the arrival screen, as if Play / Log in were the robot editor. That happens whenever the station turns the page away: above all a station server on an older `PROTOCOL_VERSION` (Netlify and Render deploy separately), which refuses every join as outdated. Now they say why (updated and needs a reload, offline, full, restarting, on another device, or not aboard yet) with the one thing to do about it, a guest whose station is away for now still rebuilds their robot, and an outdated page says to reload as soon as it's turned away. Every halt ends the link. | none |
+
 The protocol and migration numbers assume these PRs merge in this order, before the carrot initiative's PRs that bump
 them. If they land in a different order, or another PR takes a number first, use the next free one when you merge.
 

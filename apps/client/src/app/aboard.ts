@@ -59,11 +59,17 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
   /** The build this device last drew its robot with (as the station spells it), to redraw when the station's differs. */
   let drawn = '';
 
-  const status = (line: StatusLine) =>
+  /** What the station line last said: why this device is (or isn't) aboard. */
+  let said: StatusLine = { kind: 'ashore' };
+
+  const status = (line: StatusLine) => {
+    said = line;
     showStationStatus(statusEl, line, me?.name, me ? !me.player : false, {
       comeAboard: () => arrival.show(welcome()),
-      playHere: () => credentials && board(credentials),
+      playHere,
     });
+  };
+  const playHere = () => credentials && board(credentials);
 
   const welcome = (error?: string) => ({ kind: 'welcome' as const, name: device.username, error });
 
@@ -92,7 +98,9 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
     onLogin: (name, pin) => board({ login: { name, pin } }),
     preview: () => createRobotPreview(legacy.robotKit),
     onDismiss: () => {
-      if (!link) status({ kind: 'ashore' });
+      // "Just look around" before coming aboard. A page turned away (outdated, or playing on another device) keeps
+      // saying why.
+      if (!link && said.kind !== 'outdated' && said.kind !== 'replaced') status({ kind: 'ashore' });
     },
     owner: (key) => ownerApi(server, key),
     ownerKey: {
@@ -103,25 +111,82 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
     },
   });
 
-  // Driving into the Bot Maker: rebuild the robot this seat pilots, or (not aboard) come aboard.
+  // Driving into the Bot Maker: rebuild the robot this seat pilots (a registered player picks from their garage). Not
+  // aboard, it says why, rather than showing the arrival screen as if it were the builder.
   onDoorway(insideBotMaker, {
     open: () => {
-      const build = me && readBuild(me);
-      // A registered player's robots: pilot one, rebuild this one, or buy another. A guest just rebuilds theirs.
-      if (link && me?.player && garage) arrival.show({ kind: 'garage', garage, piloting: me.robot });
-      else if (link && me && build) arrival.show({ kind: 'build', rebuild: { name: me.name, build } });
-      else arrival.show(welcome());
+      const build = aboardNow() && me && readBuild(me);
+      if (me?.player && build && garage) arrival.show({ kind: 'garage', garage, piloting: me.robot });
+      else if (me && build) arrival.show({ kind: 'build', rebuild: { name: me.name, build } });
+      else if (guestBuild && retrying(said)) {
+        // A guest whose station is away for now (a drop, a restart, a full station) still rebuilds their one robot:
+        // the next join takes it aboard.
+        const note = `${notAboard(said)} Your robot goes aboard as you leave it here.`;
+        arrival.show({ kind: 'build', rebuild: { name: me?.name ?? 'your robot', build: guestBuild }, note });
+      } else arrival.show(away('Bot Maker'));
     },
     isOpen: () => arrival.open,
   });
   // Driving into the Robot Registry: register, or log in.
   onDoorway(insideRegistry, {
     open: () => {
-      if (link && me) arrival.show({ kind: 'registry', guest: !me.player, name: me.player ? me.name : undefined });
-      else arrival.show(welcome());
+      if (aboardNow() && me)
+        arrival.show({ kind: 'registry', guest: !me.player, name: me.player ? me.name : undefined });
+      else arrival.show(away('Robot Registry'));
     },
     isOpen: () => arrival.open,
   });
+
+  /** Whether this seat is aboard right now, with its robot known. */
+  function aboardNow() {
+    return !!(link && room && me);
+  }
+
+  /** A building's sheet when this device isn't aboard: why, and the one thing to do about it. */
+  function away(place: string) {
+    const leave = 'Leave';
+    switch (said.kind) {
+      case 'outdated':
+        return { kind: 'notice' as const, title: place, text: notAboard(said), action: reload, leave };
+      case 'replaced':
+        return { kind: 'notice' as const, title: place, text: notAboard(said), action: playHereAction, leave };
+      case 'ashore':
+      case 'refused':
+      case 'removed':
+        return { kind: 'notice' as const, title: place, text: notAboard(said), action: comeAboardAction, leave };
+      default:
+        return { kind: 'notice' as const, title: place, text: notAboard(said), leave };
+    }
+  }
+
+  const reload = { label: 'Reload', run: () => location.reload() };
+  const playHereAction = { label: 'Play here', run: playHere };
+  const comeAboardAction = { label: 'Come aboard', run: () => arrival.show(welcome()) };
+
+  /** Why this device isn't aboard, in a sentence. */
+  function notAboard(line: StatusLine): string {
+    switch (line.kind) {
+      case 'outdated':
+        return 'Saber Side was updated. Reload the page to come aboard.';
+      case 'replaced':
+        return `You're playing as ${me?.name ?? 'you'} on another device.`;
+      case 'full':
+        return 'The station is full. Your game keeps trying for a seat.';
+      case 'unreachable':
+        return 'The station is offline. Your game keeps trying to reach it.';
+      case 'restarting':
+        return 'The station is restarting. It will be back in a moment.';
+      case 'connecting':
+      case 'aboard':
+        return 'Coming aboard the station. One moment.';
+      case 'removed':
+        return "You're not aboard the station: an owner removed that player or robot.";
+      case 'refused':
+        return `You're not aboard the station: ${line.message}`;
+      case 'ashore':
+        return "You're not aboard the station.";
+    }
+  }
 
   /** Asks the Registry to register or log in this seat. Resolves with an error to show, or nothing once it worked. */
   async function signIn(type: string, details: SignIn): Promise<string | undefined> {
@@ -220,12 +285,23 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
       if (s.kind === 'refused' && s.code === JOIN_REFUSED.badRobot) arrival.show({ kind: 'build', error });
       else arrival.show({ ...welcome(error), name: join.login?.name ?? device.username });
     }
-    if (s.kind === 'replaced') link = undefined;
+    // Every halt ends the link: the page isn't aboard, and won't be until it boards again (or reloads).
+    if (s.kind === 'replaced' || s.kind === 'outdated') link = undefined;
     status(s);
+    // Only a reload fixes an outdated page, so say so now rather than leaving Play to fail again.
+    if (s.kind === 'outdated') {
+      const text = 'Reload the page to come aboard with the new version.';
+      arrival.show({ kind: 'notice', title: 'Saber Side was updated', text, action: reload });
+    }
   }
 
   arrival.show(welcome());
   status({ kind: 'ashore' });
+}
+
+/** Whether the link is still trying to come aboard (rather than stopped: outdated, refused, or replaced). */
+function retrying(line: StatusLine) {
+  return ['connecting', 'restarting', 'full', 'unreachable', 'aboard'].includes(line.kind);
 }
 
 /** A seat's robot build, from its synced entry. */
