@@ -109,7 +109,11 @@ export function defineStationRoom(deps: StationRoomDeps) {
     const wallet: WalletNotice = { shards: deps.ledger.balance(playerAccount(playerId)) };
     client.send(NOTICE.wallet, wallet);
     const robots = deps.players.robotsOf(playerId);
-    const garage: Garage = { robots: robots.map(ownerRobot), nextPrice: robotPrice(robots.length) ?? null };
+    const garage: Garage = {
+      player: deps.players.player(playerId)?.name,
+      robots: robots.map(ownerRobot),
+      nextPrice: robotPrice(robots.length) ?? null,
+    };
     client.send(NOTICE.garage, garage);
   };
 

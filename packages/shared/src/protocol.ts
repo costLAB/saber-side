@@ -139,6 +139,11 @@ export type BotMakerAnswer = { ok: true } | { ok: false; error: string };
 
 /** A registered player's robots, sent to their seat alone (NOTICE.garage) whenever they change. */
 export interface Garage {
+  /**
+   * The player's username, as saved, for the HUD. Optional so a client keeps working with a station from before it
+   * was added (it then shows the name typed to log in).
+   */
+  player?: string;
   robots: OwnerRobot[];
   /** What the next robot costs, in shards (see robotPrice), or null when they have as many as they can keep. */
   nextPrice: number | null;

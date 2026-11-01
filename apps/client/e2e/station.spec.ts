@@ -48,8 +48,9 @@ async function saber<T>(page: Page, read: string): Promise<T> {
 async function playAsGuest(page: Page): Promise<string> {
   await page.getByRole('button', { name: 'Play' }).click();
   await page.getByRole('button', { name: 'Roll out' }).click();
-  await eventually(page, () => page.locator('#station').textContent()).toMatch(/online · \d+ aboard · as Bot \d+/);
-  return (/as (Bot \d+)/.exec((await page.locator('#station').textContent()) ?? '') as RegExpExecArray)[1] as string;
+  await eventually(page, () => page.locator('#who').textContent()).toMatch(/^Guest · Bot \d+/);
+  await expect(page.locator('#station')).toHaveText(/^Station · online · \d+ aboard$/);
+  return (/(Bot \d+)/.exec((await page.locator('#who').textContent()) ?? '') as RegExpExecArray)[1] as string;
 }
 
 /** Puts the robot in the walkway in front of a building's door and drives in through it. */
@@ -82,6 +83,7 @@ test('plays straight away as a guest: builds a robot from parts and rolls it out
   await expect(sheet).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Welcome aboard' })).toBeVisible();
   await expect(page.locator('#station')).toContainText('not aboard');
+  await expect(page.locator('#who')).toBeHidden();
 
   // Typing in the login form, even game keys (W A S D, X for spin), mustn't drive the robot around behind the sheet.
   const before = await saber<number>(page, 's.bot.root.position.z');
@@ -103,7 +105,7 @@ test('plays straight away as a guest: builds a robot from parts and rolls it out
   await expect(page.getByLabel('Arms paint: Sky')).toBeDisabled();
   await slot('mobility').locator('label[title="Rust"]').click();
   await page.getByRole('button', { name: 'Roll out' }).click();
-  await eventually(page, () => page.locator('#station').textContent()).toMatch(/online · \d+ aboard · as Bot \d+/);
+  await eventually(page, () => page.locator('#who').textContent()).toMatch(/^Guest · Bot \d+/);
   await expect(sheet).toBeHidden();
   const built = {
     mobility: { part: 'wheel', paint: '#e8935a' },
@@ -188,7 +190,7 @@ test('rebuilds the robot by driving back into the Bot Maker', async ({ page, err
   await expect(sheet).toBeHidden();
   await advance(page, 1000);
   await expect(sheet).toBeHidden();
-  await expect(page.locator('#station')).toContainText(`as ${name}`);
+  await expect(page.locator('#who')).toContainText(`Guest · ${name}`);
   await drive(false);
   await expect(sheet).toBeHidden();
   expect(await saber<number>(page, 's.bot.root.position.x')).toBeGreaterThan(BOT_MAKER.front);
@@ -201,7 +203,7 @@ test('rebuilds the robot by driving back into the Bot Maker', async ({ page, err
   await expect(sheet).toBeHidden();
   expect(await saber(page, 's.bot.build.head.part')).toBe('visor');
   expect(await saber<number>(page, 's.st.rollout')).toBeGreaterThan(0);
-  await expect(page.locator('#station')).toContainText(`as ${name}`);
+  await expect(page.locator('#who')).toContainText(`Guest · ${name}`);
   await advance(page, 6000);
   await expect(sheet).toBeHidden();
   expect(errors).toEqual([]);
@@ -219,7 +221,10 @@ test('registers at the Robot Registry, logs back in on the next visit, and buys 
   await page.getByRole('button', { name: 'Play' }).click();
   await page.locator('[data-slot=head]').getByText('Stalk eye').click();
   await page.getByRole('button', { name: 'Roll out' }).click();
-  await eventually(page, () => page.locator('#station').textContent()).toContain('Register at the Robot Registry');
+  // A guest is shown as one, with a nudge to register.
+  await eventually(page, () => page.locator('#who').textContent()).toMatch(
+    /^Guest · Bot \d+ · Register at the Robot Registry to keep your robot$/,
+  );
   // Guests have no wallet.
   await expect(page.locator('#wallet')).toBeHidden();
   await advance(page, 6000);
@@ -238,8 +243,8 @@ test('registers at the Robot Registry, logs back in on the next visit, and buys 
   await page.getByLabel('PIN again').fill('1357');
   await page.getByRole('button', { name: 'Register' }).click();
   await expect(sheet).toBeHidden();
-  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
-  await expect(page.locator('#station')).not.toContainText('Register');
+  // Registered: the player's name, and the robot they pilot (named after them at first). No more nudge.
+  await eventually(page, () => page.locator('#who').textContent()).toBe(`${name} · piloting ${name}`);
   // Registering opens a Cyber Crystal wallet, which starts with nothing.
   await eventually(page, () => page.locator('#wallet').textContent()).toBe('0 ◆ 00');
 
@@ -260,9 +265,11 @@ test('registers at the Robot Registry, logs back in on the next visit, and buys 
   // Next visit: the login form has the username filled in, and the PIN brings the same robot back.
   await page.reload();
   await expect(page.getByLabel('Username')).toHaveValue(name);
+  // Logging in with other capitals still shows the username as saved.
+  await page.getByLabel('Username').fill(name.toLowerCase());
   await page.getByLabel('PIN', { exact: true }).fill('1357');
   await page.getByRole('button', { name: 'Log in' }).click();
-  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
+  await eventually(page, () => page.locator('#who').textContent()).toBe(`${name} · piloting ${name}`);
   expect(await saber(page, 's.bot.build.head.part')).toBe('stalk');
   await eventually(page, () => page.locator('#wallet').textContent()).toBe('12 ◆ 45');
 
@@ -277,7 +284,7 @@ test('registers at the Robot Registry, logs back in on the next visit, and buys 
   await page.locator('[data-slot=head]').getByText('Visor').click();
   await page.getByRole('button', { name: 'Buy for 10 CC' }).click();
   await expect(sheet).toBeHidden();
-  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${second}`);
+  await eventually(page, () => page.locator('#who').textContent()).toBe(`${name} · piloting ${second}`);
   await eventually(page, () => page.locator('#wallet').textContent()).toBe('2 ◆ 45');
   expect(await saber(page, 's.bot.build.head.part')).toBe('visor');
   expect(await saber<number>(page, 's.st.rollout')).toBeGreaterThan(0);
@@ -289,7 +296,7 @@ test('registers at the Robot Registry, logs back in on the next visit, and buys 
   await expect(page.getByRole('button', { name: '+ New robot · 20 CC' })).toBeVisible();
   await sheet.locator('.robot', { hasText: name }).click();
   await expect(sheet).toBeHidden();
-  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
+  await eventually(page, () => page.locator('#who').textContent()).toBe(`${name} · piloting ${name}`);
   await eventually(page, () => saber(page, 's.bot.build.head.part')).toBe('stalk');
   expect(errors).toEqual([]);
 });
@@ -298,7 +305,7 @@ test("sees another player's robot, and sends its own", async ({ page, errors }, 
   test.skip(info.project.name === 'ipad', 'one profile is enough');
   await online(page);
   await page.goto('/?debug');
-  await playAsGuest(page);
+  const name = await playAsGuest(page);
 
   // The other player is a bot: it joins over the network like a browser would, standing a few steps away.
   const bot = await new Client(STATION).join<StationView>(STATION_ROOM, {
@@ -315,9 +322,10 @@ test("sees another player's robot, and sends its own", async ({ page, errors }, 
     // And this page's robot reaches the bot, where it really is. (Let it finish rolling out of the Bot Maker first.)
     await advance(page, 6000);
     const here = await saber<number[]>(page, '[s.bot.root.position.x, s.bot.root.position.z]');
+    // Find this page's robot by name: a robot from an earlier test may still be aboard, its seat held for a while.
     const seen = () => {
       for (const [id, p] of bot.state.players ?? [])
-        if (id !== bot.sessionId) return p as unknown as Record<string, number | boolean>;
+        if (id !== bot.sessionId && p.name === name) return p as unknown as Record<string, number | boolean>;
     };
     await eventually(page, async () => seen()?.shown).toBe(true);
     expect(seen()?.px).toBeCloseTo(here[0] as number, 2);
@@ -338,6 +346,7 @@ test('stays single-player when the build has no server', async ({ page, errors }
   test.skip(info.project.name === 'ipad', 'one profile is enough');
   await boot(page);
   await expect(page.locator('#station')).toBeHidden();
+  await expect(page.locator('#who')).toBeHidden();
   await expect(page.locator('.arrival')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

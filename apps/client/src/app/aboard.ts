@@ -23,7 +23,7 @@ import { ownerApi } from '../net/owner-api';
 import { type Credentials, linkToStation, type StationStatus } from '../net/station-link';
 import { createArrival } from '../ui/arrival';
 import { createRobotPreview } from '../ui/robot-preview';
-import { type StatusLine, showStationStatus } from '../ui/station-status';
+import { type StatusLine, showStationStatus, showWho, type Who } from '../ui/station-status';
 import { device } from './device';
 import { onDoorway } from './doorways';
 import { createPresence } from './presence';
@@ -40,6 +40,7 @@ import { createPresence } from './presence';
  */
 export function comeAboard(server: string, statusEl: HTMLElement) {
   const walletEl = document.getElementById('wallet');
+  const whoEl = document.getElementById('who') ?? document.createElement('span');
   // Other players' robots, kept in step with the station while this device is aboard.
   const presence = createPresence(legacy.world);
   legacy.frameHooks.push((dt) => presence.frame(dt));
@@ -59,11 +60,22 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
   /** The build this device last drew its robot with (as the station spells it), to redraw when the station's differs. */
   let drawn = '';
 
-  const status = (line: StatusLine) =>
-    showStationStatus(statusEl, line, me?.name, me ? !me.player : false, {
+  const status = (line: StatusLine) => {
+    showStationStatus(statusEl, line, me?.name, {
       comeAboard: () => arrival.show(welcome()),
       playHere: () => credentials && board(credentials),
     });
+    showWho(whoEl, line.kind === 'aboard' ? who() : undefined);
+  };
+
+  /** Who this seat is, for the HUD, once the station has shown it. */
+  function who(): Who | undefined {
+    if (!room || !me) return undefined;
+    if (!me.player) return { guest: me.name };
+    // The station sends the username as saved; until it does (or from an older station), the name typed to log in.
+    const player = garage?.player ?? credentials?.login?.name ?? device.username ?? '';
+    return { player, robot: me.name };
+  }
 
   const welcome = (error?: string) => ({ kind: 'welcome' as const, name: device.username, error });
 
@@ -194,6 +206,9 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
         joined?.onMessage(NOTICE.wallet, (notice: WalletNotice) => showWallet(notice.shards));
         joined?.onMessage(NOTICE.garage, (notice: Garage) => {
           garage = notice;
+          // Remember the username as saved, to fill in the login form next time.
+          if (notice.player) device.username = notice.player;
+          if (room && me) showWho(whoEl, who());
         });
       },
     );

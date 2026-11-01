@@ -21,7 +21,6 @@ export function showStationStatus(
   el: HTMLElement,
   status: StatusLine,
   robotName: string | undefined,
-  guest: boolean,
   actions: StatusActions,
 ) {
   const action = (label: string, run: () => void) => {
@@ -31,7 +30,7 @@ export function showStationStatus(
     b.addEventListener('click', run);
     return b;
   };
-  const said = JSON.stringify([status, robotName, guest]);
+  const said = JSON.stringify([status, robotName]);
   if (!el.hidden && el.dataset.said === said) return;
   el.dataset.said = said;
   el.hidden = false;
@@ -42,10 +41,8 @@ export function showStationStatus(
       el.append('Station · connecting…');
       break;
     case 'aboard':
+      // Who this seat is goes on its own line (showWho).
       el.append(`Station · online · ${status.aboard} aboard`);
-      if (robotName) el.append(` · as ${robotName}`);
-      // Guests aren't saved, so point them at the place that saves them.
-      if (guest) el.append(' · Register at the Robot Registry to keep your robot');
       break;
     case 'restarting':
       el.append('Station restarting · back in a moment');
@@ -70,5 +67,39 @@ export function showStationStatus(
     case 'removed':
       el.append('Station · not aboard · ', action('Come aboard', actions.comeAboard));
       break;
+  }
+}
+
+/** Who this seat is, for the HUD: a registered player and the robot they pilot, or a guest. */
+export type Who = { player: string; robot: string } | { guest: string };
+
+/**
+ * The line above the station line saying who you're playing as: "Mia · piloting Sprout" for a registered player, or
+ * "Guest · Bot 3" with a nudge to register (guests aren't saved). Hidden when this device isn't aboard.
+ */
+export function showWho(el: HTMLElement, who: Who | undefined) {
+  const said = JSON.stringify(who ?? null);
+  if (el.dataset.said === said) return;
+  el.dataset.said = said;
+  el.hidden = !who;
+  el.replaceChildren();
+  if (!who) return;
+  const span = (cls: string, text: string) => {
+    const s = document.createElement('span');
+    s.className = cls;
+    s.textContent = text;
+    return s;
+  };
+  if ('guest' in who) {
+    el.dataset.kind = 'guest';
+    // Point guests at the place that saves them.
+    el.append(
+      span('guest', 'Guest'),
+      ` · ${who.guest}`,
+      span('nudge', ' · Register at the Robot Registry to keep your robot'),
+    );
+  } else {
+    el.dataset.kind = 'player';
+    el.append(`${who.player} · piloting ${who.robot}`);
   }
 }

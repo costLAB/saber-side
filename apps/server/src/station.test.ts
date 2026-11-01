@@ -345,7 +345,7 @@ describe('several robots per player', () => {
     const balance = wallet(room);
     const robots = garage(room);
     await until(() => robots.length > 0, "Mia's garage");
-    expect(robots.at(-1)).toMatchObject({ robots: [{ name: 'Mia' }], nextPrice: 1000 });
+    expect(robots.at(-1)).toMatchObject({ player: 'Mia', robots: [{ name: 'Mia' }], nextPrice: 1000 });
 
     // Not enough crystals: refused, and nothing charged or made.
     expect(await botMaker(room, MESSAGE.build, { name: 'Sprout', build: stalk })).toMatchObject({
