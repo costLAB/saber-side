@@ -18,6 +18,7 @@ import {
   type PoseKind,
   PROTOCOL_VERSION,
   type RegistryAnswer,
+  type Rename,
   ROBOTS_PER_PLAYER,
   type RobotBuild,
   readPose,
@@ -237,6 +238,23 @@ export function defineStationRoom(deps: StationRoomDeps) {
           return built(client, { ok: false, error: "That isn't one of your robots." });
         }
         this.#pilot(client, aboard, robot);
+        built(client, { ok: true });
+      });
+      // The Bot Maker: a registered player renames the robot they pilot, under the same rules as the owner panel (unique
+      // ignoring case, not a guest's "Bot 7"). Everyone aboard sees the new name.
+      this.onMessage(MESSAGE.rename, (client, msg: unknown) => {
+        const aboard = this.state.players.get(client.sessionId);
+        if (!aboard) return;
+        if (!aboard.player)
+          return built(client, { ok: false, error: 'Register at the Robot Registry to name your robot.' });
+        const name = msg && typeof msg === 'object' ? (msg as Partial<Rename>).name : undefined;
+        const result = deps.players.renameRobot(aboard.robot, typeof name === 'string' ? name : '');
+        if (!result.ok) return built(client, { ok: false, error: result.error });
+        // Every seat piloting it (only this one, with one seat per player) shows the new name.
+        this.state.players.forEach((a) => {
+          if (a.player && a.robot === result.value.id) show(a, result.value);
+        });
+        sendPlayer(client, aboard.player);
         built(client, { ok: true });
       });
       this.onMessage(MESSAGE.login, (client, msg: unknown) => {

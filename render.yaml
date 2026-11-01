@@ -1,14 +1,63 @@
-# Render Blueprint for the station server (docs/HOSTING.md has the setup steps).
+# Render Blueprint for the whole game (docs/HOSTING.md has the setup steps).
 #
-# Two services run the same code from main:
+# Three services, all built from main:
+# - saber-side: the game itself, the built client served as static files. Free. Every PR gets a preview of it, which
+#   joins the staging server (apps/client/src/net/server-url.ts).
 # - saber-side-station: the real station. Always on, with a disk for the SQLite file.
-# - saber-side-staging: what Netlify deploy previews join. Free plan, so it sleeps when idle and forgets everything
-#   when it does. That's fine for trying a PR.
+# - saber-side-staging: what PR previews join. Free plan, so it sleeps when idle and forgets everything when it does.
+#   That's fine for trying a PR.
 #
-# Node runs the TypeScript directly (type stripping), so "build" only installs the server's dependencies.
-# Deploys wait for GitHub CI to pass, and only commits that touch the server or shared code trigger one.
+# Node runs the server's TypeScript directly (type stripping), so its "build" only installs dependencies.
+# Every deploy waits for GitHub CI to pass, and each service only redeploys when a commit touches its own code, so the
+# game and the station come from the same merge.
 
 services:
+  - type: web
+    name: saber-side
+    runtime: static
+    branch: main
+    buildCommand: >-
+      npx --yes pnpm@10.28.0 install --frozen-lockfile --filter @saber-side/client... &&
+      npx --yes pnpm@10.28.0 --filter @saber-side/client build
+    staticPublishPath: apps/client/dist
+    autoDeployTrigger: checksPass
+    previews:
+      generation: automatic
+    buildFilter:
+      paths:
+        - apps/client/**
+        - packages/shared/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - tsconfig.base.json
+        - render.yaml
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Which station each build joins: the real one, or (on a PR preview) staging. Both are baked into every build;
+      # the page picks by its own address.
+      - key: VITE_SERVER_URL
+        value: https://saber-side-station.onrender.com
+      - key: VITE_PREVIEW_SERVER_URL
+        value: https://saber-side-staging.onrender.com
+    headers:
+      # Internal only (never published): keep search engines out.
+      - path: /*
+        name: X-Robots-Tag
+        value: noindex, nofollow
+      # The page itself is always checked for a newer version, so a merge reaches players on their next load.
+      - path: /
+        name: Cache-Control
+        value: no-cache
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      # Built JS, CSS, and fonts have content hashes in their names, so browsers can cache them forever.
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+
   - type: web
     name: saber-side-station
     runtime: node
@@ -39,7 +88,7 @@ services:
         value: /var/data/station.db
       # Only the game's own pages may join. Add a custom domain here if the site gets one.
       - key: ALLOWED_ORIGINS
-        value: https://saberside.netlify.app
+        value: https://saber-side.onrender.com
       # Unlocks the owner panel (Owner, at the bottom of the roster). Render makes up a long random one; read it from
       # the service's Environment page.
       - key: ADMIN_KEY
@@ -68,8 +117,8 @@ services:
         value: "22"
       - key: DATABASE_PATH
         value: /tmp/station.db
-      # Netlify's deploy previews and branch deploys.
+      # The game's PR previews, such as https://saber-side-pr-23.onrender.com.
       - key: ALLOWED_ORIGINS
-        value: https://*--saberside.netlify.app
+        value: https://saber-side-pr-*.onrender.com
       - key: ADMIN_KEY
         generateValue: true
