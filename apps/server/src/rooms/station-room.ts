@@ -218,11 +218,24 @@ export function defineStationRoom(deps: StationRoomDeps) {
      */
     async releasePlayer(playerId: string) {
       if (!this.hasSeat(playerId)) return;
-      this.#release((a) => a.player === playerId, CLOSED.replaced);
+      const theirs = (a: Aboard) => a.player === playerId;
+      this.#release(theirs, CLOSED.replaced);
       const until = Date.now() + RELEASE_WAIT_MS;
       while ((this.hasSeat(playerId) || this.locked) && Date.now() < until) {
         await new Promise((resolve) => setTimeout(resolve, 10));
+        // A device that dropped just as it was told to leave (a reload races the close) goes to onDrop with its own
+        // close code, and its seat is held for reconnection after all. Let go of that hold too.
+        this.#letGoHeld(theirs);
       }
+      // The matchmaker reads the room's listing, which catches up with the unlock a moment later.
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    /** Lets go of every seat held for reconnection that matches. */
+    #letGoHeld(match: (aboard: Aboard) => boolean) {
+      this.state.players.forEach((aboard, sessionId) => {
+        if (match(aboard)) this.#held.get(sessionId)?.reject(false);
+      });
     }
 
     /** Ends every seat that matches (except `keep`): connected ones are closed, held ones let go. */
