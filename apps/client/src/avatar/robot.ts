@@ -461,3 +461,17 @@ export function buildRobot(kit: RobotKit, opts: { eyeLight?: boolean } = {}): Ro
     saberTrailMat,
   };
 }
+
+/** Turns an arm's pose numbers (`arm.cur`) into joint rotations, exactly as the legacy animation does. */
+export function applyArmPose(arm: RobotArm) {
+  const c = arm.cur;
+  const s = arm.s;
+  arm.shoulder.rotation.set(c.sw, 0, s * c.ab);
+  arm.elbow.rotation.set(-c.el, 0, c.ez);
+  arm.wrist.rotation.set(c.wr, 0, s * c.wz);
+  for (const f of arm.fingers) {
+    f.root.rotation.set(-c.curl * 1.1, 0, f.spread * (1 - c.curl));
+    f.joint.rotation.x = -c.curl * 1.4;
+  }
+  arm.thumb.rotation.set(-c.curl * 0.9, 0, s * (0.5 - c.curl * 0.35));
+}

@@ -1,4 +1,4 @@
-import { Client, ErrorCode, MatchMakeError } from '@colyseus/sdk';
+import { Client, ErrorCode, MatchMakeError, type Room } from '@colyseus/sdk';
 import { CLOSED, JOIN_REFUSED, NOTICE, PROTOCOL_VERSION, STATION_ROOM, type StationView } from '@saber-side/shared';
 
 export type StationStatus =
@@ -38,6 +38,7 @@ export function linkToStation(
   url: string,
   credentials: Credentials,
   onStatus: (status: StationStatus) => void,
+  onRoom: (room: Room<unknown, StationView> | undefined) => void = () => {},
 ): { stop(): void } {
   const client = new Client(url);
   let stopped = false;
@@ -67,6 +68,7 @@ export function linkToStation(
       attempt = 0;
       restarting = false;
       leave = () => room.leave();
+      onRoom(room);
       room.onStateChange((state) => onStatus({ kind: 'aboard', aboard: state.aboard }));
       room.onMessage(NOTICE.restarting, () => {
         restarting = true;
@@ -76,6 +78,7 @@ export function linkToStation(
       room.onReconnect(() => onStatus({ kind: 'aboard', aboard: room.state.aboard }));
       room.onLeave((code) => {
         leave = undefined;
+        onRoom(undefined);
         if (stopped) return;
         if (code === CLOSED.replaced) halt({ kind: 'replaced' });
         else if (code === CLOSED.removed) halt({ kind: 'removed' });
@@ -102,6 +105,7 @@ export function linkToStation(
       stopped = true;
       clearTimeout(timer);
       leave?.();
+      onRoom(undefined);
     },
   };
 }
