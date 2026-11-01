@@ -383,3 +383,16 @@
   color: var(--bone);
   font-variant-numeric: tabular-nums;
 }
+.arrival .robot .lock {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink-dim);
+}
+.arrival .robot.here {
+  border-color: var(--rust);
+  cursor: default;
+}
+.arrival .robot.full {
+  cursor: default;
+}

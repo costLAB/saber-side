@@ -2,6 +2,7 @@ import {
   ccToShards,
   classicBuild,
   cleanRobotName,
+  type Garage,
   isGuestName,
   isPin,
   type LedgerEntry,
@@ -14,6 +15,7 @@ import {
   ROBOT_NAME_MAX,
   ROBOT_PARTS,
   type RobotBuild,
+  SHARDS_PER_CC,
   walletText,
 } from '@saber-side/shared';
 import { ApiFailure, type OwnerApi } from '../net/owner-api';
@@ -25,7 +27,9 @@ export type ArrivalView =
   /** Play, or log in. `name` fills in the username. */
   | { kind: 'welcome'; name?: string; error?: string }
   /** The robot builder: a new guest's robot, or new parts for the robot being piloted (at the Bot Maker). */
-  | { kind: 'build'; rebuild?: { name: string; build: RobotBuild }; error?: string }
+  | { kind: 'build'; rebuild?: { name: string; build: RobotBuild }; newRobot?: { price: number }; error?: string }
+  /** The Bot Maker, for a registered player: their robots to pilot, rebuild the one they pilot, or buy another. */
+  | { kind: 'garage'; garage: Garage; piloting: string; error?: string }
   /** The Robot Registry's kiosk: register (guests), or log in. `name` is the registered player's. */
   | { kind: 'registry'; guest: boolean; name?: string; error?: string }
   | { kind: 'owner-key'; error?: string }
@@ -46,6 +50,10 @@ export interface ArrivalHandlers {
   onRegister(name: string, pin: string): Promise<string | undefined>;
   /** At the Registry: log this seat in as a player. Resolves with an error to show, or nothing once it worked. */
   onSignIn(name: string, pin: string): Promise<string | undefined>;
+  /** At the Bot Maker: buy another robot and pilot it. Resolves with an error to show, or nothing once it worked. */
+  onBuyRobot(name: string, build: RobotBuild): Promise<string | undefined>;
+  /** At the Bot Maker: pilot another of this player's robots. Resolves with an error, or nothing once it worked. */
+  onPilot(robotId: string): Promise<string | undefined>;
   /** "Just look around": play without coming aboard (or, from the builder, keep the robot as it is). */
   onDismiss(): void;
   /** A turntable for the robot builder, if this device can draw one. */
@@ -113,12 +121,15 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
   document.body.append(root);
   const sheet = root.firstElementChild as HTMLElement;
   let current: ArrivalView = { kind: 'welcome' };
+  /** The garage this Bot Maker visit started from, to go back to from its builder. */
+  let garageView: ArrivalView | undefined;
   let preview: RobotPreview | undefined;
 
   function back() {
-    if (current.kind === 'welcome' || current.kind === 'registry' || (current.kind === 'build' && current.rebuild)) {
-      dismiss();
-    } else show({ kind: 'welcome' });
+    if (current.kind === 'welcome' || current.kind === 'registry' || current.kind === 'garage') dismiss();
+    else if (current.kind === 'build' && (current.rebuild || current.newRobot) && garageView) show(garageView);
+    else if (current.kind === 'build' && current.rebuild) dismiss();
+    else show({ kind: 'welcome' });
   }
 
   function dismiss() {
@@ -138,6 +149,8 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
 
   function show(view: ArrivalView = { kind: 'welcome' }) {
     current = view;
+    if (view.kind === 'garage') garageView = view;
+    else if (view.kind !== 'build') garageView = undefined;
     root.hidden = false;
     endPreview();
     sheet.classList.toggle('wide', view.kind === 'build');
@@ -159,7 +172,9 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
       case 'welcome':
         return renderWelcome(view.name, view.error);
       case 'build':
-        return renderBuild(view.rebuild, view.error);
+        return renderBuild(view.rebuild, view.newRobot, view.error);
+      case 'garage':
+        return renderGarage(view.garage, view.piloting, view.error);
       case 'registry':
         return renderRegistry(view.guest, view.name, view.error);
       case 'owner-key':
@@ -311,33 +326,98 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
     ];
   }
 
-  function renderBuild(rebuild: { name: string; build: RobotBuild } | undefined, err?: string): Node[] {
+  function renderBuild(
+    rebuild: { name: string; build: RobotBuild } | undefined,
+    newRobot: { price: number } | undefined,
+    err?: string,
+  ): Node[] {
     const parts = renderParts(rebuild?.build ?? classicBuild());
+    const name = newRobot && textInput('robot-name', 'off');
     const err$ = error(err);
+    const go = button(
+      newRobot ? `Buy for ${newRobot.price / SHARDS_PER_CC} CC` : 'Roll out',
+      'primary',
+      () => {},
+      'submit',
+    );
     const form = h(
       'form',
       {},
+      name && h('label', {}, 'Name', name),
       parts.node,
       err$,
-      h(
-        'div',
-        { class: 'actions' },
-        button(rebuild ? 'Keep it' : 'Back', 'ghost', back),
-        button('Roll out', 'primary', () => {}, 'submit'),
-      ),
+      h('div', { class: 'actions' }, button(rebuild ? 'Keep it' : 'Back', 'ghost', back), go),
     );
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const build = parts.read();
       if (!build.mobility) {
         err$.textContent = 'Every robot needs a wheel to roll on.';
         return;
       }
+      if (name) {
+        const clean = cleanRobotName(name.value);
+        if (!clean) {
+          err$.textContent = 'Pick a name of 1 to 16 letters or numbers.';
+          return;
+        }
+        go.disabled = true;
+        const failed = await handlers.onBuyRobot(clean, build);
+        go.disabled = false;
+        if (failed) err$.textContent = failed;
+        else hide();
+        return;
+      }
       hide();
       if (rebuild) handlers.onRebuilt(build);
       else handlers.onBuilt(build);
     });
-    return [title(rebuild ? `Rebuild ${rebuild.name}` : 'Build your robot'), form];
+    const heading = newRobot ? 'Build another robot' : rebuild ? `Rebuild ${rebuild.name}` : 'Build your robot';
+    return [title(heading), form];
+  }
+
+  function renderGarage(garage: Garage, piloting: string, err?: string): Node[] {
+    const err$ = error(err);
+    const flying = garage.robots.find((r) => r.id === piloting);
+    const cards = garage.robots.map((robot) => {
+      const here = robot.id === piloting;
+      const card = h(
+        'button',
+        { type: 'button', class: here ? 'robot here' : 'robot', 'data-robot': robot.id },
+        paint(robot.color),
+        h('span', { class: 'name' }, robot.name),
+        here && h('span', { class: 'lock' }, 'PILOTING'),
+      );
+      card.addEventListener('click', async () => {
+        if (here) return;
+        const failed = await handlers.onPilot(robot.id);
+        if (failed) err$.textContent = failed;
+        else hide();
+      });
+      return card;
+    });
+    const price = garage.nextPrice;
+    const more =
+      price === null
+        ? h('span', { class: 'robot new full' }, `${garage.robots.length} of ${garage.robots.length} robots`)
+        : button(`+ New robot · ${price / SHARDS_PER_CC} CC`, 'robot new', () =>
+            show({ kind: 'build', newRobot: { price } }),
+          );
+    return [
+      title('Bot Maker'),
+      h('p', {}, 'Pick a robot to pilot, rebuild this one, or build another.'),
+      err$,
+      h('div', { class: 'robots' }, ...cards, more),
+      h(
+        'div',
+        { class: 'actions' },
+        flying &&
+          button(`Rebuild ${flying.name}`, 'ghost', () =>
+            show({ kind: 'build', rebuild: { name: flying.name, build: flying.build } }),
+          ),
+      ),
+      h('div', { class: 'foot' }, button('Leave', 'link', dismiss)),
+    ];
   }
 
   /**

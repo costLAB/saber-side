@@ -82,3 +82,15 @@ export function isRobotColor(hex: string): boolean {
 export function isPin(pin: string): boolean {
   return /^\d{4}$/.test(pin);
 }
+
+/** Each extra robot costs this many CC times the robots a player already owns: the 2nd 10 CC, the 5th 40 CC. */
+export const ROBOT_PRICE_STEP_CC = 10;
+
+/**
+ * What a player's next robot costs, in shards, given how many they own: the first is free. Undefined once they own
+ * ROBOTS_PER_PLAYER.
+ */
+export function robotPrice(owned: number): number | undefined {
+  if (owned >= ROBOTS_PER_PLAYER) return undefined;
+  return owned * ROBOT_PRICE_STEP_CC * 100;
+}

@@ -6,7 +6,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client, MatchMakeError, type Room } from '@colyseus/sdk';
 import {
+  type BotMakerAnswer,
   classicBuild,
+  type Garage,
   type JoinRequest,
   NOTICE,
   PROTOCOL_VERSION,
@@ -137,6 +139,25 @@ export function wallet(room: Room): number[] {
   const seen: number[] = [];
   room.onMessage(NOTICE.wallet, (notice: WalletNotice) => seen.push(notice.shards));
   return seen;
+}
+
+/** Collects the garages (a player's robots) a seat is sent. The latest is the last one. */
+export function garage(room: Room): Garage[] {
+  const seen: Garage[] = [];
+  room.onMessage(NOTICE.garage, (g: Garage) => seen.push(g));
+  return seen;
+}
+
+/** Sends a Bot Maker request (build or pilot) and waits for the station's answer. */
+export function botMaker(room: Room, type: string, request: unknown): Promise<BotMakerAnswer> {
+  const answered = new Promise<BotMakerAnswer>((resolve) => {
+    const stop = room.onMessage(NOTICE.botMaker, (reply: BotMakerAnswer) => {
+      stop();
+      resolve(reply);
+    });
+  });
+  room.send(type, request);
+  return answered;
 }
 
 /** Sends a Registry request (register or login) and waits for the station's answer. */

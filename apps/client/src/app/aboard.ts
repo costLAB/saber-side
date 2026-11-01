@@ -1,12 +1,16 @@
 import type { Room } from '@colyseus/sdk';
 import {
   type AboardView,
+  type BotMakerAnswer,
   cleanRobotBuild,
+  type Garage,
   insideBotMaker,
   insideRegistry,
   JOIN_REFUSED,
   MESSAGE,
+  type NewRobot,
   NOTICE,
+  type Pilot,
   type RegistryAnswer,
   type RobotBuild,
   type SignIn,
@@ -50,6 +54,8 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
   let me: AboardView | undefined;
   /** Whether this join has spawned yet. Rejoining after a drop or a restart doesn't roll out again. */
   let spawned = false;
+  /** A registered player's robots, as the station last sent them. */
+  let garage: Garage | undefined;
   /** The build this device last drew its robot with (as the station spells it), to redraw when the station's differs. */
   let drawn = '';
 
@@ -81,6 +87,8 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
     },
     onRegister: async (name, pin) => signIn(MESSAGE.register, { name, pin }),
     onSignIn: async (name, pin) => signIn(MESSAGE.login, { name, pin }),
+    onBuyRobot: (name, build) => atBotMaker(MESSAGE.build, { name, build }),
+    onPilot: (robot) => atBotMaker(MESSAGE.pilot, { robot }),
     onLogin: (name, pin) => board({ login: { name, pin } }),
     preview: () => createRobotPreview(legacy.robotKit),
     onDismiss: () => {
@@ -99,7 +107,9 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
   onDoorway(insideBotMaker, {
     open: () => {
       const build = me && readBuild(me);
-      if (link && me && build) arrival.show({ kind: 'build', rebuild: { name: me.name, build } });
+      // A registered player's robots: pilot one, rebuild this one, or buy another. A guest just rebuilds theirs.
+      if (link && me?.player && garage) arrival.show({ kind: 'garage', garage, piloting: me.robot });
+      else if (link && me && build) arrival.show({ kind: 'build', rebuild: { name: me.name, build } });
       else arrival.show(welcome());
     },
     isOpen: () => arrival.open,
@@ -115,21 +125,38 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
 
   /** Asks the Registry to register or log in this seat. Resolves with an error to show, or nothing once it worked. */
   async function signIn(type: string, details: SignIn): Promise<string | undefined> {
-    const seat = room;
-    if (!seat) return "You're not aboard right now.";
-    const reply = await new Promise<RegistryAnswer>((resolve) => {
-      const timer = setTimeout(() => resolve({ ok: false, error: "The station didn't answer. Try again." }), 10_000);
-      const stop = seat.onMessage(NOTICE.registry, (answer: RegistryAnswer) => {
-        clearTimeout(timer);
-        stop();
-        resolve(answer);
-      });
-      seat.send(type, details);
-    });
+    const reply = await ask<RegistryAnswer>(type, details, NOTICE.registry);
     if (!reply.ok) return reply.error;
     // From now on this seat is that player's: rejoins after a drop or a restart log in.
     credentials = { login: { name: reply.name, pin: details.pin } };
     device.username = reply.name;
+    return undefined;
+  }
+
+  /** Sends the station a request over the seat and waits for its answer (sent to this seat alone, as `notice`). */
+  function ask<T extends { ok: boolean }>(
+    type: string,
+    body: unknown,
+    notice: string,
+  ): Promise<T | { ok: false; error: string }> {
+    const seat = room;
+    if (!seat) return Promise.resolve({ ok: false, error: "You're not aboard right now." });
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve({ ok: false, error: "The station didn't answer. Try again." }), 10_000);
+      const stop = seat.onMessage(notice, (answer: T) => {
+        clearTimeout(timer);
+        stop();
+        resolve(answer);
+      });
+      seat.send(type, body);
+    });
+  }
+
+  /** At the Bot Maker: buy or switch robots, keeping the seat. The chosen robot rolls out of the Bot Maker. */
+  async function atBotMaker(type: string, body: NewRobot | Pilot): Promise<string | undefined> {
+    const reply = await ask<BotMakerAnswer>(type, body, NOTICE.botMaker);
+    if (!reply.ok) return reply.error;
+    legacy.rollOutOfBotMaker();
     return undefined;
   }
 
@@ -163,7 +190,11 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
         joined?.onStateChange(() => presence.sync());
         // A registered player's balance comes to their seat alone. Guests have no wallet, so it stays hidden.
         showWallet(undefined);
+        garage = undefined;
         joined?.onMessage(NOTICE.wallet, (notice: WalletNotice) => showWallet(notice.shards));
+        joined?.onMessage(NOTICE.garage, (notice: Garage) => {
+          garage = notice;
+        });
       },
     );
   }

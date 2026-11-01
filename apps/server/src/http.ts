@@ -66,27 +66,31 @@ export function addRoutes(app: Application, deps: RouteDeps) {
     }
     const reason = String(req.body?.reason ?? '').slice(0, 80) || 'grant';
     const result = deps.ledger.grant(req.params.id, Number(req.body?.shards), reason);
-    if (result.ok) deps.station()?.walletChanged(req.params.id);
+    if (result.ok) deps.station()?.playerChanged(req.params.id);
     send(res, result);
   });
   owner.post('/ledger/:id/reverse', (req, res) => {
     const result = deps.ledger.reverse(Number(req.params.id));
     if (result.ok) {
       for (const account of [result.value.from, result.value.to]) {
-        if (account.startsWith('player:')) deps.station()?.walletChanged(account.slice('player:'.length));
+        if (account.startsWith('player:')) deps.station()?.playerChanged(account.slice('player:'.length));
       }
     }
     send(res, result);
   });
   owner.post('/robots/:id/rename', (req, res) => {
     const result = deps.players.renameRobot(req.params.id, String(req.body?.name ?? ''));
-    if (result.ok) deps.station()?.refreshRobot(result.value);
+    if (result.ok) {
+      deps.station()?.refreshRobot(result.value);
+      deps.station()?.playerChanged(result.value.playerId);
+    }
     send(res, result.ok ? { ok: true, value: ownerRobot(result.value) } : result);
   });
   owner.delete('/robots/:id', (req, res) => {
     const result = deps.players.removeRobot(req.params.id);
     if (result.ok) {
       deps.station()?.kickRobot(req.params.id, CLOSED.removed);
+      deps.station()?.playerChanged(result.value.playerId);
       res.status(204).end();
     } else send(res, result);
   });
