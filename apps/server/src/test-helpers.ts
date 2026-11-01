@@ -15,6 +15,7 @@ import {
   STATION_ROOM,
   type StationHealth,
   type StationView,
+  type WalletNotice,
 } from '@saber-side/shared';
 import { afterEach } from 'vitest';
 import { openDatabase } from './db.ts';
@@ -129,6 +130,13 @@ export async function comeAboard(
 /** Joins as a registered player. */
 export function logIn(server: Booted, name: string, pin: string) {
   return comeAboard(server, { login: { name, pin } });
+}
+
+/** Collects the wallet notices a seat gets. The latest balance is the last one. */
+export function wallet(room: Room): number[] {
+  const seen: number[] = [];
+  room.onMessage(NOTICE.wallet, (notice: WalletNotice) => seen.push(notice.shards));
+  return seen;
 }
 
 /** Sends a Registry request (register or login) and waits for the station's answer. */

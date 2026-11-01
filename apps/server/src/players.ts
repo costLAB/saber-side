@@ -144,8 +144,8 @@ export class Players {
     return rows.map(robotRecord);
   }
 
-  /** Every player and their robots, by name, for the owner panel. */
-  list(): OwnerPlayer[] {
+  /** Every player and their robots, by name, for the owner panel (which adds their balances). */
+  list(): Omit<OwnerPlayer, 'shards'>[] {
     const rows = this.#db
       .prepare('SELECT id, display_name, pin_hash FROM players ORDER BY display_name COLLATE NOCASE')
       .all() as unknown as PlayerRow[];

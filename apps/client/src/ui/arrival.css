@@ -377,3 +377,9 @@
     height: 220px;
   }
 }
+.arrival .owner-row .shards {
+  margin-left: auto;
+  padding-right: 6px;
+  color: var(--bone);
+  font-variant-numeric: tabular-nums;
+}

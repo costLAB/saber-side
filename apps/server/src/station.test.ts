@@ -3,6 +3,7 @@ import {
   CLOSED,
   classicBuild,
   JOIN_REFUSED,
+  type LedgerEntry,
   MESSAGE,
   NOTICE,
   type OwnerPlayer,
@@ -14,7 +15,19 @@ import {
   STATION_ROOM,
 } from '@saber-side/shared';
 import { describe, expect, it } from 'vitest';
-import { api, ask, boot, comeAboard, health, leaveCode, logIn, refusal, seeded, until } from './test-helpers.ts';
+import {
+  api,
+  ask,
+  boot,
+  comeAboard,
+  health,
+  leaveCode,
+  logIn,
+  refusal,
+  seeded,
+  until,
+  wallet,
+} from './test-helpers.ts';
 
 const visor = { ...classicBuild(), head: { part: 'visor', paint: '#8fc4f2' } } as const;
 const others = (room: { sessionId: string; state: { players: Map<string, { name: string }> } }) =>
@@ -277,6 +290,15 @@ describe('the Robot Registry', () => {
     expect(JSON.parse(again.state.players.get(again.sessionId)?.build ?? '')).toEqual(visor);
   });
 
+  it('opens a wallet when a guest registers, and sends a balance to whoever logs in there', async () => {
+    const server = await boot();
+    const guest = await comeAboard(server);
+    const seen = wallet(guest);
+    await ask(guest, MESSAGE.register, { name: 'Kai', pin: '2468' });
+    await until(() => seen.length === 1, 'the new wallet');
+    expect(seen).toEqual([0]);
+  });
+
   it("logs a guest in: the seat switches to that player's robot, and their other device lets go", async () => {
     const server = await boot(seeded({ name: 'Zed', pin: '1111', build: visor }));
     const ipad = await logIn(server, 'Zed', '1111');
@@ -381,5 +403,50 @@ describe('owner panel', () => {
     const res = await api<{ error: string }>(server, 'DELETE', `/owner/robots/${robot.id}`, undefined, owner);
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/only robot/);
+  });
+
+  it("grants crystals, tells the player's seat alone, and reverses a grant", async () => {
+    const server = await boot({ ADMIN_KEY: key, ...seeded({ name: 'Mia', pin: '4321' }) });
+    const room = await logIn(server, 'Mia', '4321');
+    const seen = wallet(room);
+    const guest = await comeAboard(server);
+    const guestSeen = wallet(guest);
+    await until(() => seen.length > 0, "Mia's balance on joining");
+    expect(seen).toEqual([0]);
+    const mia = (await list(server))[0] as OwnerPlayer;
+    expect(mia.shards).toBe(0);
+
+    const grant = await api<LedgerEntry>(server, 'POST', `/owner/players/${mia.id}/grant`, { shards: 1245 }, owner);
+    expect(grant).toMatchObject({ status: 200, body: { to: `player:${mia.id}`, shards: 1245, reason: 'grant' } });
+    await until(() => seen.at(-1) === 1245, 'the new balance to reach Mia');
+    expect((await list(server))[0]?.shards).toBe(1245);
+    // Taking away more than she has is refused whole.
+    const tooMuch = await api(server, 'POST', `/owner/players/${mia.id}/grant`, { shards: -2000 }, owner);
+    expect(tooMuch.status).toBe(409);
+
+    const reversed = await api(server, 'POST', `/owner/ledger/${grant.body.id}/reverse`, {}, owner);
+    expect(reversed.status).toBe(200);
+    await until(() => seen.at(-1) === 0, 'the reversal to reach Mia');
+    const entries = (await api<LedgerEntry[]>(server, 'GET', `/owner/players/${mia.id}/ledger`, undefined, owner)).body;
+    expect(entries.map((e) => [e.reason, e.reversed])).toEqual([
+      ['reversal', false],
+      ['grant', true],
+    ]);
+    expect(guestSeen).toEqual([]);
+  });
+
+  it("posts a removed player's balance to the removed account", async () => {
+    const server = await boot({
+      ADMIN_KEY: key,
+      ...seeded({ name: 'Mia', pin: '4321' }, { name: 'Zed', pin: '1111' }),
+    });
+    const [mia, zed] = (await list(server)) as OwnerPlayer[];
+    await api(server, 'POST', `/owner/players/${mia?.id}/grant`, { shards: 500 }, owner);
+    await api(server, 'POST', `/owner/players/${zed?.id}/grant`, { shards: 300 }, owner);
+    expect((await api(server, 'DELETE', `/owner/players/${mia?.id}`, undefined, owner)).status).toBe(204);
+    const entries = (await api<LedgerEntry[]>(server, 'GET', `/owner/players/${mia?.id}/ledger`, undefined, owner))
+      .body;
+    expect(entries[0]).toMatchObject({ to: 'removed', shards: 500, reason: 'removed' });
+    expect((await list(server)).map((p) => [p.name, p.shards])).toEqual([['Zed', 300]]);
   });
 });

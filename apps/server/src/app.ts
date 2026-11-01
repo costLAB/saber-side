@@ -4,6 +4,7 @@ import { PROTOCOL_VERSION, STATION_CAPACITY, STATION_ROOM, type StationHealth } 
 import type { ServerConfig } from './config.ts';
 import { loadStation, openDatabase } from './db.ts';
 import { addRoutes } from './http.ts';
+import { Ledger } from './ledger.ts';
 import { originChecker } from './origins.ts';
 import { Players } from './players.ts';
 import { defineStationRoom, type StationControl } from './rooms/station-room.ts';
@@ -23,6 +24,7 @@ export async function startStation(config: ServerConfig): Promise<RunningStation
   const db = openDatabase(config.databasePath);
   const record = loadStation(db);
   const players = new Players(db);
+  const ledger = new Ledger(db);
   let aboard = 0;
   let station: StationControl | undefined;
   const health = (): StationHealth => ({
@@ -56,6 +58,7 @@ export async function startStation(config: ServerConfig): Promise<RunningStation
         defineStationRoom({
           name: record.name,
           players,
+          ledger,
           onAboardChange: (n) => {
             aboard = n;
           },
@@ -65,7 +68,8 @@ export async function startStation(config: ServerConfig): Promise<RunningStation
         }),
       ),
     },
-    express: (app) => addRoutes(app, { players, health, allowed, adminKey: config.adminKey, station: () => station }),
+    express: (app) =>
+      addRoutes(app, { players, ledger, health, allowed, adminKey: config.adminKey, station: () => station }),
   });
   server.onShutdown(() => db.close());
 

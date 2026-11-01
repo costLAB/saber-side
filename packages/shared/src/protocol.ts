@@ -10,8 +10,9 @@ import type { PoseField } from './pose.ts';
 import type { RobotBuild } from './content/robot-parts.ts';
 
 // History: 1 = the station server; 2 = joining as a robot from the roster; 3 = robots see each other (pose.ts);
-// 4 = robots built from parts; 5 = guests and logins (players own robots); 6 = the Robot Registry.
-export const PROTOCOL_VERSION = 6;
+// 4 = robots built from parts; 5 = guests and logins (players own robots); 6 = the Robot Registry;
+// 7 = the Cyber Crystal wallet.
+export const PROTOCOL_VERSION = 7;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';
@@ -77,6 +78,8 @@ export interface OwnerPlayer {
   name: string;
   /** An owner reset their PIN; the next PIN they log in with becomes their new one. */
   pinReset: boolean;
+  /** Their Cyber Crystal balance, in shards. */
+  shards: number;
   robots: OwnerRobot[];
 }
 
@@ -131,7 +134,29 @@ export const NOTICE = {
   restarting: 'restarting',
   /** To one seat: how its `register` or `login` went (a RegistryAnswer). */
   registry: 'registry',
+  /** To a registered player's seat: their balance (a WalletNotice), on joining and whenever it changes. */
+  wallet: 'wallet',
 } as const;
+
+/** A registered player's Cyber Crystal balance, in shards. It's theirs alone: other players never see it. */
+export interface WalletNotice {
+  shards: number;
+}
+
+/** One ledger entry, as the owner panel sees it (`GET /api/owner/players/:id/ledger`). */
+export interface LedgerEntry {
+  id: number;
+  ts: string;
+  /** An account: `player:<id>`, or a system account such as `owner`, `removed`, or `bot_maker`. */
+  from: string;
+  to: string;
+  shards: number;
+  reason: string;
+  /** What it refers to: for a reversal, the entry it reverses. */
+  ref: string | null;
+  /** Whether a later entry reversed this one. */
+  reversed: boolean;
+}
 
 /** `GET /healthz`: what the host's health check and the uptime monitor see. */
 export interface StationHealth {

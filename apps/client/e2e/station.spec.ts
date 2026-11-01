@@ -11,7 +11,7 @@ import {
   type StationView,
 } from '@saber-side/shared';
 import { advance, boot, expect, hold, test } from './fixtures';
-import { STATION_PORT } from './ports';
+import { OWNER_KEY, STATION_PORT } from './ports';
 
 // Coming aboard the station through the arrival screen, against a real station server (started by
 // playwright.config.ts). It lives for the whole run, so names typed here are made fresh.
@@ -188,7 +188,11 @@ test('rebuilds the robot by driving back into the Bot Maker', async ({ page, err
   expect(errors).toEqual([]);
 });
 
-test('registers at the Robot Registry, then logs back in on the next visit', async ({ page, errors }, info) => {
+test('registers at the Robot Registry, then logs back in on the next visit', async ({
+  page,
+  errors,
+  request,
+}, info) => {
   test.skip(info.project.name === 'ipad', 'one profile is enough');
   const sheet = page.locator('.arrival');
   await online(page);
@@ -197,6 +201,8 @@ test('registers at the Robot Registry, then logs back in on the next visit', asy
   await page.locator('[data-slot=head]').getByText('Stalk eye').click();
   await page.getByRole('button', { name: 'Roll out' }).click();
   await eventually(page, () => page.locator('#station').textContent()).toContain('Register at the Robot Registry');
+  // Guests have no wallet.
+  await expect(page.locator('#wallet')).toBeHidden();
   await advance(page, 6000);
 
   // Drive in through the Registry's door, next to the Bot Maker.
@@ -226,6 +232,23 @@ test('registers at the Robot Registry, then logs back in on the next visit', asy
   await expect(sheet).toBeHidden();
   await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
   await expect(page.locator('#station')).not.toContainText('Register');
+  // Registering opens a Cyber Crystal wallet, which starts with nothing.
+  await eventually(page, () => page.locator('#wallet').textContent()).toBe('0 ◆ 00');
+
+  // An owner grants crystals, and the HUD shows the new balance.
+  const owner = { Authorization: `Bearer ${OWNER_KEY}` };
+  const players = (await (await request.get(`${STATION}/api/owner/players`, { headers: owner })).json()) as {
+    id: string;
+    name: string;
+  }[];
+  const me = players.find((p) => p.name === name);
+  expect(me).toBeTruthy();
+  const granted = await request.post(`${STATION}/api/owner/players/${me?.id}/grant`, {
+    headers: owner,
+    data: { shards: 1245 },
+  });
+  expect(granted.status()).toBe(200);
+  await eventually(page, () => page.locator('#wallet').textContent()).toBe('12 ◆ 45');
 
   // Next visit: the login form has the username filled in, and the PIN brings the same robot back.
   await page.reload();
@@ -234,6 +257,7 @@ test('registers at the Robot Registry, then logs back in on the next visit', asy
   await page.getByRole('button', { name: 'Log in' }).click();
   await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
   expect(await saber(page, 's.bot.build.head.part')).toBe('stalk');
+  await eventually(page, () => page.locator('#wallet').textContent()).toBe('12 ◆ 45');
   expect(errors).toEqual([]);
 });
 

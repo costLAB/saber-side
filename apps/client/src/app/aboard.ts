@@ -11,6 +11,8 @@ import {
   type RobotBuild,
   type SignIn,
   type StationView,
+  type WalletNotice,
+  walletText,
 } from '@saber-side/shared';
 import { legacy } from '../legacy/game.js';
 import { ownerApi } from '../net/owner-api';
@@ -33,6 +35,7 @@ import { createPresence } from './presence';
  * The device remembers the last username, never the PIN. The game stays playable behind all of this.
  */
 export function comeAboard(server: string, statusEl: HTMLElement) {
+  const walletEl = document.getElementById('wallet');
   // Other players' robots, kept in step with the station while this device is aboard.
   const presence = createPresence(legacy.world);
   legacy.frameHooks.push((dt) => presence.frame(dt));
@@ -130,6 +133,14 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
     return undefined;
   }
 
+  /** The `12 ◆ 45` readout under the station line, or nothing (a guest, or not aboard). */
+  function showWallet(shards: number | undefined) {
+    if (!walletEl) return;
+    walletEl.hidden = shards === undefined;
+    walletEl.textContent = shards === undefined ? '' : walletText(shards);
+    walletEl.title = shards === undefined ? '' : 'Cyber Crystals ◆ shards';
+  }
+
   /** Draws this device's robot with these parts. */
   function draw(build: RobotBuild) {
     drawn = JSON.stringify(build);
@@ -150,6 +161,9 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
         room = joined;
         presence.attach(joined);
         joined?.onStateChange(() => presence.sync());
+        // A registered player's balance comes to their seat alone. Guests have no wallet, so it stays hidden.
+        showWallet(undefined);
+        joined?.onMessage(NOTICE.wallet, (notice: WalletNotice) => showWallet(notice.shards));
       },
     );
   }
