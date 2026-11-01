@@ -6,8 +6,10 @@ import {
   CLOSED,
   classicBuild,
   JOIN_REFUSED,
+  MESSAGE,
   NOTICE,
   PIN_TRIES,
+  POSE,
   PROTOCOL_VERSION,
   type RobotCard,
   type RosterResponse,
@@ -115,6 +117,28 @@ describe('station server', () => {
     const after = await comeAboard(server, { robot: zed.id });
     await until(() => after.state.aboard === 1, 'the held seat to be let go');
     expect([...after.state.players.keys()]).toEqual([after.sessionId]);
+  });
+
+  it("passes each robot's pose on to everyone else, and ignores malformed ones", async () => {
+    const server = await boot();
+    const a = await comeAboard(server);
+    const b = await comeAboard(server);
+    const pose = POSE.map(([, kind], i) => (kind === 'flag' ? 1 : kind === 'position' ? 100 + i : 0.25));
+    a.send(MESSAGE.pose, pose);
+    const seen = () => b.state.players?.get(a.sessionId) as unknown as Record<string, number | boolean>;
+    await until(() => seen()?.px === 100, "a's pose to reach b");
+    expect(seen()).toMatchObject({ px: 100, py: 101, pz: 102, shown: true });
+    expect(seen().qx as number).toBeCloseTo(0.25, 3);
+    expect(seen().drive as number).toBeCloseTo(0.25, 3);
+
+    for (const bad of [[1, 2, 3], 'nope', [...pose.slice(1), Number.NaN], pose.map(() => 1e9)])
+      a.send(MESSAGE.pose, bad);
+    a.send(
+      MESSAGE.pose,
+      pose.map((v, i) => (i === 0 ? 7 : v)),
+    );
+    await until(() => seen()?.px === 7, 'the next good pose');
+    expect(seen().py).toBe(101);
   });
 
   it('keeps the station and its roster across a restart, and tells players it is restarting', async () => {

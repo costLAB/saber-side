@@ -6,6 +6,7 @@ import { createRobotPreview } from '../ui/robot-preview';
 import { createRosterPicker, type RosterView } from '../ui/roster-picker';
 import { type StatusLine, showStationStatus } from '../ui/station-status';
 import { device } from './device';
+import { createPresence } from './presence';
 
 const ROSTER_RETRY_MS = [1000, 2000, 5000, 10_000, 20_000, 30_000];
 
@@ -18,6 +19,10 @@ const ROSTER_RETRY_MS = [1000, 2000, 5000, 10_000, 20_000, 30_000];
  */
 export function comeAboard(server: string, statusEl: HTMLElement) {
   const api = rosterApi(server);
+  // Other players' robots, kept in step with the station while this device is aboard.
+  const presence = createPresence(legacy.world);
+  legacy.frameHooks.push((dt) => presence.frame(dt));
+  if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __presence: presence });
   let link: { stop(): void } | undefined;
   let robot: RobotCard | undefined;
   let pin: string | undefined;
@@ -51,7 +56,15 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
     robot = picked;
     pin = typedPin;
     spawned = false;
-    link = linkToStation(server, { robot: picked.id, pin: typedPin }, (s) => onLink(picked, s));
+    link = linkToStation(
+      server,
+      { robot: picked.id, pin: typedPin },
+      (s) => onLink(picked, s),
+      (room) => {
+        presence.attach(room);
+        room?.onStateChange(() => presence.sync());
+      },
+    );
   }
 
   function onLink(picked: RobotCard, s: StationStatus) {

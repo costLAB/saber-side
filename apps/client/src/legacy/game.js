@@ -33,7 +33,7 @@ import { makeCanvas, textureKit, wrapX } from '../render/textures';
 import { dot } from '../render/kit';
 
 /** Hooks the new modules call into (see app/aboard.ts). Filled in below, once the scene exists. */
-export const legacy = { robotKit: null, setRobotBuild(_build) {}, launchIntoHub() {} };
+export const legacy = { robotKit: null, setRobotBuild(_build) {}, launchIntoHub() {}, world: null, frameHooks: [] };
 
 (() => {
 const V3 = THREE.Vector3;
@@ -128,6 +128,8 @@ const robotKit = { materials: M, mesh, glow, toTex };
 legacy.robotKit = robotKit;
 const bot = buildRobot(robotKit, classicBuild(), { eyeLight: true });
 scene.add(bot.root);
+// what other modules need to add robots of their own (app/presence.ts)
+legacy.world = { scene, bot, kit: robotKit, drawTex };
 
 // ---------- habitat: Ring Seven ----------
 // Layout across the ring (x): promenade |x|<46 with shops facing it from 26..40, parks to 115, carrot farms to 161.
@@ -1328,6 +1330,7 @@ const clock = new THREE.Clock();
 function frame() {
   const dt = Math.min(clock.getDelta(), 1 / 30);
   update(dt, clock.elapsedTime);
+  for (const f of legacy.frameHooks) f(dt);
   renderer.render(ships.scene || scene, camera);
   requestAnimationFrame(frame);
 }
@@ -1637,7 +1640,7 @@ legacy.launchIntoHub = () => {
 };
 
 // Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
-if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships };
+if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, fl, cam, camera, camPos, keys, clock, lifts: LIFTS, ships };
 
 frame();
 })();

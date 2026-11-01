@@ -1,4 +1,6 @@
+import { Client } from '@colyseus/sdk';
 import type { Page } from '@playwright/test';
+import { MESSAGE, POSE, PROTOCOL_VERSION, STATION_ROOM, type StationView } from '@saber-side/shared';
 import { advance, boot, expect, test } from './fixtures';
 import { STATION_PORT } from './ports';
 
@@ -109,6 +111,56 @@ test('asks for the PIN of a robot that has one', async ({ page, errors, request 
   await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
   // The browser logs the refused join (HTTP 401) itself; that one is expected.
   expect(errors.filter((e) => !e.includes('status of 401'))).toEqual([]);
+});
+
+test("sees another player's robot, and sends its own", async ({ page, errors, request }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  const mine = await (
+    await request.post(`${STATION}/api/robots`, { data: { name: fresh('Zed'), color: '#8fc4f2' } })
+  ).json();
+  const theirs = await (
+    await request.post(`${STATION}/api/robots`, { data: { name: fresh('Mia'), color: '#f4a2c8' } })
+  ).json();
+
+  await online(page);
+  await page.goto('/?debug');
+  await page.locator('.roster .robot', { hasText: mine.name }).click();
+  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${mine.name}`);
+
+  // The other player is a bot: it joins over the network like a browser would, standing a few steps away.
+  const bot = await new Client(STATION).join<StationView>(STATION_ROOM, {
+    protocol: PROTOCOL_VERSION,
+    robot: theirs.id,
+  });
+  try {
+    const pose = POSE.map(([name]) => ({ px: 3, pz: 6, qw: 1, squashX: 1, squashY: 1, shown: 1 })[name as 'px'] ?? 0);
+    bot.send(MESSAGE.pose, pose);
+    await eventually(page, () =>
+      page.evaluate(() => (window as unknown as { __presence: { count: number } }).__presence.count),
+    ).toBe(1);
+
+    // And this page's robot reaches the bot, where it really is. (Coming aboard fired it into the hub, so stop its
+    // drift first.)
+    await saber(page, 's.fl.V.set(0, 0, 0)');
+    await advance(page, 300);
+    const here = await saber<number[]>(page, '[s.bot.root.position.x, s.bot.root.position.z]');
+    const seen = () => {
+      for (const [id, p] of bot.state.players ?? [])
+        if (id !== bot.sessionId) return p as unknown as Record<string, number | boolean>;
+    };
+    await eventually(page, async () => seen()?.shown).toBe(true);
+    expect(seen()?.px).toBeCloseTo(here[0] as number, 2);
+    expect(seen()?.pz).toBeCloseTo(here[1] as number, 2);
+
+    // When the bot leaves, its robot goes too.
+    await bot.leave();
+    await eventually(page, () =>
+      page.evaluate(() => (window as unknown as { __presence: { count: number } }).__presence.count),
+    ).toBe(0);
+  } finally {
+    if (bot.connection.isOpen) await bot.leave();
+  }
+  expect(errors).toEqual([]);
 });
 
 test('stays single-player when the build has no server', async ({ page, errors }, info) => {

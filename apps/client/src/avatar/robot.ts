@@ -175,15 +175,8 @@ export function buildRobot(
 /** Eases the arms into the relaxed pose the animation starts from (for a robot that isn't animated, like a preview). */
 export function restPose(robot: Robot) {
   for (const A of robot.arms) {
-    const c = A.cur;
-    A.shoulder.rotation.set(0.06, 0, A.s * 0.36);
-    A.elbow.rotation.set(-c.el, 0, 0);
-    A.wrist.rotation.set(0.1, 0, 0);
-    for (const f of A.fingers) {
-      f.root.rotation.set(-c.curl * 1.1, 0, f.spread * (1 - c.curl));
-      f.joint.rotation.x = -c.curl * 1.4;
-    }
-    A.thumb.rotation.set(-c.curl * 0.9, 0, A.s * (0.5 - c.curl * 0.35));
+    Object.assign(A.cur, { ab: 0.36, sw: 0.06, el: 0.45, ez: 0, wr: 0.1, wz: 0, curl: 0.3 });
+    applyArmPose(A);
   }
 }
 
@@ -202,4 +195,18 @@ export function disposeRobot(robot: Robot, shared: Iterable<THREE.Material>) {
   });
   for (const m of materials) m.dispose();
   robot.swooshMat.map?.dispose();
+}
+
+/** Turns an arm's pose numbers (`arm.cur`) into joint rotations, exactly as the legacy animation does. */
+export function applyArmPose(arm: RobotArm) {
+  const c = arm.cur;
+  const s = arm.s;
+  arm.shoulder.rotation.set(c.sw, 0, s * c.ab);
+  arm.elbow.rotation.set(-c.el, 0, c.ez);
+  arm.wrist.rotation.set(c.wr, 0, s * c.wz);
+  for (const f of arm.fingers) {
+    f.root.rotation.set(-c.curl * 1.1, 0, f.spread * (1 - c.curl));
+    f.joint.rotation.x = -c.curl * 1.4;
+  }
+  arm.thumb.rotation.set(-c.curl * 0.9, 0, s * (0.5 - c.curl * 0.35));
 }
