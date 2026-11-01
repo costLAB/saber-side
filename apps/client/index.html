@@ -25,7 +25,6 @@
 
   .hud { position: fixed; z-index: 2; pointer-events: none; }
   .tl { top: calc(16px + env(safe-area-inset-top, 0px)); left: calc(16px + env(safe-area-inset-left, 0px)); }
-  .tr { top: calc(16px + env(safe-area-inset-top, 0px)); right: calc(16px + env(safe-area-inset-right, 0px)); text-align: right; }
   .bl { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: calc(16px + env(safe-area-inset-left, 0px)); }
 
   .tl { padding: 10px 14px; background: var(--plate); border-radius: 6px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
@@ -37,9 +36,6 @@
   #station button { pointer-events: auto; font: 500 11px var(--mono); color: var(--ink); background: transparent; border: 1px solid var(--bone-edge); border-radius: 4px; padding: 1px 6px; cursor: pointer; }
   #station button:hover { border-color: var(--rust); color: var(--rust); }
 
-  #reset { pointer-events: auto; font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); background: var(--plate); border: 1px solid var(--bone-edge); border-radius: 6px; padding: 6px 10px; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-  #reset:hover { border-color: var(--rust); color: var(--rust); }
-  #reset:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
 
   #keys { pointer-events: auto; }
   #keysbox summary { cursor: pointer; display: inline-block; padding: 6px 12px; margin-bottom: 6px; border-radius: 999px; background: var(--plate); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim); list-style: none; }
@@ -74,10 +70,6 @@
 <header class="hud tl">
   <div class="readout"><span id="where"></span><span id="station" hidden></span></div>
 </header>
-
-<div class="hud tr">
-  <button id="reset" type="button">Reset items (R)</button>
-</div>
 
 <div class="hud bl" id="keys">
   <details id="keysbox" open>
