@@ -5,8 +5,8 @@ import type { ServerConfig } from './config.ts';
 import { loadStation, openDatabase } from './db.ts';
 import { addRoutes } from './http.ts';
 import { originChecker } from './origins.ts';
+import { Players } from './players.ts';
 import { defineStationRoom, type StationControl } from './rooms/station-room.ts';
-import { Roster } from './roster.ts';
 
 export interface RunningStation {
   /** The port actually bound (useful when the config asked for 0, "any free port"). */
@@ -22,7 +22,7 @@ export interface RunningStation {
 export async function startStation(config: ServerConfig): Promise<RunningStation> {
   const db = openDatabase(config.databasePath);
   const record = loadStation(db);
-  const roster = new Roster(db);
+  const players = new Players(db);
   let aboard = 0;
   let station: StationControl | undefined;
   const health = (): StationHealth => ({
@@ -55,7 +55,7 @@ export async function startStation(config: ServerConfig): Promise<RunningStation
       [STATION_ROOM]: defineRoom(
         defineStationRoom({
           name: record.name,
-          roster,
+          players,
           onAboardChange: (n) => {
             aboard = n;
           },
@@ -65,7 +65,7 @@ export async function startStation(config: ServerConfig): Promise<RunningStation
         }),
       ),
     },
-    express: (app) => addRoutes(app, { roster, health, allowed, adminKey: config.adminKey, station: () => station }),
+    express: (app) => addRoutes(app, { players, health, allowed, adminKey: config.adminKey, station: () => station }),
   });
   server.onShutdown(() => db.close());
 

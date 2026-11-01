@@ -19,12 +19,12 @@ function write(key: string, value: string | undefined) {
 }
 
 export const device = {
-  /** The robot this device last came aboard as, so the next visit skips the roster. Never its PIN. */
-  get robot() {
-    return read('saber-side:robot');
+  /** The username this device last logged in with, to fill in the login form. Never the PIN. */
+  get username() {
+    return read('saber-side:username');
   },
-  set robot(id: string | undefined) {
-    write('saber-side:robot', id);
+  set username(name: string | undefined) {
+    write('saber-side:username', name);
   },
   /** The owner key, once an owner has unlocked the panel on this device. */
   get ownerKey() {

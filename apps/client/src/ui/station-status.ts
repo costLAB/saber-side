@@ -1,17 +1,17 @@
 import type { StationStatus } from '../net/station-link';
 
-/** The station line can also say we're not aboard (the roster was dismissed, or our robot was refused or removed). */
+/** The station line can also say we're not aboard (the arrival screen was dismissed, or a join was refused or removed). */
 export type StatusLine = StationStatus | { kind: 'ashore' };
 
 export interface StatusActions {
-  /** Open the roster after "Just look around". */
+  /** Open the arrival screen after "Just look around". */
   comeAboard(): void;
-  /** Take the robot back from the other device. */
+  /** Take the seat back from the other device. */
   playHere(): void;
 }
 
 /**
- * Status line under the title. The game works alone whatever it says, so it stays small and calm. (Switching robots
+ * Status line under the title. The game works alone whatever it says, so it stays small and calm. (Rebuilding a robot
  * isn't here: it's done by driving into the Bot Maker.)
  *
  * The station reports its state many times a second, so the line is only rebuilt when what it says changes. Rebuilding
@@ -60,7 +60,7 @@ export function showStationStatus(
       );
       break;
     case 'replaced':
-      el.append(`Playing as ${robotName ?? 'this robot'} on another device · `, action('Play here', actions.playHere));
+      el.append(`Playing as ${robotName ?? 'you'} on another device · `, action('Play here', actions.playHere));
       break;
     case 'ashore':
     case 'refused':

@@ -1,5 +1,13 @@
 import { Client, ErrorCode, MatchMakeError, type Room } from '@colyseus/sdk';
-import { CLOSED, JOIN_REFUSED, NOTICE, PROTOCOL_VERSION, STATION_ROOM, type StationView } from '@saber-side/shared';
+import {
+  CLOSED,
+  JOIN_REFUSED,
+  type JoinRequest,
+  NOTICE,
+  PROTOCOL_VERSION,
+  STATION_ROOM,
+  type StationView,
+} from '@saber-side/shared';
 
 export type StationStatus =
   | { kind: 'connecting' }
@@ -10,33 +18,32 @@ export type StationStatus =
   /** This page is older or newer than the server. Only a reload fixes that, so we stop trying. */
   | { kind: 'outdated' }
   | { kind: 'unreachable' }
-  /** The server won't take this robot as given (wrong PIN, locked, not on the roster). We stop and ask again. */
+  /** The server won't take this join as given (a wrong PIN, a locked username, a robot it can't build). We stop. */
   | { kind: 'refused'; code: number; message: string }
-  /** The same robot came aboard from another device. We stop, so the two devices don't keep taking turns. */
+  /** The same player came aboard from another device. We stop, so the two devices don't keep taking turns. */
   | { kind: 'replaced' }
-  /** The owner removed this robot. */
+  /** The owner removed this player, or the robot it was piloting. */
   | { kind: 'removed' };
 
-/** Who this device is coming aboard as. */
-export interface Credentials {
-  robot: string;
-  pin?: string;
-}
+/** Who this device is coming aboard as: a guest with their robot, or a login. */
+export type Credentials = Omit<JoinRequest, 'protocol'>;
 
 /** Waits between join attempts. The game stays playable alone in the meantime. */
 const RETRY_MS = [1000, 2000, 5000, 10_000, 20_000, 30_000];
 
-const REFUSALS: readonly number[] = [JOIN_REFUSED.unknownRobot, JOIN_REFUSED.wrongPin, JOIN_REFUSED.pinLocked];
+const REFUSALS: readonly number[] = [JOIN_REFUSED.badRobot, JOIN_REFUSED.wrongPin, JOIN_REFUSED.pinLocked];
 
 /**
  * Keeps this device aboard the station: joins, rejoins after drops and server restarts, and reports what's happening.
  * Colyseus's own reconnection covers short drops (the server holds the seat for 30 s). This loop covers the rest: a
  * restart (deploys create a new room, so we join again rather than reconnect), a full station, or a server that's
  * still waking up.
+ *
+ * `credentials` is read on every attempt, so a guest who rebuilt their robot comes back as the new one after a restart.
  */
 export function linkToStation(
   url: string,
-  credentials: Credentials,
+  credentials: () => Credentials,
   onStatus: (status: StationStatus) => void,
   onRoom: (room: Room<unknown, StationView> | undefined) => void = () => {},
 ): { stop(): void } {
@@ -60,7 +67,7 @@ export function linkToStation(
     if (stopped) return;
     if (attempt === 0 && !restarting) onStatus({ kind: 'connecting' });
     try {
-      const room = await client.join<StationView>(STATION_ROOM, { protocol: PROTOCOL_VERSION, ...credentials });
+      const room = await client.join<StationView>(STATION_ROOM, { protocol: PROTOCOL_VERSION, ...credentials() });
       if (stopped) {
         room.leave();
         return;

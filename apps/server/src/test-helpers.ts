@@ -1,19 +1,22 @@
 // Shared by the server tests: boots the real server (src/index.ts) as a child process and talks to it the way the game
 // does, over HTTP for the roster and matchmaking, then a WebSocket per player.
 import { type ChildProcess, spawn } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client, MatchMakeError, type Room } from '@colyseus/sdk';
 import {
+  classicBuild,
   type JoinRequest,
-  type NewRobot,
   PROTOCOL_VERSION,
-  ROBOT_COLORS,
-  type RobotCard,
+  type RobotBuild,
   STATION_ROOM,
   type StationHealth,
   type StationView,
 } from '@saber-side/shared';
 import { afterEach } from 'vitest';
+import { openDatabase } from './db.ts';
+import { Players } from './players.ts';
 
 export interface Booted {
   base: string;
@@ -23,12 +26,40 @@ export interface Booted {
 
 const running: Booted[] = [];
 const rooms: Room[] = [];
+const dirs: string[] = [];
 
 afterEach(async () => {
   // leave() only resolves for a room that's still open; players already gone (or on a stopped server) are skipped.
   for (const room of rooms.splice(0)) if (room.connection.isOpen) await room.leave();
   for (const server of running.splice(0)) await server.stop();
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
+
+/** A station database file that lives until the test ends, for restarts and for players saved before boot. */
+export function stationFile(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'saber-station-'));
+  dirs.push(dir);
+  return join(dir, 'station.db');
+}
+
+export interface SeedPlayer {
+  name: string;
+  pin: string;
+  build?: RobotBuild;
+}
+
+/** Saves players (each with one robot named after them) before the server boots, and returns its environment. */
+export function seeded(...players: SeedPlayer[]): { DATABASE_PATH: string } {
+  const path = stationFile();
+  const db = openDatabase(path);
+  const store = new Players(db);
+  for (const p of players) {
+    const made = store.register(p.name, p.pin, p.build ?? classicBuild());
+    if (!made.ok) throw new Error(made.error);
+  }
+  db.close();
+  return { DATABASE_PATH: path };
+}
 
 export async function boot(env: Record<string, string> = {}): Promise<Booted> {
   const proc = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'src/index.ts'], {
@@ -79,31 +110,23 @@ export async function api<T = unknown>(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await res.text();
-  return { status: res.status, body: (text ? JSON.parse(text) : undefined) as T, headers: res.headers };
+  const json = res.headers.get('content-type')?.includes('json');
+  return { status: res.status, body: (text && json ? JSON.parse(text) : undefined) as T, headers: res.headers };
 }
 
-let made = 0;
-/** Puts a new robot on the roster. Names are unique, so by default each call gets a fresh one. */
-export async function makeRobot(server: Booted, robot: Partial<NewRobot> = {}): Promise<RobotCard> {
-  const res = await api<RobotCard>(server, 'POST', '/robots', {
-    name: `Bot ${++made}`,
-    color: ROBOT_COLORS[made % ROBOT_COLORS.length]?.hex,
-    ...robot,
-  });
-  if (res.status !== 201) throw new Error(`couldn't make a robot: ${res.status} ${JSON.stringify(res.body)}`);
-  return res.body;
-}
-
-/** Joins the station as a robot (a fresh one unless given). */
-export async function comeAboard(server: Booted, join: Partial<JoinRequest> = {}): Promise<Room<unknown, StationView>> {
-  const robot = join.robot ?? (await makeRobot(server)).id;
-  const room = await new Client(server.base).join<StationView>(STATION_ROOM, {
-    protocol: PROTOCOL_VERSION,
-    ...join,
-    robot,
-  });
+/** Joins the station: as a guest with the classic robot unless told otherwise. */
+export async function comeAboard(
+  server: Booted,
+  join: Partial<JoinRequest> = { guest: { build: classicBuild() } },
+): Promise<Room<unknown, StationView>> {
+  const room = await new Client(server.base).join<StationView>(STATION_ROOM, { protocol: PROTOCOL_VERSION, ...join });
   rooms.push(room);
   return room;
+}
+
+/** Joins as a registered player. */
+export function logIn(server: Booted, name: string, pin: string) {
+  return comeAboard(server, { login: { name, pin } });
 }
 
 /** Expects a join to be refused and returns the refusal code. */

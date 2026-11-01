@@ -10,8 +10,8 @@ import type { PoseField } from './pose.ts';
 import type { RobotBuild } from './content/robot-parts.ts';
 
 // History: 1 = the station server; 2 = joining as a robot from the roster; 3 = robots see each other (pose.ts);
-// 4 = robots built from parts.
-export const PROTOCOL_VERSION = 4;
+// 4 = robots built from parts; 5 = guests and logins (players own robots).
+export const PROTOCOL_VERSION = 5;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';
@@ -19,13 +19,22 @@ export const STATION_ROOM = 'station';
 /** At most this many players aboard at once. The next one is told the station is full. */
 export const STATION_CAPACITY = 10;
 
-/** What a client sends when it asks to come aboard. */
+/** Comes aboard as a guest: a robot built from these parts, held only while the page is open. */
+export interface GuestJoin {
+  build: RobotBuild;
+}
+
+/** Comes aboard as a registered player, piloting the robot they piloted last. */
+export interface LoginJoin {
+  name: string;
+  pin: string;
+}
+
+/** What a client sends when it asks to come aboard: exactly one of `guest` or `login`. */
 export interface JoinRequest {
   protocol: number;
-  /** Which robot from the roster this device is playing as. */
-  robot: string;
-  /** Only for robots with a PIN. */
-  pin?: string;
+  guest?: GuestJoin;
+  login?: LoginJoin;
 }
 
 /**
@@ -37,56 +46,50 @@ export const JOIN_REFUSED = {
   outdated: 426,
   /** 423 Locked: every seat is taken (Colyseus locks a room when it's full). */
   full: 423,
-  /** 404: that robot isn't on the roster (the owner removed it). */
-  unknownRobot: 404,
-  /** 401: the robot has a PIN and this wasn't it. */
+  /** 400: a guest's robot isn't buildable (no wheel, or parts and paint not on the list). */
+  badRobot: 400,
+  /** 401: that username and PIN don't match (the same answer for an unknown username, so names can't be probed). */
   wrongPin: 401,
-  /** 429: too many wrong PINs in a row; that robot is locked for a minute. */
+  /** 429: too many wrong PINs in a row; that username is locked for a while. */
   pinLocked: 429,
 } as const;
 
 /** Why the server closed a player's connection on purpose. The client doesn't rejoin after these by itself. */
 export const CLOSED = {
-  /** The same robot came aboard from another device, which took over. */
+  /** The same player came aboard from another device, which took over. */
   replaced: 4100,
-  /** The owner removed this robot from the roster. */
+  /** The owner removed this player, or the robot it was piloting. */
   removed: 4101,
 } as const;
 
-/** A robot on the roster, as anyone can see it (`GET /roster`). */
-export interface RobotCard {
+/** A saved robot, as the owner panel sees it. */
+export interface OwnerRobot {
   id: string;
   name: string;
-  /** One of ROBOT_COLORS: the robot's main paint, for the roster list (see buildColor). */
+  /** One of ROBOT_COLORS: the robot's main paint (see buildColor). */
   color: string;
-  /** Its parts and their paint. */
   build: RobotBuild;
-  /** Whether joining as it needs a PIN. */
-  pin: boolean;
 }
 
-export interface RosterResponse {
-  protocol: number;
-  robots: RobotCard[];
-}
-
-/** `POST /robots`: make a new robot. */
-export interface NewRobot {
+/** A registered player, as the owner panel sees it (`GET /api/owner/players`). Never their PIN. */
+export interface OwnerPlayer {
+  id: string;
   name: string;
-  /** Its parts and paint. Without one, the robot is the classic build painted `color`. */
-  build?: RobotBuild;
-  /** One of ROBOT_COLORS. Only read when there's no build. */
-  color?: string;
-  pin?: string;
+  /** An owner reset their PIN; the next PIN they log in with becomes their new one. */
+  pinReset: boolean;
+  robots: OwnerRobot[];
 }
 
-/** The body of an error from the roster or owner endpoints. */
+/** The body of an error from the owner endpoints. */
 export interface ApiError {
   error: string;
 }
 
 /** Someone aboard right now (keyed by session in StationView.players), with their robot's latest pose. */
 export type AboardView = {
+  /** The registered player, or empty for a guest. */
+  player: string;
+  /** The robot being piloted (a guest's is made up for the visit). */
   robot: string;
   name: string;
   color: string;
@@ -105,6 +108,8 @@ export interface StationView {
 export const MESSAGE = {
   /** This device's robot pose (a PoseMessage), a few times a second. */
   pose: 'pose',
+  /** New parts and paint for the robot this seat pilots (a RobotBuild), from the Bot Maker. */
+  rebuild: 'rebuild',
 } as const;
 
 /** Messages the server sends to everyone aboard. */
