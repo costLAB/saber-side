@@ -92,10 +92,8 @@ export function createFlightMode(kit: StationKit): FlightMode {
   let scene: THREE.Scene | null = null;
 
   const flashEl = document.getElementById('flash');
-  const aliensEl = document.getElementById('aliens');
   let pending: (() => void) | null = null;
   let pendingLeft = 0;
-  let shownZapped = -1;
 
   const camPos = new THREE.Vector3();
   const v = new THREE.Vector3();
@@ -240,10 +238,6 @@ export function createFlightMode(kit: StationKit): FlightMode {
         `Space · ${flight.nearest.name} ${ft(flight.nearestDist)} ft · Ring Seven dock ${ft(flight.dockDist)} ft`,
       );
       kit.setPrompt('Fly into a planet to land · fly into a glowing Ring dock to return');
-    }
-    if (flight.zapped !== shownZapped && aliensEl) {
-      shownZapped = flight.zapped;
-      aliensEl.textContent = String(flight.zapped);
     }
 
     // chase camera, orbitable by drag and zoomable like the robot's

@@ -12,10 +12,9 @@ interface SaberDebug {
 test('spawn view', async ({ page, errors }, info) => {
   await boot(page, 1500);
   await snap(page, 'spawn.png');
-  await expect(page.locator('h1')).toHaveText('SABERSIDE');
-  await expect(page.locator('#spec')).toContainText('3.05 rpm = 1 g');
-  await expect(page.locator('#where')).toContainText('around the ring');
-  await expect(page.locator('#aliens')).toHaveText('0');
+  // The top-left panel is just where you are (and, online, the station status); the top right just the reset button.
+  await expect(page.locator('.hud.tl')).toHaveText('0° around the ring · on the center line');
+  await expect(page.locator('h1, #spec, #aliens')).toHaveCount(0);
   await expect(page.locator('#reset')).toHaveText('Reset items (R)');
   if (info.project.name === 'macbook') await expect(page.locator('#keysbox .keys')).toBeVisible();
   expect(errors).toEqual([]);
@@ -58,7 +57,6 @@ test('every action runs without errors', async ({ page, errors }, info) => {
     await hold(page, key, ms);
     await advance(page, 100);
   }
-  await expect(page.locator('#aliens')).toHaveText('0');
   expect(errors).toEqual([]);
 });
 
@@ -153,7 +151,7 @@ test('flying a ship out of the hub, to a planet and back', async ({ page, errors
     f.ship.pitch = Math.atan2(-20, 22);
   });
   await hold(page, 'f', 600);
-  await expect(page.locator('#aliens')).not.toHaveText('0');
+  expect(await saber.evaluate((s) => s.ships.state.zapped)).toBeGreaterThan(0);
 
   // climb out to space, then fly into the ring's dock
   await saber.evaluate((s) => {

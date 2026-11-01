@@ -1504,7 +1504,6 @@ function syncLights() {
     L.real.intensity = chainVisible(L.src.parent) ? L.src.intensity : 0;
   }
 }
-document.getElementById('spec').textContent = `800 ft ring · 85 ft hull · 400 ft long · ${RPM.toFixed(2)} rpm = 1 g`;
 const whereEl = document.getElementById('where');
 let whereTxt = '';
 function updateWhere(p) {
