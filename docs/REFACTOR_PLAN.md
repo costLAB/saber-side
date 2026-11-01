@@ -30,6 +30,7 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **Voice chat:** wanted, friends only, no moderation. Lower priority.
 - **Owner panel:** just the owners.
 - **Permissions:** **as light as possible.** No accounts, passwords, or roles for players, and every player can use every feature.
+- **Players, robots, and guests (2026-11-01).** A **player** (the kid) is a unique username and a 4-digit PIN, and owns the wallet, shops, farms, and many **robots**. No emails or phone numbers. Kids come in as **guests** first: **Play** builds a robot with an auto-generated name, and nothing is saved. Guests can eat carrots and cure their paint. Registering at the **Robot Registry**, a free office next to the Bot Maker and the only place to register, saves their robot and cure and creates their Cyber Crystal wallet. Registered players log in with username and PIN, on the arrival screen or at the Registry. One seat per player: a second device takes over from the first. Existing robots are wiped. The details and the PRs are in the initiative [Players, their robots, and seats](initiatives/players-and-robots.md).
 - **Carrot-first economy, and paint that cures (2026-11-01).** A robot's paint is a see-through coat that cures 1 percentage point per carrot eaten, from 10% to the chosen color at full opacity. Robots eat through a jaw that opens on the panel seam below the eye. Economy v1 starts with carrots: carrot stands, the **Farmers** who sell carrots wholesale, and farms players can buy. The details and the PRs are in the initiative [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md).
 
 ## Initiatives
@@ -38,6 +39,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 
 | Initiative | Phase | Status |
 | --- | --- | --- |
+| [Players, their robots, and seats](initiatives/players-and-robots.md) | P3 | Planned: next `feature/guest-arrival`; lands before the carrot initiative's paint cure and wallet |
 | [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 done (#13), next `feature/robot-mouth` |
 
 ---
@@ -127,10 +129,12 @@ Profiles hot-swap: a keyboard on the iPad hides the touch UI, a gamepad switches
 
 - **One world** (Ring Seven) for the whole friend group, as a single Colyseus room capped at 10 online players. An 11th player sees "Station full, try again soon".
 - **SQLite** on the server's disk stores the state. Ledger writes are saved immediately.
-- **Identity with no accounts or passwords:** open the URL and either pick your name from the station's roster or build a new robot (a name, and parts in their own paint). The same name works on the Quest and the iPad, so there's nothing to link.
-  - The tradeoff is trust: anyone could pick anyone's name. That's fine among friends.
-  - An **optional 4-digit PIN** per robot is there if siblings start spending each other's crystals.
-- **Owner panel** (owners only): unlocked on a device by entering an `ADMIN_KEY` that's set as a server environment variable. From the panel, owners can tune economy numbers, grant or remove currency, reset a shop, rename or remove robots, and restock the Depot.
+- **Identity with no accounts or passwords** ([initiative](initiatives/players-and-robots.md)):
+  - **Guests:** open the URL and tap **Play** to build a robot and come aboard, with an auto-generated name. Nothing is saved: a reload, a long drop, or a server restart loses a guest.
+  - **Registered players:** a guest registers at the **Robot Registry** (free, next to the Bot Maker) with a unique username and a 4-digit PIN. That saves their robot and creates their Cyber Crystal wallet. After that they log in with username and PIN on any device; the same login works on the Quest and the iPad, so there's nothing to link. The device remembers the username, never the PIN.
+  - A **player** owns the wallet, shops, farms, and robots. A **robot** is parked, piloted, or on duty. A **seat** is one connection piloting at most one robot, and each player has at most one: coming aboard from a second device takes over from the first. Robots on duty don't take seats.
+  - The tradeoff is a 4-digit PIN as the whole login, with lockouts that grow. That's fine for play money among friends, and an owner resets a forgotten PIN.
+- **Owner panel** (owners only): unlocked on a device by entering an `ADMIN_KEY` that's set as a server environment variable. From the panel, owners can tune economy numbers, grant or remove currency, reset a shop, rename, reset the PIN of, or remove players and robots, and restock the Depot.
 - **Browser permissions** are only requested when a feature needs one: the microphone only when someone turns voice on, and Quest's standard VR prompt only on Enter VR. No motion or camera permissions.
 
 ### D9. Lights budget: emissive, not lights
@@ -239,7 +243,8 @@ Carrots come first: eating them cures a robot's paint, so everyone wants them. A
 
 ```
 station(id, name, settings_json)                          -- one row: Ring Seven
-players(id, display_name, color, pin_hash NULL, loadout_json, created_at, build_json, paint_cure)
+players(id, display_name, pin_hash, created_at)          -- registered players only; guests aren't saved
+robots(id, player_id, display_name, color, build_json, loadout_json, created_at, piloted_at, paint_cure)
 spots(spot_id, size, traffic)                             -- seeded from shared/content
 shops(id, spot_id, owner_id, name, sign_json, status, upgrades_json, clerk_until, opened_at)
 plots(plot_id, row_count)                                 -- farm plots, seeded from shared/content/farms.ts
@@ -250,7 +255,7 @@ ledger(id, ts, from_acct, to_acct, amount_shards, reason, ref)
 
 Ore is a stackable item (`catalog_id = 'ore'`), and so are carrots (`catalog_id = 'carrot'`, in a pocket, on a shelf,
 or in a farm's bin). A farm's growth is worked out from the time since `grown_until`, capped by the bin, and posted when
-someone looks at the farm or at settlement, so no timer runs per farm. Accounts in the ledger are players, shops, and
+someone looks at the farm or at settlement, so no timer runs per farm. Accounts in the ledger are registered players (a wallet is created at the Robot Registry), shops, and
 system sinks and sources (`depot`, `refinery`, `rent`, `npc_shoppers`, `farmers`, `seed`).
 
 ---
@@ -412,7 +417,7 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 | P0 Groundwork | **Done** | Everything | |
 | P1 Decompose | **Partly done** | `packages/shared` and its tests, ships and planets on the new layout, render modules, the robot factory, seeded cosmetic RNG | Meters (units are still feet-scaled, `FT`), the entity/world model (the player, items, and lifts still live on meshes), a fixed tick, emissive sabers (each saber still has a point light), the three.js upgrade (still r128), and most of `game.js` (1,661 lines, `update()` included) |
 | P2 Input + avatar | Not started | | Action map and device adapters, `PilotedController`, the embodied avatar, the iPad touch rework (including the legend/d-pad overlap) |
-| P3 Online free roam | **Partly done** | The station server on Render, the roster with PINs, the owner panel skeleton, robots built from parts, the Bot Maker spawn, seeing friends' robots | Server-authoritative item pickup/drop and lifts (sabers and blasters as shared toys); off-site backups (Litestream) |
+| P3 Online free roam | **Partly done** | The station server on Render, the roster with PINs, the owner panel skeleton, robots built from parts, the Bot Maker spawn, seeing friends' robots | [Players, their robots, and seats](initiatives/players-and-robots.md) (guests, the Robot Registry, one seat per player); server-authoritative item pickup/drop and lifts (sabers and blasters as shared toys); off-site backups (Litestream) |
 | P4 Quest VR | Not started | | |
 | P5 Economy v1 | **Started** | Step 0 of the [carrot initiative](initiatives/carrot-economy.md) (#13) | The rest of the carrot initiative, then the rest of P5 |
 | P6, P7 | Not started | | |
@@ -576,7 +581,7 @@ The **station itself is the game** (free roam plus the economy). Other modes com
 | --- | --- |
 | Losing station data (shops, crystals) | Append-only ledger, a persistent volume, nightly backups, a tested restore |
 | Economy balance (too easy, too punishing) with no allowance | All numbers in config, the owner panel, ore and Depot buyback as ways back from zero, shift reports to spot problems |
-| A kid picks another kid's name and spends their crystals | Optional PIN per robot, and the owner panel can reverse ledger entries |
+| A kid logs in as another kid and spends their crystals | A required PIN per player with growing lockouts, and the owner panel can reverse ledger entries |
 | Three.js upgrade breaks the bend shader | Done in P1 behind screenshot tests; the patches live in one module |
 | Quest performance (glass, overdraw, full shelves, pets) | Budget in P4, instanced shelf items, no per-item lights, simple pet meshes, on-device performance HUD |
 | VR comfort in a curved, rotating world | "Up" follows the local floor, comfort options, early playtests |
