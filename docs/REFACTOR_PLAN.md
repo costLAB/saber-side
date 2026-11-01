@@ -39,7 +39,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 
 | Initiative | Phase | Status |
 | --- | --- | --- |
-| [Players, their robots, and seats](initiatives/players-and-robots.md) | P3 | In progress: next `feature/guest-arrival`; builds the wallet, and lands before the carrot initiative's paint cure |
+| [Players, their robots, and seats](initiatives/players-and-robots.md) | P3 | In progress: guests and logins done (#19), next `feature/robot-registry`; builds the wallet, and lands before the carrot initiative's paint cure |
 | [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 done (#13), next `feature/robot-mouth` |
 
 ---
