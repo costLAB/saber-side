@@ -27,9 +27,9 @@ This starts the game and a local station server together. Open the printed URL, 
 | `pnpm typecheck` | TypeScript |
 | `pnpm test` | Unit tests, plus server tests that boot the real station |
 | `pnpm e2e` | Playwright tests: MacBook and iPad screenshots, a determinism check, every action, joining the station |
-| `pnpm e2e:update` | Re-record screenshot baselines after an intended visual change |
+| `pnpm e2e:update` | Re-record screenshot baselines locally, to look at an intended visual change |
 
-The screenshot tests pause time and seed randomness, so every run renders the same frames. If a change is supposed to alter the picture, run `pnpm e2e:update` and commit the new images in `apps/client/e2e/game.spec.ts-snapshots/`.
+The screenshot tests pause time and seed randomness, so every run renders the same frames. If a change is supposed to alter the picture, run **Actions → Update screenshots** on GitHub with the PR's branch: it re-records the images in `apps/client/e2e/game.spec.ts-snapshots/` on CI's own machine, commits them to the branch, and runs CI again. (`pnpm e2e:update` does the same locally, but baselines recorded on a laptop can differ from CI's.)
 
 ### Deploying
 

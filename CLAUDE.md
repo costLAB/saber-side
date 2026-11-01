@@ -57,7 +57,7 @@ pnpm lint           # Biome (pnpm format to auto-fix)
 pnpm typecheck
 pnpm test           # Vitest unit tests, and server tests that boot the real station
 pnpm e2e            # Playwright: screenshots, determinism, every action (about a minute)
-pnpm e2e:update     # re-record screenshot baselines after an intended visual change
+pnpm e2e:update     # re-record screenshot baselines locally (to look at; CI records the ones you commit)
 ```
 
 Run `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e` before pushing. CI runs the same steps.
@@ -74,3 +74,10 @@ Run `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e` before pushing. CI ru
 - Bump `PROTOCOL_VERSION` in `packages/shared/src/protocol.ts` whenever an older client would misread the server (or
   the reverse). Schema changes are new entries in `MIGRATIONS` (`apps/server/src/db.ts`); never edit a merged one.
 - Refactors of the legacy game must keep the screenshot baselines and the determinism test passing unchanged.
+- When a change alters the picture on purpose, have CI record the baselines: **Actions → Update screenshots → Run
+  workflow** with the PR's branch. It re-records every baseline on CI's machine, commits them to the branch, and runs
+  CI again. Baselines recorded on a laptop can differ from CI's by enough to fail. Look over the new images in the PR
+  before merging.
+- Cosmetic randomness (glances, dust, sparks) comes from its own seeded `mulberry` stream, never `Math.random`:
+  three.js draws object ids from `Math.random`, so effects sharing it shift whenever the scene gains or loses an
+  object.

@@ -1,0 +1,67 @@
+name: Update screenshots
+
+# Re-records the screenshot baselines on CI's own machine and commits them to a branch, for a change that alters the
+# picture on purpose. Run it from the Actions tab (Update screenshots → Run workflow) with the PR's branch name.
+# Recording here rather than on a laptop means the baselines match the machine that checks them.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to re-record (the PR's branch, never main)
+        required: true
+        type: string
+
+permissions:
+  contents: write # commit the new baselines
+  actions: write # start CI on the new commit
+
+concurrency:
+  group: screenshots-${{ inputs.branch }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Refuse main
+        if: inputs.branch == 'main'
+        run: |
+          echo "::error::Re-record screenshots on the PR's branch, not main."
+          exit 1
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium
+        run: pnpm --filter @saber-side/client exec playwright install --with-deps chromium
+      # Every baseline, recorded fresh, so none is left sitting near the tolerance from an older recording.
+      - run: pnpm --filter @saber-side/client exec playwright test --update-snapshots=all
+      - name: Commit the baselines
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/client/e2e/*-snapshots
+          if git diff --cached --quiet; then
+            echo "Screenshots already match; nothing to commit." >> "$GITHUB_STEP_SUMMARY"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git diff --cached --stat >> "$GITHUB_STEP_SUMMARY"
+            git commit -m "Re-record screenshot baselines on CI"
+            git push origin "HEAD:${{ inputs.branch }}"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      # A push made with GITHUB_TOKEN doesn't start other workflows, so start CI on the new commit directly. Its result
+      # shows on the PR like any other run.
+      - name: Run CI on the new baselines
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref "${{ inputs.branch }}"
