@@ -11,7 +11,9 @@ Today one `players` row is both the kid and their robot. Where the game is headi
 play as, and some that work for them (clerk bots in their shop, farmhand bots on their farm). Money, shops, and farms
 belong to the kid, not to any one robot. So this initiative splits three things apart:
 
-- **Player:** the kid. A unique username and a PIN. Owns the Cyber Crystal wallet, shops, farms, and robots. Only
+- **Player:** the kid. A unique username and a PIN. Owns the Cyber Crystal wallet, shops, farms, robots, the robot
+  parts they've bought ([robot parts catalogs](robot-parts-catalog.md)), and an ore hauler
+  ([mining](cyber-ore-mining.md)). Only
   registered players are saved.
 - **Robot:** a name, a build, a paint cure, a loadout, and a pocket. It's **parked**, **piloted** by a seat, or **on
   duty** (a clerk or farmhand, from P6).

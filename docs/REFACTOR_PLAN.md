@@ -18,7 +18,7 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **Players:** 10 per room. **One shared world** for the whole friend group.
 - **No fighting yet.** The core loop is **running shops and selling things to each other**. It's a fun economy with no real money. Shop owners earn a regular income and pay rent and other operating costs. New shops cost money to open, but the first one is free.
 - **No free money.** Everyone **starts with nothing** and there's no allowance. Opening your (free) first shop starts a small, steady trickle of shards.
-- **Currency (renamed 2026-11-01):** **Cyber Crystals**, "CC" for short, and **Cyber Shards** (100 shards = 1 CC), plus raw **Cyber Ore** that must be refined at the **Refinery**: 1 ore chunk = 25 shards, less a 10% fee. (Earlier drafts said "Kyber".)
+- **Currency (renamed 2026-11-01):** **Cyber Crystals**, "CC" for short, and **Cyber Shards** (100 shards = 1 CC), plus raw **Cyber Ore** that must be refined at the **Refinery Ring**: 1 ore chunk = 25 shards, less a 10% fee. (Earlier drafts said "Kyber".)
 - **Pets:** up to **3 pet bots** at a time.
 - **Clerk bots** keep a shop open for up to **8 hours** after the owner leaves. **A clerk is one of your own robots** put on duty (2026-11-01). Clerks earn **no wages** and cost nothing to run: the only cost is capex, buying the robot.
 - **Internal only.** This is never published, so the Star Wars names are fine.
@@ -32,6 +32,8 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **Permissions:** **as light as possible.** No accounts, passwords, or roles for players, and every player can use every feature.
 - **Players, robots, and guests (2026-11-01).** A **player** (the kid) is a unique username and a 4-digit PIN, and owns the wallet, shops, farms, and many **robots**. No emails or phone numbers. Kids come in as **guests** first: **Play** builds a robot with an auto-generated name, and nothing is saved. Guests can eat carrots and cure their paint. Registering at the **Robot Registry**, a free office next to the Bot Maker and the only place to register, saves their robot and cure and creates their Cyber Crystal wallet. Registered players log in with username and PIN, on the arrival screen or at the Registry. One seat per player: a second device takes over from the first. Existing robots are wiped. **The first robot is free, and extra robots cost CC** at the Bot Maker, **up to 5 per player** for now. The details and the PRs are in the initiative [Players, their robots, and seats](initiatives/players-and-robots.md).
 - **Carrot-first economy, and paint that cures (2026-11-01).** A robot's paint is a see-through coat that cures 1 percentage point per carrot eaten, from 10% to the chosen color at full opacity. Robots eat through a jaw that opens on the panel seam below the eye. Economy v1 starts with carrots: carrot stands, the **Farmers** who sell carrots wholesale, and farms players can buy. The details and the PRs are in the initiative [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md).
+- **Robot parts catalogs (2026-11-01).** Robots are built from seven kinds of parts, each with its own catalog at the Bot Maker: **mobility** (the giant drive sphere today, tires later), **body coverings** (over the ball or the tires), **heads** (including a cute **jack-o-lantern**), **arms**, **voice** (voice boxes and microphones, for talking to other players), **eyes**, and **thrusters** (for moving in zero gravity). More parts, more colors, and everything costs Cyber Crystals. The details and the PRs are in the initiative [Robot parts catalogs](initiatives/robot-parts-catalog.md).
+- **Mining Cyber Ore (2026-11-01).** Cyber Crystals are mined, like cryptocurrency (in spirit only: it's play money in the ledger). A registered player's wallet fills by mining **Cyber Ore** on a **distant planet** with an **ore hauler**, a vehicle that both mines the ore and flies it back to the **Refinery Ring**, a separate ring in space dedicated to refining ore into crystals. This is the second economic thread, next to carrots, and replaces the earlier ore drifting in the hub and the Refinery next to the Depot. The details and the PRs are in the initiative [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md).
 
 ## Initiatives
 
@@ -41,6 +43,8 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | --- | --- | --- |
 | [Players, their robots, and seats](initiatives/players-and-robots.md) | P3 | In progress: next `feature/guest-arrival`; builds the wallet, and lands before the carrot initiative's paint cure |
 | [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 done (#13), next `feature/robot-mouth` |
+| [Robot parts catalogs](initiatives/robot-parts-catalog.md) | P3 (parts), P5 (prices) | Planned: next `feature/jack-o-lantern-head`; prices wait on the players initiative and the wallet |
+| [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md) | P5 | Planned: next `feature/ore-planet`; buying, mining, and refining wait on the wallet |
 
 ---
 
@@ -51,7 +55,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 - **The ring-bend technique** (`index.html:161-199`). Floor content is simulated on a flat strip (x across, z around, y up) and bent onto the cylinder in the vertex shader. This keeps physics simple and works per eye in VR, because the bend happens in world space before `viewMatrix`.
 - **Procedural shops already exist** (`buildShop`, `makeSign`, `index.html:675-809`). They become the rentable shop spots.
 - **Procedural items:** `makeSaber(color)`, `makeBlaster()`, `makeCarrot()`. These become the generators for a wide, data-driven catalog.
-- **Bashable crates and the zero-g hub.** The hub becomes a place to find **Cyber Ore**. *(Crate bashing was removed later; see Owner decisions.)*
+- **Bashable crates and the zero-g hub.** The hub becomes a place to find **Cyber Ore**. *(Crate bashing was removed later, and ore moved to a distant planet; see Owner decisions.)*
 - **Abstract actions:** input fills `keys` / `pressed` with action names, and there's a touch pad that feeds the same map (`index.html:1241-1294`).
 - **Blob shadows instead of shadow maps**, plus instanced and batched static parts. Both are right for Quest performance.
 
@@ -147,7 +151,7 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
 
 ### Loop
 
-> Find Cyber Ore (catch floating chunks in the hub) → refine it into crystals at the Refinery → open your free first shop → buy stock at the Depot → set prices and fill shelves → earn from robot shoppers and friends → pay rent and running costs → save up → open another shop or upgrade.
+> Mine Cyber Ore (fly an ore hauler to a distant planet) → refine it into crystals at the Refinery Ring → open your free first shop → buy stock at the Depot → set prices and fill shelves → earn from robot shoppers and friends → pay rent and running costs → save up → open another shop or upgrade.
 
 ### Currency
 
@@ -155,7 +159,7 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
 | --- | --- | --- |
 | **Cyber Shards** | Small change | The base unit. The ledger stores every amount as an integer number of shards. |
 | **Cyber Crystals (CC)** | Main money | **1 CC = 100 shards**, converted automatically. Displayed as `12 ◆ 45` (12 CC, 45 shards). |
-| **Cyber Ore** | A raw resource, not money | A physical item you carry. It must be taken to the **Refinery**, which turns it into crystals and keeps a fee. Ore can also be traded or sold between players. |
+| **Cyber Ore** | A raw resource, not money | A physical item you carry. It must be taken to the **Refinery Ring**, which turns it into crystals and keeps a fee. Ore can also be traded or sold between players. |
 
 - **Every currency change is a ledger entry**: who, to whom, how many shards, why, and when. Balances are derived from the ledger. This rules out duplication bugs and makes shop reports trivial.
 - **New players start with nothing.** There's no starter purse and no allowance.
@@ -171,16 +175,15 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
   - Refinery fees
   - wholesale stock
   - shop build-outs and upgrades (capex)
+  - robot parts and colors, and ore haulers
 
   Sales between players just move money from one player to another.
 
-### Cyber Ore and the Refinery
+### Cyber Ore and the Refinery Ring
 
-- **Where ore comes from:**
-  - **ore chunks drifting in the zero-g hub**, which you grab and carry out. This is great in VR.
-
-  Ore respawns slowly so it can't be farmed endlessly.
-- **The Refinery** sits in the hub next to the Depot. You drop ore into its hopper, and after a short refining animation crystals are paid out minus the fee. Rates live in config: **1 ore chunk → 25 shards, less a 10% fee**.
+- **Where ore comes from:** glowing veins on a **distant ore planet**, drilled with an **ore hauler** that a registered player buys with Cyber Crystals. Veins are shared and regrow slowly, which caps how many crystals the station can mine in an hour.
+- **The Refinery Ring** is a separate ring out in space, dedicated to refining. Dock the hauler, the hold empties into a hopper, and after a short refining animation crystals are paid out minus the fee. Rates live in config: **1 ore chunk → 25 shards, less a 10% fee**.
+- The design and the PRs are in the initiative [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md).
 - **Later:** let a player *buy* and run the Refinery as a business and set its fee.
 
 ### Shops
@@ -231,7 +234,7 @@ All item types are **data-driven variants of procedural generators**, so "a wide
 
 - Balances can't go below zero. A shop that can't pay rent goes **"Closed for repairs"**: no sales, no rent. It reopens when you pay.
 - After several hours closed and unpaid, the spot is returned to vacant, and its stock goes back to the owner's inventory. **Nothing is ever destroyed.**
-- **Ways back from zero:** your first shop's trickle, finding and refining ore, and selling inventory back to the Depot or to friends.
+- **Ways back from zero:** your first shop's trickle, mining and refining ore (once you own a hauler), and selling inventory back to the Depot or to friends.
 - Every number (rent, trickle, demand, ore rates, Refinery fee, clerk shift) lives in one config file and can be tuned from the owner panel.
 
 ### Carrots, paint cure, and farms
@@ -248,14 +251,18 @@ spots(spot_id, size, traffic)                             -- seeded from shared/
 shops(id, spot_id, owner_id, name, sign_json, status, upgrades_json, clerk_robot_id, clerk_until, opened_at)
 plots(plot_id, row_count)                                 -- farm plots, seeded from shared/content/farms.ts
 farms(id, plot_id, owner_id, bought_at, grown_until, bin_qty)
+owned_parts(player_id, slot, part_id, bought_at)          -- robot parts a player has bought; free parts aren't stored
+owned_paints(player_id, paint, bought_at)
+haulers(id, player_id, kind, bought_at)                   -- ore haulers
+veins(vein_id, qty, grown_until)                          -- ore veins, seeded from shared/content/ore.ts
 items(id, catalog_id, variant_json, qty, owner_id, location_kind, location_ref, price_shards)
 ledger(id, ts, from_acct, to_acct, amount_shards, reason, ref)
 ```
 
-Ore is a stackable item (`catalog_id = 'ore'`), and so are carrots (`catalog_id = 'carrot'`, in a pocket, on a shelf,
+Ore is a stackable item (`catalog_id = 'ore'`, in a pocket or a hauler's hold), and so are carrots (`catalog_id = 'carrot'`, in a pocket, on a shelf,
 or in a farm's bin). A farm's growth is worked out from the time since `grown_until`, capped by the bin, and posted when
 someone looks at the farm or at settlement, so no timer runs per farm. Accounts in the ledger are registered players (a wallet is created at the Robot Registry), shops, and
-system sinks and sources (`depot`, `refinery`, `rent`, `npc_shoppers`, `farmers`, `seed`).
+system sinks and sources (`depot`, `refinery`, `rent`, `npc_shoppers`, `farmers`, `seed`, `bot_maker`, `hangar`).
 
 ---
 
@@ -275,7 +282,7 @@ saber-side/
 │  │     ├─ input/         actions.ts, devices/*, bindings/*
 │  │     ├─ controllers/   piloted.ts, embodied.ts (arm locomotion)
 │  │     ├─ render/        renderer + WebXR, ring/ (bend), cameras/, textures/, fx/
-│  │     ├─ world/         scene builders from level data: shell, promenade, spots, lifts, hub, Depot, Refinery
+│  │     ├─ world/         scene builders from level data: shell, promenade, spots, lifts, hub, Depot, Refinery Ring, ore planet
 │  │     ├─ avatar/        robot model, hats, procedural animation, hand IK, remote interpolation
 │  │     ├─ pets/          walker + flyer pet bots, follow behaviors
 │  │     ├─ items/         item generators: sabers, blasters, carrots, hats, ore
@@ -350,7 +357,7 @@ Where today's code goes:
 - **Rig placement:** the rig sits at the bend frame of the player's strip position, so "up" follows the floor around the ring. Room-scale motion is converted back to strip coordinates every tick.
 - **Locomotion:**
   - **Arm locomotion** in the Gorilla Tag style. Hands are sphere colliders. Pushing a surface moves the body the opposite way, and releasing carries the hand's velocity forward (capped).
-  - **The zero-g hub** uses the same mechanic with no gravity, which makes catching drifting ore fun.
+  - **The zero-g hub** uses the same mechanic with no gravity, and thrusters (a robot part) make flying it fun.
   - **Comfort options:** thumbstick smooth locomotion, snap turn, vignette, seated mode.
 - **Shopping, natively:** grab goods off shelves, put stock on shelf slots (they snap in), set an item on the register to pay, toss ore into the Refinery hopper, and use a **wrist panel** for crystals, shards, ore, and inventory.
 - **Shop management** on a wall panel in your shop's back room (a canvas texture with pointer interaction).
@@ -501,7 +508,8 @@ P5 is going ahead of P2-P4 on purpose: the carrot initiative is the next feature
 
 P5 starts with the initiative [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md), a series of PRs that build the wallet, the first shop, the Farmers, carrot stands, and farms, with carrots as the only goods. Its PR table is the source of truth for that slice's order and status. The rest of P5 then builds on the same ledger, shops, and inventory:
 
-- **Cyber Ore**: hub drifters, respawn. The **Refinery** with its fee.
+- **Cyber Ore**: mining on a distant planet with an ore hauler, and the **Refinery Ring** with its fee, in the initiative [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md).
+- **Robot parts for Cyber Crystals**: the Bot Maker's catalogs, in the initiative [Robot parts catalogs](initiatives/robot-parts-catalog.md).
 - Capex for additional shops.
 - The item catalog and generators: a wide saber and blaster assortment, hats, golden and giant carrots, and **pet bots** (walkers + flyers, up to 3 equipped through the loadout).
 - The Depot (wholesale and buyback), and shelves and buying for every item, not just carrots (flat UI first, VR interactions once P4 lands).
@@ -566,7 +574,7 @@ The **station itself is the game** (free roam plus the economy). Other modes com
 | --- | --- | --- |
 | Shared sim + economy rules | Vitest (Node) | Ring math, movement, lifts, items, currency math, rent, demand curve, Refinery yield, settlement, paint cure, eating timeline, farm growth |
 | Server | Vitest + bot clients | Ledger invariants, last-item races, lease races, reconnection, restart persistence, 10-player cap |
-| Catalog | Vitest + Playwright screenshots | Every catalog variant builds, and a screenshot sheet of all sabers, blasters, hats, and pets |
+| Catalog | Vitest + Playwright screenshots | Every catalog variant builds, and a screenshot sheet of all sabers, blasters, hats, pets, and robot parts |
 | Input | Vitest | Bindings → actions, profile hot-swap, generated hand poses |
 | Rendering | Playwright screenshots (deterministic mode) | MacBook and iPad viewports with touch emulation |
 | VR | Playwright + IWER | Session start, rig placement, controller and hand input, shelf snapping, Refinery hopper |
