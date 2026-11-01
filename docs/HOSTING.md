@@ -19,8 +19,8 @@ station, and deploy previews join a free staging server, so a PR can never touch
    - `saber-side-station`, on the Starter plan ($7/month) with a 1 GB disk ($0.25/month). This is the real station.
    - `saber-side-staging`, on the free plan. It sleeps when idle, and the first join after that takes about a minute.
 
-   Before you apply it, check `region` in `render.yaml` (it's `oregon`) and change it to the region closest to the
-   players if needed: Render can't move a service later. `ALLOWED_ORIGINS` is already set: the station accepts only
+   Both services run in Render's `virginia` region, the closest to the players in Boston. Render can't move a service
+   later, so changing it means recreating the service. `ALLOWED_ORIGINS` is already set: the station accepts only
    `https://saberside.netlify.app`, and staging accepts only the deploy previews (`https://*--saberside.netlify.app`).
 3. **Check the URLs.** Render names each service `https://<name>.onrender.com`, and adds a suffix if the name is taken.
    If either URL differs from `netlify.toml`, change it there and merge.
