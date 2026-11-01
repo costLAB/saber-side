@@ -1,4 +1,4 @@
-import { PIN_LOCK_SECONDS, PIN_TRIES } from '@saber-side/shared';
+import { classicBuild, PIN_LOCK_SECONDS, PIN_TRIES } from '@saber-side/shared';
 import { describe, expect, it } from 'vitest';
 import { openDatabase } from './db.ts';
 import { Roster } from './roster.ts';
@@ -47,5 +47,48 @@ describe('roster', () => {
     if (!made.ok) throw new Error(made.error);
     expect(r.checkPin(made.robot.id, undefined)).toBe('ok');
     expect(r.checkPin(made.robot.id, '9999')).toBe('ok');
+  });
+});
+
+describe('robot builds on the roster', () => {
+  const wheelOnly = { mobility: { part: 'wheel', paint: '#e8935a' }, body: null, head: null, arms: null } as const;
+
+  it('keeps the parts a robot was built from, and shows its first paint', () => {
+    const { r } = roster();
+    const build = { ...classicBuild(), head: { part: 'visor', paint: '#b5e06a' } } as const;
+    const made = r.create({ name: 'Zed', build });
+    if (!made.ok) throw new Error(made.error);
+    expect(made.robot.build).toEqual(build);
+    expect(made.robot.color).toBe('#b5e06a');
+    expect(r.get(made.robot.id)?.build).toEqual(build);
+    expect(r.list()[0]?.build).toEqual(build);
+  });
+
+  it('plays a lone wheel', () => {
+    const { r } = roster();
+    const made = r.create({ name: 'Wheelie', build: wheelOnly });
+    expect(made.ok && made.robot.build).toEqual(wheelOnly);
+  });
+
+  it('refuses a robot without a wheel or with made-up parts', () => {
+    const { r } = roster();
+    const noWheel = r.create({ name: 'Zed', build: { ...classicBuild(), mobility: null } as never });
+    expect(noWheel).toMatchObject({ ok: false, status: 400 });
+    const rocket = r.create({
+      name: 'Zed',
+      build: { ...wheelOnly, body: { part: 'rocket', paint: '#ffffff' } } as never,
+    });
+    expect(rocket).toMatchObject({ ok: false, status: 400 });
+    expect(r.list()).toEqual([]);
+  });
+
+  it('gives robots made before the builder the classic build in their color', () => {
+    const db = openDatabase(':memory:');
+    const r = new Roster(db);
+    const made = r.create({ name: 'Old', color: '#8fc4f2' });
+    if (!made.ok) throw new Error(made.error);
+    expect(made.robot.build).toEqual(classicBuild('#8fc4f2'));
+    db.prepare("UPDATE players SET build_json = '{broken' WHERE id = ?").run(made.robot.id);
+    expect(r.get(made.robot.id)?.build).toEqual(classicBuild('#8fc4f2'));
   });
 });

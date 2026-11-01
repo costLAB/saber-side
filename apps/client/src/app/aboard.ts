@@ -1,7 +1,8 @@
-import { JOIN_REFUSED, PROTOCOL_VERSION, type RobotCard } from '@saber-side/shared';
+import { classicBuild, JOIN_REFUSED, PROTOCOL_VERSION, type RobotCard } from '@saber-side/shared';
 import { legacy } from '../legacy/game.js';
 import { ApiFailure, rosterApi } from '../net/roster-api';
 import { linkToStation, type StationStatus } from '../net/station-link';
+import { createRobotPreview } from '../ui/robot-preview';
 import { createRosterPicker, type RosterView } from '../ui/roster-picker';
 import { type StatusLine, showStationStatus } from '../ui/station-status';
 import { device } from './device';
@@ -9,7 +10,8 @@ import { device } from './device';
 const ROSTER_RETRY_MS = [1000, 2000, 5000, 10_000, 20_000, 30_000];
 
 /**
- * Coming aboard: load the roster, pick (or make) a robot, and keep this device aboard as it.
+ * Coming aboard: load the roster, pick (or build) a robot, and keep this device aboard as it. Once the station lets
+ * it in, the robot is assembled from its parts and fired out of the hub's end cap into zero g.
  *
  * A device remembers the robot it last played, so the next visit goes straight aboard. Robots with a PIN always ask
  * for it, since siblings often share a device. The game stays playable behind all of this.
@@ -19,6 +21,8 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
   let link: { stop(): void } | undefined;
   let robot: RobotCard | undefined;
   let pin: string | undefined;
+  /** Whether this pick has spawned yet. Rejoining after a drop or a restart doesn't fire it into the hub again. */
+  let spawned = false;
 
   const status = (line: StatusLine) =>
     showStationStatus(statusEl, line, robot?.name, {
@@ -29,6 +33,7 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
 
   const picker = createRosterPicker(api, {
     onPick: (picked, typedPin) => board(picked, typedPin),
+    preview: () => createRobotPreview(legacy.robotKit),
     onDismiss: () => {
       if (!link) status({ kind: 'ashore' });
     },
@@ -45,12 +50,19 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
     picker.hide();
     robot = picked;
     pin = typedPin;
-    legacy.setRobotPaint(picked.color);
+    spawned = false;
     link = linkToStation(server, { robot: picked.id, pin: typedPin }, (s) => onLink(picked, s));
   }
 
   function onLink(picked: RobotCard, s: StationStatus) {
-    if (s.kind === 'aboard') device.robot = picked.id;
+    if (s.kind === 'aboard') {
+      device.robot = picked.id;
+      if (!spawned) {
+        spawned = true;
+        legacy.setRobotBuild(picked.build ?? classicBuild(picked.color));
+        legacy.launchIntoHub();
+      }
+    }
     if (s.kind === 'refused' || s.kind === 'removed') {
       link = undefined;
       let view: RosterView = { kind: 'list', error: s.kind === 'removed' ? 'An owner removed that robot.' : s.message };

@@ -2,6 +2,7 @@
 // It is being split into modules in Phase 1; see docs/REFACTOR_PLAN.md. Excluded from lint.
 import {
   bendPoint,
+  classicBuild,
   bendUp,
   CIRC,
   clamp,
@@ -10,6 +11,7 @@ import {
   HALF_L,
   HUB_L,
   HUB_R,
+  HUB_SPAWN,
   LEN,
   lerp,
   mulberry,
@@ -24,14 +26,14 @@ import {
 } from '@saber-side/shared';
 import * as THREE from 'three';
 import { createFlightMode } from '../app/flight';
-import { buildRobot } from '../avatar/robot';
+import { buildRobot, disposeRobot } from '../avatar/robot';
 import { createRenderer } from '../render/renderer';
 import { bendMaterial } from '../render/ring/bend';
 import { makeCanvas, textureKit, wrapX } from '../render/textures';
 import { dot } from '../render/kit';
 
 /** Hooks the new modules call into (see app/aboard.ts). Filled in below, once the scene exists. */
-export const legacy = { setRobotPaint(_hex) {} };
+export const legacy = { robotKit: null, setRobotBuild(_build) {}, launchIntoHub() {} };
 
 (() => {
 const V3 = THREE.Vector3;
@@ -103,8 +105,6 @@ const M = {
   carrotDark: new THREE.MeshStandardMaterial({ color: 0xb4521a, roughness: 0.8 }),
   leaf: new THREE.MeshStandardMaterial({ color: 0x4f8a2b, roughness: 0.75 }),
 };
-// the robot's paint: a tint over the off-white shell and head (only the robot uses these two materials)
-legacy.setRobotPaint = hex => { M.shell.color.set(hex); M.head.color.set(hex); };
 
 function mesh(geo, mat, cast = true) { const m = new THREE.Mesh(geo, mat); m.castShadow = cast; m.receiveShadow = true; return m; }
 function glow(color, size, opacity = 1) {
@@ -122,8 +122,11 @@ const Sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const zCyl = (a, b, h, s = 24) => { const g = Cyl(a, b, h, s); g.rotateX(Math.PI / 2); return g; };
 
 // ---------- robot ----------
-// Built by avatar/robot.ts. The player's own robot keeps the shared materials and gets the eye light.
-const bot = buildRobot({ materials: M, mesh, glow, toTex }, { eyeLight: true });
+// Built from parts by avatar/robot.ts. The player's own robot gets the eye light. It starts as the classic build, and
+// is rebuilt (setRobotBuild, below) when the player comes aboard as a robot of their own.
+const robotKit = { materials: M, mesh, glow, toTex };
+legacy.robotKit = robotKit;
+const bot = buildRobot(robotKit, classicBuild(), { eyeLight: true });
 scene.add(bot.root);
 
 // ---------- habitat: Ring Seven ----------
@@ -1153,7 +1156,7 @@ function update(dt, t) {
     it.light.intensity = 1.6 * it.lit * hum;
   }
   // grip angle: forward-up at rest, raised on the jump, extended like a sword arm in the spin; a blaster stays level
-  const c0 = bot.arms[0].cur, gunAim = held && held.kind === 'gun' && !isSpin;
+  const c0 = bot.arms[0] ? bot.arms[0].cur : { sw: 0, el: 0.45, wr: 0 }, gunAim = held && held.kind === 'gun' && !isSpin;
   let sa = 1.25 - 0.3 * sn;
   if (!st.grounded && st.vy > 1) sa = Math.PI;
   if (isSpin) sa = Math.PI;
@@ -1199,13 +1202,15 @@ function update(dt, t) {
   // eye + chest LED
   const eyeI = 0.9 + 0.2 * Math.sin(t * 3.1) + spinAmt * 1.8;
   M.lens.emissiveIntensity = eyeI;
-  bot.eyeGlow.material.opacity = 0.4 + 0.12 * Math.sin(t * 3.1) + spinAmt * 0.5;
-  bot.eyeGlow.scale.setScalar(0.75 + spinAmt * 0.5);
-  bot.eyeLight.intensity = 1 + spinAmt * 2.5;
-  bot.eyeCore.position.x = st.glanceYaw * 0.05;
-  bot.eyeHot.position.x = st.glanceYaw * 0.05;
+  if (bot.eyeGlow) {   // (robots built without a head have no eye)
+    bot.eyeGlow.material.opacity = 0.4 + 0.12 * Math.sin(t * 3.1) + spinAmt * 0.5;
+    bot.eyeGlow.scale.setScalar(0.75 + spinAmt * 0.5);
+    bot.eyeCore.position.x = st.glanceYaw * 0.05;
+    bot.eyeHot.position.x = st.glanceYaw * 0.05;
+  }
+  if (bot.eyeLight) bot.eyeLight.intensity = 1 + spinAmt * 2.5;
   const blink = (t % 1.4) < 0.9 ? 1 : 0.25;
-  M.led.emissiveIntensity = 2.4 * blink; bot.ledGlow.material.opacity = 0.9 * blink;
+  M.led.emissiveIntensity = 2.4 * blink; if (bot.ledGlow) bot.ledGlow.material.opacity = 0.9 * blink;
 
   // rolling dust
   if (st.grounded && sn > 0.45) {
@@ -1541,6 +1546,7 @@ function updateReal(dt, t) {
   if (pressed.camReset) resetCam();
   const q = R0.quaternion, D = 9 * Math.min(cam.zoom, 1.6), el = clamp(0.3 + cam.pitch, -1.2, 1.45);
   tmp.set(-Math.sin(cam.yaw) * D * Math.cos(el), 1.6 + D * Math.sin(el), -Math.cos(cam.yaw) * D * Math.cos(el)).applyQuaternion(q).add(P);
+  tmp.x = clamp(tmp.x, -(HUB_L / 2 - 3), HUB_L / 2 - 3);   // stay out of the airlock doors at the ends
   fl.cam.lerp(tmp, 1 - Math.exp(-(cam.dragging ? 14 : 4) * dt));
   camera.position.copy(fl.cam);
   camera.up.set(0, 1, 0).applyQuaternion(q);
@@ -1568,12 +1574,13 @@ const ships = createFlightMode({
 
 // bend everything that lives on the floor onto the ring; real point lights follow their flat stand-ins
 const lightPairs = [];
-(function walk(o) {
+function bendTree(o) {
   if (o.userData.noBend) return;
   if (o.isMesh || o.isSprite || o.isPoints) { o.frustumCulled = false; (Array.isArray(o.material) ? o.material : [o.material]).forEach(bendMaterial); }
   if (o.isPointLight && o !== axisLight) lightPairs.push({ src: o });
-  o.children.forEach(walk);
-})(scene);
+  o.children.forEach(bendTree);
+}
+bendTree(scene);
 for (const L of lightPairs) { L.real = new THREE.PointLight(L.src.color, 0, L.src.distance, L.src.decay); L.src.visible = false; scene.add(L.real); }
 function chainVisible(o) { for (; o; o = o.parent) if (!o.visible) return false; return true; }
 function syncLights() {
@@ -1592,8 +1599,45 @@ function updateWhere(p) {
   if (txt !== whereTxt) { whereTxt = txt; whereEl.textContent = txt; }
 }
 
+// ---- coming aboard as your own robot (app/aboard.ts): rebuilt from its parts, then fired into the hub ----
+const eyePair = lightPairs.find(L => L.src === bot.eyeLight);
+let noEye = null;   // stands in for the eye light of a robot built without an eye
+legacy.setRobotBuild = build => {
+  const old = { ...bot }, parent = old.root.parent;
+  const next = buildRobot(robotKit, build, { eyeLight: true });
+  next.root.position.copy(old.root.position); next.root.quaternion.copy(old.root.quaternion); next.root.rotation.copy(old.root.rotation);
+  next.root.visible = old.root.visible;
+  next.root.traverse(o => { if (o.isMesh || o.isSprite) { o.frustumCulled = false; bendMaterial(o.material); } });
+  if (next.eyeLight) next.eyeLight.visible = false;   // its stand-in in the scene does the lighting (syncLights)
+  eyePair.src = next.eyeLight || (noEye ||= new THREE.PointLight(0, 0));
+  next.arms.forEach((A, i) => { if (old.arms[i]) Object.assign(A.cur, old.arms[i].cur); });
+  if (held) next.grip.add(held.group);
+  parent.remove(old.root); parent.add(next.root);
+  Object.assign(bot, next);
+  disposeRobot(old, Object.values(M));
+};
+legacy.launchIntoHub = () => {
+  if (st.mode === 'ship') return;   // out flying: docking brings it back to the hub anyway
+  st.boardNext = null;
+  st.mode = 'hub'; st.rideT = 0;
+  st.vel = 0; st.angVel = 0; st.y = 0; st.vy = 0; st.grounded = true;
+  realGroup.add(bot.root);
+  st.yaw = Math.PI / 2;   // facing +x, down the length of the hub
+  bot.root.quaternion.setFromAxisAngle(Y_AXIS, st.yaw);
+  bot.root.position.set(HUB_SPAWN.pos.x, HUB_SPAWN.pos.y, HUB_SPAWN.pos.z);
+  fl.V.set(HUB_SPAWN.speed, 0, 0);
+  fl.cam.copy(bot.root.position).add(tmp.set(7, 2.5, 6));   // watch it come out of the tube, then swing in behind
+  bot.blob.visible = false; cab.visible = false;
+  st.spin = 0; st.spinCD = 0;   // comes out of the tube spinning
+  for (let i = 0; i < 36; i++) {
+    spawn(sparkPool, tmp.set(HUB_SPAWN.pos.x - 1.5, REAL_OFF + HUB_SPAWN.pos.y, HUB_SPAWN.pos.z),
+      tmp2.set(2 + Math.random() * 9, (Math.random() - 0.5) * 7, (Math.random() - 0.5) * 7),
+      { life: 0.5 + Math.random() * 0.5, size: 0.3, grow: 0.4, drag: 2.2, color: i % 3 ? 0xffb060 : 0xfff0d0, alpha: 1 });
+  }
+};
+
 // Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
-if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships, paint: () => `#${M.shell.color.getHexString()}` };
+if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships };
 
 frame();
 })();

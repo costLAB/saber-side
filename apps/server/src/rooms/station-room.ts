@@ -13,7 +13,7 @@ import {
 import type { Roster } from '../roster.ts';
 
 // Synced to every client. They decode it by reflection, so the client has no copy of these (see StationView).
-export const Aboard = schema({ robot: t.string(), name: t.string(), color: t.string() }, 'Aboard');
+export const Aboard = schema({ robot: t.string(), name: t.string(), color: t.string(), build: t.string() }, 'Aboard');
 export type Aboard = SchemaType<typeof Aboard>;
 export const StationState = schema({ name: t.string(), aboard: t.number(), players: t.map(Aboard) }, 'StationState');
 export type StationState = SchemaType<typeof StationState>;
@@ -83,6 +83,7 @@ export function defineStationRoom(deps: StationRoomDeps) {
             if (aboard.robot === robot.id) {
               aboard.name = robot.name;
               aboard.color = robot.color;
+              aboard.build = JSON.stringify(robot.build);
             }
           });
         },
@@ -102,6 +103,7 @@ export function defineStationRoom(deps: StationRoomDeps) {
       aboard.robot = robot.id;
       aboard.name = robot.name;
       aboard.color = robot.color;
+      aboard.build = JSON.stringify(robot.build);
       this.state.players.set(client.sessionId, aboard);
       this.#countAboard();
     }

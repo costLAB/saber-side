@@ -141,8 +141,8 @@
   pointer-events: none;
 }
 .roster .paints .paint {
-  width: 38px;
-  height: 38px;
+  width: var(--swatch, 38px);
+  height: var(--swatch, 38px);
   cursor: pointer;
 }
 .roster .paints input:checked + .paint {
@@ -234,4 +234,118 @@
   color: var(--ink);
   font: 500 12px var(--mono);
   cursor: pointer;
+}
+
+/* The robot builder: a turntable beside one row of parts (and their paint) per slot. */
+.roster .sheet.wide {
+  width: min(820px, 100%);
+}
+.roster .paint.original {
+  background:
+    radial-gradient(circle at 30% 35%, rgba(150, 82, 38, 0.75) 0 3px, transparent 4px),
+    radial-gradient(circle at 68% 62%, rgba(120, 70, 40, 0.6) 0 4px, transparent 5px),
+    radial-gradient(circle at 60% 25%, rgba(90, 80, 70, 0.5) 0 2px, transparent 3px), #ddd4c4;
+}
+.roster .builder {
+  display: grid;
+  grid-template-columns: minmax(180px, 250px) 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.roster .stage {
+  position: sticky;
+  top: 0;
+  display: grid;
+  place-items: center;
+  height: 330px;
+  border: 1px solid rgba(228, 220, 205, 0.14);
+  border-radius: 8px;
+  background: radial-gradient(ellipse at 50% 85%, rgba(208, 112, 44, 0.22), transparent 65%), rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.roster .robot-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.roster .no-preview {
+  margin: 0;
+  padding: 12px;
+  text-align: center;
+}
+.roster .slots {
+  display: grid;
+  gap: 12px;
+}
+.roster .slot {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px 10px;
+  border: 1px solid rgba(228, 220, 205, 0.12);
+  border-radius: 8px;
+}
+.roster .slot legend {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 4px;
+}
+.roster .slot .need {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--rust);
+}
+.roster .parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.roster .chip {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--ink);
+}
+.roster .chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.roster .chip span {
+  display: block;
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid rgba(228, 220, 205, 0.22);
+  border-radius: 18px;
+  background: rgba(228, 220, 205, 0.06);
+  cursor: pointer;
+}
+.roster .chip input:checked + span {
+  border-color: var(--rust);
+  background: rgba(208, 112, 44, 0.28);
+}
+.roster .chip input:focus-visible + span {
+  outline: 2px solid var(--bone);
+  outline-offset: 2px;
+}
+.roster .slot .paints {
+  --swatch: 30px;
+  gap: 6px;
+}
+.roster .slot .paints:disabled {
+  opacity: 0.3;
+}
+.roster .slot .paints:disabled .paint {
+  cursor: default;
+}
+@media (max-width: 640px) {
+  .roster .builder {
+    grid-template-columns: 1fr;
+  }
+  .roster .stage {
+    position: static;
+    height: 220px;
+  }
 }

@@ -1,6 +1,9 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import {
+  buildColor,
+  classicBuild,
+  cleanRobotBuild,
   cleanRobotName,
   isPin,
   isRobotColor,
@@ -8,6 +11,7 @@ import {
   PIN_LOCK_SECONDS,
   PIN_TRIES,
   ROSTER_MAX,
+  type RobotBuild,
   type RobotCard,
 } from '@saber-side/shared';
 
@@ -16,7 +20,10 @@ interface PlayerRow {
   display_name: string;
   color: string;
   pin_hash: string | null;
+  build_json: string | null;
 }
+
+const COLUMNS = 'id, display_name, color, pin_hash, build_json';
 
 /** The outcome of a roster change: the robot, or why not (with the HTTP status to send). */
 export type RosterResult = { ok: true; robot: RobotCard } | { ok: false; status: number; error: string };
@@ -25,8 +32,21 @@ const card = (row: PlayerRow): RobotCard => ({
   id: row.id,
   name: row.display_name,
   color: row.color,
+  build: storedBuild(row),
   pin: row.pin_hash !== null,
 });
+
+/** A robot's build as stored, or the classic build for robots made before the builder. */
+function storedBuild(row: PlayerRow): RobotBuild {
+  if (row.build_json === null) return classicBuild(row.color);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(row.build_json);
+  } catch {
+    parsed = undefined;
+  }
+  return cleanRobotBuild(parsed) ?? classicBuild(row.color);
+}
 
 /**
  * A 4-digit PIN only keeps siblings honest, so this doesn't pretend otherwise: it's salted and hashed so the database
@@ -58,7 +78,7 @@ export class Roster {
 
   list(): RobotCard[] {
     const rows = this.#db
-      .prepare('SELECT id, display_name, color, pin_hash FROM players ORDER BY display_name COLLATE NOCASE')
+      .prepare(`SELECT ${COLUMNS} FROM players ORDER BY display_name COLLATE NOCASE`)
       .all() as unknown as PlayerRow[];
     return rows.map(card);
   }
@@ -71,8 +91,16 @@ export class Roster {
   create(input: Partial<NewRobot>): RosterResult {
     const name = cleanRobotName(String(input.name ?? ''));
     if (!name) return { ok: false, status: 400, error: 'Pick a name of 1 to 16 letters or numbers.' };
-    const color = String(input.color ?? '');
-    if (!isRobotColor(color)) return { ok: false, status: 400, error: 'Pick one of the paint colors.' };
+    let build: RobotBuild | undefined;
+    let color: string;
+    if (input.build !== undefined) {
+      build = cleanRobotBuild(input.build);
+      if (!build) return { ok: false, status: 400, error: 'A robot needs a wheel, and parts and paint from the list.' };
+      color = buildColor(build);
+    } else {
+      color = String(input.color ?? '');
+      if (!isRobotColor(color)) return { ok: false, status: 400, error: 'Pick one of the paint colors.' };
+    }
     const pin = input.pin === undefined || input.pin === '' ? undefined : String(input.pin);
     if (pin !== undefined && !isPin(pin)) return { ok: false, status: 400, error: 'A PIN is exactly 4 digits.' };
     if (this.#nameTaken(name)) return { ok: false, status: 409, error: `There's already a robot called ${name}.` };
@@ -82,10 +110,10 @@ export class Roster {
     const id = randomUUID();
     this.#db
       .prepare(
-        `INSERT INTO players (id, display_name, color, pin_hash, created_at)
-         VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
+        `INSERT INTO players (id, display_name, color, pin_hash, build_json, created_at)
+         VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
       )
-      .run(id, name, color, pin ? hashPin(pin) : null);
+      .run(id, name, color, pin ? hashPin(pin) : null, build ? JSON.stringify(build) : null);
     return { ok: true, robot: this.get(id) as RobotCard };
   }
 
@@ -134,9 +162,7 @@ export class Roster {
   }
 
   #row(id: string): PlayerRow | undefined {
-    return this.#db.prepare('SELECT id, display_name, color, pin_hash FROM players WHERE id = ?').get(id) as
-      | PlayerRow
-      | undefined;
+    return this.#db.prepare(`SELECT ${COLUMNS} FROM players WHERE id = ?`).get(id) as PlayerRow | undefined;
   }
 
   #nameTaken(name: string, except = ''): boolean {

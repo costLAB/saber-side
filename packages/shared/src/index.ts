@@ -1,4 +1,6 @@
+export * from './content/robot-parts.ts';
 export * from './content/space.ts';
+export * from './content/spawn.ts';
 export * from './math.ts';
 export * from './protocol.ts';
 export * from './ring-space.ts';

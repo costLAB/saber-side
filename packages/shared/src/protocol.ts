@@ -5,8 +5,10 @@
 // the server (or the reverse). The server then turns older clients away with JOIN_REFUSED.outdated, and they offer a
 // reload instead of half-working.
 
-// History: 1 = the station server; 2 = joining as a robot from the roster.
-export const PROTOCOL_VERSION = 2;
+import type { RobotBuild } from './content/robot-parts.ts';
+
+// History: 1 = the station server; 2 = joining as a robot from the roster; 3 = robots built from parts.
+export const PROTOCOL_VERSION = 3;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';
@@ -52,8 +54,10 @@ export const CLOSED = {
 export interface RobotCard {
   id: string;
   name: string;
-  /** One of ROBOT_COLORS. */
+  /** One of ROBOT_COLORS: the robot's main paint, for the roster list (see buildColor). */
   color: string;
+  /** Its parts and their paint. */
+  build: RobotBuild;
   /** Whether joining as it needs a PIN. */
   pin: boolean;
 }
@@ -66,7 +70,10 @@ export interface RosterResponse {
 /** `POST /robots`: make a new robot. */
 export interface NewRobot {
   name: string;
-  color: string;
+  /** Its parts and paint. Without one, the robot is the classic build painted `color`. */
+  build?: RobotBuild;
+  /** One of ROBOT_COLORS. Only read when there's no build. */
+  color?: string;
   pin?: string;
 }
 
@@ -80,6 +87,8 @@ export interface AboardView {
   robot: string;
   name: string;
   color: string;
+  /** The robot's RobotBuild, as JSON, so everyone aboard can draw it. */
+  build: string;
 }
 
 /** The synced station state, as the client sees it. */
