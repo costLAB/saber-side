@@ -743,37 +743,13 @@ function resetItems() {
   items[0].lit = 1;
 }
 
-// ---------- crates ----------
+// ---------- cargo crates (they drift in the hub) ----------
 const crateMats = [
   new THREE.MeshStandardMaterial({ map: crateTex(101, '#b8642c', 'R-7'), roughness: 0.7, metalness: 0.25 }),
   new THREE.MeshStandardMaterial({ map: crateTex(202, '#5d6a72', 'BOLTS'), roughness: 0.7, metalness: 0.3 }),
   new THREE.MeshStandardMaterial({ map: crateTex(303, '#cbc1b0', 'SPARE'), roughness: 0.75, metalness: 0.15 }),
 ];
-const crateLayout = [
-  [5.5, 7, 1.0], [6.8, 7.6, 0.8], [6.1, 8.9, 0.7],
-  [-6.5, 5, 1.1], [-7.7, 6.2, 0.75], [-5.4, 6.4, 0.8],
-  [3, -8.5, 0.9], [4.3, -9.4, 0.7], [2, -9.8, 0.8],
-  [-5, -7, 1.0], [-6.4, -6.2, 0.7],
-  [10.5, -1.5, 0.9], [11.2, 0.2, 0.75], [-11, -1, 0.9],
-];
-const crates = crateLayout.map(([x, z, size], i) => {
-  const m = mesh(new THREE.BoxGeometry(size, size, size), crateMats[i % 3]);
-  m.rotation.order = 'YXZ';
-  scene.add(m);
-  return { mesh: m, half: size / 2, home: [x, z, (i * 1.7) % TAU], vel: new V3(), av: new V3(), bashed: false, blob: makeBlob(size * 1.7) };
-});
-const scoreEl = document.getElementById('score');
-let bashed = 0;
-function showScore() { scoreEl.innerHTML = `${bashed}<i> / ${crates.length}</i>`; }
-function restack() {
-  for (const c of crates) {
-    c.mesh.position.set(c.home[0], c.half, c.home[1]);
-    c.mesh.rotation.set(0, c.home[2], 0);
-    c.vel.set(0, 0, 0); c.av.set(0, 0, 0); c.bashed = false;
-  }
-  bashed = 0; showScore(); resetItems();
-}
-restack();
+resetItems();
 
 // ---------- particles ----------
 function makePool(n, additive) {
@@ -854,7 +830,7 @@ function resetCam() { cam.yaw = 0; cam.pitch = 0; cam.zoom = 1; camTouched(); }
   cv.addEventListener('wheel', e => { e.preventDefault(); cam.zoom = clamp(cam.zoom * Math.exp(e.deltaY * 0.0012), ZOOM_MIN, ZOOM_MAX); camTouched(); }, { passive: false });
   cv.addEventListener('dblclick', resetCam);
 }
-document.getElementById('reset').addEventListener('click', () => { restack(); renderer.domElement.focus(); });
+document.getElementById('reset').addEventListener('click', () => { resetItems(); renderer.domElement.focus(); });
 
 const isTouch = matchMedia('(pointer: coarse) and (hover: none)').matches;
 if (isTouch) {
@@ -879,12 +855,10 @@ const st = { vel: 0, prevVel: 0, yaw: 0, angVel: 0, y: 0, vy: 0, grounded: true,
 const camPos = new V3();
 let started = false;
 
-function bashCrate(c) { if (!c.bashed) { c.bashed = true; bashed++; showScore(); } }
 function sparkBurst(pos, n, color) {
   for (let i = 0; i < n; i++) spawn(sparkPool, pos, tmp2.set((fx() - 0.5) * 7, fx() * 5, (fx() - 0.5) * 7),
     { life: 0.25 + fx() * 0.25, size: 0.2, grow: 0.3, grav: 16, drag: 1.5, color, alpha: 1 });
 }
-const heldReach = () => !held ? 0 : held.kind === 'saber' ? held.lit * 1.2 : held.kind === 'carrot' ? 0.35 : 0;
 function nearestItem(p) {
   let best = null, bd = 2.0;
   for (const it of items) {
@@ -955,16 +929,6 @@ function updateBolts(dt) {
     bp.addScaledVector(b.vel, dt);
     let dead = b.life <= 0;
     if (bp.y < 0.05) { dead = true; sparkBurst(bp, 6, 0xffa060); }
-    if (!dead) for (const c of crates) {
-      const cp = c.mesh.position, r = c.half + 0.1;
-      if (Math.abs(bp.x - cp.x) < r && Math.abs(bp.y - cp.y) < r && Math.abs(bp.z - cp.z) < r) {
-        tmp.copy(b.vel).normalize();
-        c.vel.x += tmp.x * 7; c.vel.z += tmp.z * 7; c.vel.y += 3.5;
-        c.av.set((fx() - 0.5) * 10, (fx() - 0.5) * 8, (fx() - 0.5) * 10);
-        bashCrate(c); sparkBurst(bp, 12, 0xffb060); dead = true;
-        break;
-      }
-    }
     if (dead) b.m.visible = false;
   }
 }
@@ -982,7 +946,6 @@ function updatePrompt(p, override, hintOnly) {
 
 function startSpin() {
   st.spin = 0;
-  for (const c of crates) c.hitThisSpin = false;
   if (!st.grounded) st.vy = Math.max(st.vy, 4);
 }
 
@@ -1004,7 +967,7 @@ function update(dt, t) {
   const fwd = rolling ? 1 : (keys.up ? 1 : 0) - (keys.down ? 1 : 0);
   const turn = rolling ? 0 : (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
   const spinning = st.spin >= 0;
-  if (pressed.reset) restack();
+  if (pressed.reset) resetItems();
 
   // drive
   const air = !st.grounded;
@@ -1065,22 +1028,6 @@ function update(dt, t) {
     const q = Math.min(st.spin / SPIN_DUR, 1);
     bot.spinner.rotation.y = q * q * (3 - 2 * q) * TAU * 3;
     spinAmt = Math.sin(q * Math.PI);
-    // hits
-    for (const c of crates) {
-      if (c.hitThisSpin) continue;
-      const cp = c.mesh.position, dx = cp.x - p.x, dz = cp.z - p.z, d = Math.hypot(dx, dz);
-      if (d < 2.5 + heldReach() + c.half * 0.6 && cp.y - c.half < st.y + 1.8 && cp.y + c.half > st.y + 0.2 && q > 0.08) {
-        c.hitThisSpin = true;
-        const nx = dx / (d || 1), nz = dz / (d || 1), pw = 8 + fx() * 4;
-        c.vel.set(nx * pw - nz * 4, 5 + fx() * 3.5, nz * pw + nx * 4);
-        c.av.set((fx() - 0.5) * 16, (fx() - 0.5) * 12, (fx() - 0.5) * 16);
-        bashCrate(c);
-        if (!reduceMotion) st.shake += 0.22;
-        for (let i = 0; i < 16; i++) spawn(sparkPool, tmp.set(cp.x - nx * c.half, cp.y, cp.z - nz * c.half),
-          tmp2.set((fx() - 0.5) * 9 + nx * 3, fx() * 6, (fx() - 0.5) * 9 + nz * 3),
-          { life: 0.35 + fx() * 0.3, size: 0.22, grow: 0.3, grav: 18, drag: 1.5, color: 0xffb060, alpha: 1 });
-      }
-    }
     // sparks off the fists
     for (const A of bot.arms) {
       A.wrist.getWorldPosition(tmp);
@@ -1244,7 +1191,6 @@ function update(dt, t) {
     }
   }
 
-  updateCrates(dt, p);
   updatePool(dustPool, dt); updatePool(sparkPool, dt);
 
   // camera: chase from behind, drift round to the front when idle, plus the viewer's own orbit and zoom
@@ -1282,66 +1228,12 @@ function update(dt, t) {
   bot.blob.position.set(p.x, 0.04, p.z);
   bot.blob.scale.setScalar(2.6 * (1 - Math.min(st.y / 14, 0.6)));
   bot.blob.material.opacity = 1 - Math.min(st.y / 10, 0.7);
-  for (const c of crates) {
-    const cp = c.mesh.position, fy = surfaceY(cp.x, cp.z, cp.y - c.half + 0.2);
-    c.blob.position.set(cp.x, fy + 0.04, cp.z);
-    c.blob.material.opacity = 1 - Math.min((cp.y - c.half - fy) / 6, 0.8);
-  }
   for (const f of spinners) f(dt, t);
   sky.rotation.x = -OMEGA * t;
   syncLights();
   updateWhere(p);
 
   for (const k in pressed) pressed[k] = false;
-}
-
-function updateCrates(dt, rp) {
-  const Q = Math.PI / 2;
-  for (const c of crates) {
-    const m = c.mesh, cp = m.position, h = surfaceY(cp.x, cp.z, cp.y - c.half + 0.2) + c.half;
-    const resting = cp.y <= h + 0.002 && c.vel.lengthSq() < 1e-4 && c.av.lengthSq() < 1e-4;
-    if (resting) continue;
-    c.vel.y -= G * dt;
-    cp.addScaledVector(c.vel, dt);
-    m.rotation.x += c.av.x * dt; m.rotation.y += c.av.y * dt; m.rotation.z += c.av.z * dt;
-    if (cp.y < h) {
-      cp.y = h;
-      if (c.vel.y < -2) { c.vel.y *= -0.3; c.vel.x *= 0.8; c.vel.z *= 0.8; c.av.multiplyScalar(0.6); dustBurst(cp.x, cp.z, 4, 1); }
-      else c.vel.y = 0;
-    }
-    if (cp.y <= h + 0.002) {
-      const k = Math.exp(-5 * dt);
-      c.vel.x *= k; c.vel.z *= k; c.av.multiplyScalar(Math.exp(-7 * dt));
-      m.rotation.x = damp(m.rotation.x, Math.round(m.rotation.x / Q) * Q, 10, dt);
-      m.rotation.z = damp(m.rotation.z, Math.round(m.rotation.z / Q) * Q, 10, dt);
-      if (c.vel.lengthSq() < 4e-4 && c.av.lengthSq() < 4e-4) { c.vel.set(0, 0, 0); c.av.set(0, 0, 0); }
-    }
-    if (Math.abs(cp.x) > HALF_L - 2) { cp.x = Math.sign(cp.x) * (HALF_L - 2); c.vel.x *= -0.4; }
-    collideWorld(cp, c.half);
-  }
-  // bot nudges crates it rolls into
-  const rvx = Math.sin(st.yaw) * st.vel, rvz = Math.cos(st.yaw) * st.vel;
-  for (const c of crates) {
-    const cp = c.mesh.position, dx = cp.x - rp.x, dz = cp.z - rp.z, d = Math.hypot(dx, dz), minD = 0.95 + c.half;
-    if (d < minD && cp.y - c.half < st.y + 1.9 && cp.y + c.half > st.y) {
-      const nx = dx / (d || 1), nz = dz / (d || 1), ov = minD - d;
-      cp.x += nx * ov; cp.z += nz * ov;
-      const vn = rvx * nx + rvz * nz;
-      if (vn > 0) { c.vel.x += nx * vn * 0.9; c.vel.z += nz * vn * 0.9; c.av.y += (fx() - 0.5) * vn; }
-    }
-  }
-  // crates shove each other apart
-  for (let i = 0; i < crates.length; i++) for (let j = i + 1; j < crates.length; j++) {
-    const a = crates[i], b = crates[j], pa = a.mesh.position, pb = b.mesh.position;
-    if (Math.abs(pa.y - pb.y) > a.half + b.half) continue;
-    const dx = pb.x - pa.x, dz = pb.z - pa.z, d = Math.hypot(dx, dz), minD = (a.half + b.half) * 1.05;
-    if (d < minD && d > 1e-5) {
-      const nx = dx / d, nz = dz / d, ov = (minD - d) / 2;
-      pa.x -= nx * ov; pa.z -= nz * ov; pb.x += nx * ov; pb.z += nz * ov;
-      if (a.vel.lengthSq() > 1) { b.vel.x += nx * 1.5; b.vel.z += nz * 1.5; }
-      if (b.vel.lengthSq() > 1) { a.vel.x -= nx * 1.5; a.vel.z -= nz * 1.5; }
-    }
-  }
 }
 
 // ---------- loop ----------
@@ -1437,7 +1329,7 @@ const cab = new THREE.Group(); cab.visible = false; liftWorld.add(cab);
 
 // ---- riding the lifts and floating in the hub ----
 const fl = { V: new V3(), startPos: new V3(), startQ: new THREE.Quaternion(), cam: new V3() };
-const qYaw = new THREE.Quaternion(), qTmp = new THREE.Quaternion(), FAR = new V3(0, 0, 1e6);
+const qYaw = new THREE.Quaternion(), qTmp = new THREE.Quaternion();
 function boardLift(L) {
   st.mode = 'up'; st.lift = L; st.rideT = 0;
   st.vel = 0; st.angVel = 0; st.y = 0; st.vy = 0; st.grounded = true; st.spin = -1; bot.spinner.rotation.y = 0;
@@ -1559,7 +1451,7 @@ function updateReal(dt, t) {
     for (const gl of it.glow) gl.m.opacity = gl.op * hum; it.light.intensity = 1.6 * it.lit * hum;
   }
 
-  updateItems(dt); updateBolts(dt); updateCrates(dt, FAR);
+  updateItems(dt); updateBolts(dt);
   updatePool(dustPool, dt); updatePool(sparkPool, dt);
 
   // camera rides in the bot's own frame
