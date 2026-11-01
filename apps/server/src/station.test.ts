@@ -402,6 +402,43 @@ describe('several robots per player', () => {
     });
   });
 
+  it('renames the robot a player pilots at the Bot Maker, under the same rules as every robot name', async () => {
+    const server = await boot(seeded({ name: 'Mia', pin: '4321' }, { name: 'Zed', pin: '1111' }));
+    const mia = await logIn(server, 'Mia', '4321');
+    const robots = garage(mia);
+    const zed = await logIn(server, 'Zed', '1111');
+    await until(() => robots.length > 0, "Mia's garage");
+    const theirs = () => zed.state.players?.get(mia.sessionId)?.name;
+    await until(() => theirs() === 'Mia', 'Zed to see Mia');
+
+    // Refused: a guest's name, a robot name already taken (ignoring case), and a name that cleans up to nothing.
+    for (const name of ['Bot 7', 'zed', '  ', 42]) {
+      expect(await botMaker(mia, MESSAGE.rename, { name })).toMatchObject({ ok: false, error: expect.any(String) });
+    }
+    expect(await botMaker(mia, MESSAGE.rename, { name: 'zed' })).toMatchObject({
+      error: expect.stringMatching(/already a robot called zed/i),
+    });
+
+    // A good name: saved, shown to everyone aboard, and sent back in the garage. The player keeps their own name.
+    expect(await botMaker(mia, MESSAGE.rename, { name: '  Sprout  ' })).toEqual({ ok: true });
+    await until(() => theirs() === 'Sprout', 'Zed to see the new name');
+    await until(() => robots.at(-1)?.robots[0]?.name === 'Sprout', 'the garage to show the new name');
+    expect(robots.at(-1)?.robots).toHaveLength(1);
+    await mia.leave();
+    const again = await logIn(server, 'Mia', '4321');
+    await until(() => again.state.players?.get(again.sessionId)?.name === 'Sprout', 'Sprout after a new login');
+    // Renaming to the same name with new capitals is fine.
+    expect(await botMaker(again, MESSAGE.rename, { name: 'SPROUT' })).toEqual({ ok: true });
+
+    // Guests keep their made-up name.
+    const guest = await comeAboard(server);
+    expect(await botMaker(guest, MESSAGE.rename, { name: 'Pip' })).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/Register/),
+    });
+    expect(guest.state.players.get(guest.sessionId)?.name).toMatch(/^Bot \d+$/);
+  });
+
   it("doesn't sell guests robots, or let anyone pilot someone else's", async () => {
     const server = await boot(seeded({ name: 'Mia', pin: '4321' }, { name: 'Zed', pin: '1111' }));
     const guest = await comeAboard(server);

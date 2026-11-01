@@ -11,8 +11,8 @@ import type { RobotBuild } from './content/robot-parts.ts';
 
 // History: 1 = the station server; 2 = joining as a robot from the roster; 3 = robots see each other (pose.ts);
 // 4 = robots built from parts; 5 = guests and logins (players own robots); 6 = the Robot Registry;
-// 7 = the Cyber Crystal wallet; 8 = several robots per player.
-export const PROTOCOL_VERSION = 8;
+// 7 = the Cyber Crystal wallet; 8 = several robots per player; 9 = renaming your robot at the Bot Maker.
+export const PROTOCOL_VERSION = 9;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';
@@ -121,6 +121,8 @@ export const MESSAGE = {
   build: 'build',
   /** At the Bot Maker, pilot another of this player's robots (a Pilot), keeping the seat. */
   pilot: 'pilot',
+  /** At the Bot Maker, a registered player renames the robot this seat pilots (a Rename), keeping the seat. */
+  rename: 'rename',
 } as const;
 
 /** What `build` carries: the new robot's name and parts. */
@@ -134,7 +136,12 @@ export interface Pilot {
   robot: string;
 }
 
-/** The server's answer to `build` or `pilot`, sent to that seat alone (NOTICE.botMaker). */
+/** What `rename` carries: the robot's new name (the same rules as every robot name, and not a guest's "Bot 7"). */
+export interface Rename {
+  name: string;
+}
+
+/** The server's answer to `build`, `pilot`, or `rename`, sent to that seat alone (NOTICE.botMaker). */
 export type BotMakerAnswer = { ok: true } | { ok: false; error: string };
 
 /** A registered player's robots, sent to their seat alone (NOTICE.garage) whenever they change. */
@@ -163,7 +170,7 @@ export const NOTICE = {
   wallet: 'wallet',
   /** To a registered player's seat: their robots (a Garage), on joining and whenever they change. */
   garage: 'garage',
-  /** To one seat: how its `build` or `pilot` went (a BotMakerAnswer). */
+  /** To one seat: how its `build`, `pilot`, or `rename` went (a BotMakerAnswer). */
   botMaker: 'botMaker',
 } as const;
 

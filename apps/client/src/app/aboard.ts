@@ -12,6 +12,7 @@ import {
   NOTICE,
   type Pilot,
   type RegistryAnswer,
+  type Rename,
   type RobotBuild,
   type SignIn,
   type StationView,
@@ -95,6 +96,11 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
     onSignIn: async (name, pin) => signIn(MESSAGE.login, { name, pin }),
     onBuyRobot: (name, build) => atBotMaker(MESSAGE.build, { name, build }),
     onPilot: (robot) => atBotMaker(MESSAGE.pilot, { robot }),
+    // A new name keeps the robot where it stands: the station shows it to everyone and sends the garage again.
+    onRename: async (name) => {
+      const reply = await ask<BotMakerAnswer>(MESSAGE.rename, { name } satisfies Rename, NOTICE.botMaker);
+      return reply.ok ? undefined : reply.error;
+    },
     onLogin: (name, pin) => board({ login: { name, pin } }),
     preview: () => createRobotPreview(legacy.robotKit),
     onDismiss: () => {
