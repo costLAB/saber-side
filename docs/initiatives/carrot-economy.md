@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: step 0 done (#13); next is `feature/robot-mouth`. [Players, their robots, and seats](players-and-robots.md) lands before `feature/paint-cure`, and builds the wallet |
+| **Status** | In progress: step 0 (#13) and the robot mouth (#27) done; next is `feature/paint-cure`. [Players, their robots, and seats](players-and-robots.md) is done and built the wallet |
 | **Phase** | The first slice of P5, Economy v1 ([plan, section 8](../REFACTOR_PLAN.md#p5-economy-v1-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid starting with nothing opens a free carrot stand, earns its trickle, buys carrots from the Farmers, eats them and watches the paint cure, sells carrots to friends, saves 25 CC, buys a farm, and turns the stand into a money-maker. |
@@ -74,9 +74,10 @@ All by the owner, 2026-11-01.
 - **The other heads:** the visor's jaw is the chin below its brim. The stalk eye's ball splits along a new horizontal
   seam under its eye; its existing seam ring is vertical. A robot with no head eats through a hatch that flips open on
   the front of its body. Every robot has to be able to eat, since that's how it cures.
-- **Friends see it:** the jaw angle is a new `jaw` field in the pose (`pose.ts`), which needs a `PROTOCOL_VERSION` bump.
+- **Friends see it:** how far the mouth is open (0 shut to 1 wide) is a new `jaw` field in the pose (`pose.ts`), and each
+  head turns it into its own angle. It needed a `PROTOCOL_VERSION` bump (10).
 - **Animation code:** the eating timeline (bite times, and the jaw angle over time) is pure data in
-  `shared/sim/eating.ts`. The jaw meshes go in `avatar/parts/head.ts` (`BuiltHead.jaw`), and the glue in
+  `shared/sim/eating.ts`. The jaw meshes go in `avatar/parts/head.ts` (`BuiltHead.jaw`, cut by `avatar/parts/jaw.ts`), and the glue in
   `app/eating.ts`. The legacy bite code only calls a hook.
 
 ### Carrot stands, the Farmers, and farms
@@ -133,16 +134,16 @@ merges.
 | # | Status | Branch | PR title | What it adds | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
 | 0 | **Done** (#13) | `foundation/cosmetic-rng` | Keep screenshots stable when the scene changes | Cosmetic effects have their own seeded RNG (D2), so adding the jaw's meshes doesn't shift screenshots. | none |
-| 1 | Next | `feature/robot-mouth` | Let robots open their mouths to eat carrots | The jaw on every head (the dome's seam, the visor's chin, the stalk's new seam, and a body hatch on a robot with no head). The eating timeline in `shared/sim/eating.ts`: three chomps and a gulp, with crumbs. Friends see it through the new `jaw` pose field. Eating is still just a snack: no rules change. | `PROTOCOL_VERSION` 9 |
-| 2 | | `feature/paint-cure` | Let robot paint cure from a sheer coat to full color | The `coat` material with `uCure`, which has to work alongside the ring bend's `onBeforeCompile` patch. `shared/sim/paint-cure.ts`. Each robot's cure is stored on `robots` (a guest's is held by the room and saved when they register), starts at 10%, is sent with the roster card and the aboard view, and is shown in the HUD, roster, and builder (with a 100% preview). The owner panel can set a robot's cure. The server credits a gulp only for a carrot from your pocket, and pocket carrots arrive with PR 5. Until then, a station setting (`paintCure`, in `settings_json`) leaves every coat drawn at 100%, so robots don't sit pale before carrots can be bought. | migration 6 (`robots.paint_cure`), `PROTOCOL_VERSION` 10 |
+| 1 | **Done** (#27) | `feature/robot-mouth` | Let robots open their mouths to eat carrots | The jaw on every head (the dome's seam, the visor's chin, the stalk's new seam, and a body hatch on a robot with no head). The eating timeline in `shared/sim/eating.ts`: three chomps and a gulp, with crumbs. Friends see it through the new `jaw` pose field. Eating is still just a snack: no rules change. | `PROTOCOL_VERSION` 10 |
+| 2 | | `feature/paint-cure` | Let robot paint cure from a sheer coat to full color | The `coat` material with `uCure`, which has to work alongside the ring bend's `onBeforeCompile` patch. `shared/sim/paint-cure.ts`. Each robot's cure is stored on `robots` (a guest's is held by the room and saved when they register), starts at 10%, is sent with the roster card and the aboard view, and is shown in the HUD, roster, and builder (with a 100% preview). The owner panel can set a robot's cure. The server credits a gulp only for a carrot from your pocket, and pocket carrots arrive with PR 5. Until then, a station setting (`paintCure`, in `settings_json`) leaves every coat drawn at 100%, so robots don't sit pale before carrots can be bought. | migration 6 (`robots.paint_cure`), `PROTOCOL_VERSION` 11 |
 | 3 | Moved | `feature/cyber-crystal-wallet` | Give every registered player a Cyber Crystal wallet | Moved to [Players, their robots, and seats](players-and-robots.md) (its PR 3, #21), because buying a second robot needs the wallet. It lands before this initiative's PR 1. | — |
-| 4 | | `feature/first-shop` | Let players open their first shop | Spots as data, the "FOR LEASE" kiosk, and the free first shop, open while its owner is aboard. The window-shopper trickle against rent, 5-minute settlement, and "Closed for repairs". For now, shelves hold carrots only. | migration 7 (`spots`, `shops`), `PROTOCOL_VERSION` 11 |
-| 5 | | `feature/carrot-farmers` | Sell carrots at the Farmers' stand | The Farm Stand on the ring farms (a `world/` builder), the pocket inventory (`items`), buying carrots wholesale, and eating pocket carrots to cure. The owner turns on `paintCure` once this ships. From here the whole loop runs: trickle → buy → eat → cure. | migration 8 (`items`), `PROTOCOL_VERSION` 12 |
-| 6 | | `feature/carrot-stand` | Let players sell carrots from their shops | Stocking shelves from your pocket, and price tags. Friends buy by tapping or clicking (VR waits for P4). Robot shoppers buy carrots by the demand curve, posted at settlement. A simple shift report. | `PROTOCOL_VERSION` 13 |
-| 7 | | `feature/carrot-farms` | Let players buy a farm and grow their own carrots | Farm plots as data (`shared/content/farms.ts`) on the farm strips, and the plot kiosk. Capex in CC that rises with each plot. Growth worked out from time, up to the bin cap, with the seed fee. Pulling a bin into your pocket, and rows that visibly fill (`world/farm-plot.ts`). | migration 9 (`plots`, `farms`), `PROTOCOL_VERSION` 14 |
+| 4 | | `feature/first-shop` | Let players open their first shop | Spots as data, the "FOR LEASE" kiosk, and the free first shop, open while its owner is aboard. The window-shopper trickle against rent, 5-minute settlement, and "Closed for repairs". For now, shelves hold carrots only. | migration 7 (`spots`, `shops`), `PROTOCOL_VERSION` 12 |
+| 5 | | `feature/carrot-farmers` | Sell carrots at the Farmers' stand | The Farm Stand on the ring farms (a `world/` builder), the pocket inventory (`items`), buying carrots wholesale, and eating pocket carrots to cure. The owner turns on `paintCure` once this ships. From here the whole loop runs: trickle → buy → eat → cure. | migration 8 (`items`), `PROTOCOL_VERSION` 13 |
+| 6 | | `feature/carrot-stand` | Let players sell carrots from their shops | Stocking shelves from your pocket, and price tags. Friends buy by tapping or clicking (VR waits for P4). Robot shoppers buy carrots by the demand curve, posted at settlement. A simple shift report. | `PROTOCOL_VERSION` 14 |
+| 7 | | `feature/carrot-farms` | Let players buy a farm and grow their own carrots | Farm plots as data (`shared/content/farms.ts`) on the farm strips, and the plot kiosk. Capex in CC that rises with each plot. Growth worked out from time, up to the bin cap, with the seed fee. Pulling a bin into your pocket, and rows that visibly fill (`world/farm-plot.ts`). | migration 9 (`plots`, `farms`), `PROTOCOL_VERSION` 15 |
 | 8 | | `feature/economy-tuning` | Tune the carrot economy from the owner panel | Every carrot, cure, farm, and shop number editable in the owner panel. A "last hour" view, and "While you were away" for farms that grew. | maybe |
 
-The protocol and migration numbers assume the PRs merge in this order, after the four PRs of [Players, their robots, and seats](players-and-robots.md) (migrations 4 and 5, protocol 5 to 8). If they land in a different order, or another
+The protocol and migration numbers assume the PRs merge in this order, after the four PRs of [Players, their robots, and seats](players-and-robots.md) (migrations 4 and 5, protocol 5 to 8), and renaming robots (#24, protocol 9). If they land in a different order, or another
 PR takes a number first, use the next free one when you merge.
 
 ## Tests

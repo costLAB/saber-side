@@ -42,7 +42,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | Initiative | Phase | Status |
 | --- | --- | --- |
 | [Players, their robots, and seats](initiatives/players-and-robots.md) | P3 | **Done** (#19, #20, #21, #22): guests, the Robot Registry, the wallet, and several robots per player |
-| [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 done (#13), next `feature/robot-mouth` |
+| [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 (#13) and the robot mouth (#27) done, next `feature/paint-cure` |
 | [Robot parts catalogs](initiatives/robot-parts-catalog.md) | P3 (parts), P5 (prices) | Planned: next `feature/jack-o-lantern-head`; prices wait on the players initiative and the wallet |
 | [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md) | P5 | Planned: next `feature/ore-planet`; buying, mining, and refining wait on the wallet |
 
@@ -427,7 +427,7 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 | P2 Input + avatar | Not started | | Action map and device adapters, `PilotedController`, the embodied avatar, the iPad touch rework (including the legend/d-pad overlap) |
 | P3 Online free roam | **Partly done** | The station server on Render, the owner panel, robots built from parts, the Bot Maker spawn, seeing friends' robots, and [players, their robots, and seats](initiatives/players-and-robots.md): guests, the Robot Registry, logins with PINs, one seat per player, up to 5 robots each | Server-authoritative item pickup/drop and lifts (sabers and blasters as shared toys); off-site backups (Litestream) |
 | P4 Quest VR | Not started | | |
-| P5 Economy v1 | **Started** | Step 0 of the [carrot initiative](initiatives/carrot-economy.md) (#13), and the Cyber Crystal wallet (#21) | The rest of the carrot initiative, then the rest of P5 |
+| P5 Economy v1 | **Started** | Step 0 and the robot mouth of the [carrot initiative](initiatives/carrot-economy.md) (#13, #27), and the Cyber Crystal wallet (#21) | The rest of the carrot initiative, then the rest of P5 |
 | P6, P7 | Not started | | |
 
 P5 is going ahead of P2-P4 on purpose: the carrot initiative is the next feature work. Its PRs build in modules, the way `app/flight.ts` did, so they don't wait on the rest of P1.

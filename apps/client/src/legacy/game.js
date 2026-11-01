@@ -26,6 +26,7 @@ import {
   wrapD,
 } from '@saber-side/shared';
 import * as THREE from 'three';
+import { createEating } from '../app/eating';
 import { createFlightMode } from '../app/flight';
 import { buildBotMaker } from '../world/bot-maker';
 import { buildRobotRegistry } from '../world/robot-registry';
@@ -44,6 +45,7 @@ const V3 = THREE.Vector3;
 // from Math.random, so sharing it would make these effects shift whenever anything adds or removes an object, or
 // when fonts finish loading a moment sooner on one machine than another (signs redraw into new textures).
 const fx = mulberry(0x5eed);
+const eating = createEating(fx);   // biting carrots, and the mouth that does it (app/eating.ts)
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 
@@ -855,7 +857,7 @@ if (isTouch) {
 // ---------- simulation ----------
 const MAX = 7, ACC = 16, DRAG = 9, TURN = 2.7, G = 28, JUMP_V = 10.5, SPIN_DUR = 0.72;
 const st = { vel: 0, prevVel: 0, yaw: 0, angVel: 0, y: 0, vy: 0, grounded: true, crouch: 0, jumpBuf: 0, land: 0,
-  mode: 'floor', boostAmt: 0, lift: null, rideT: 0, boardNext: null, spin: -1, spinCD: 0, phase: 0, saberA: 1.25, reach: 0, bite: 0, bitten: false, recoil: 0, idle: 3.6, still: 9, wave: -1, sy: 1, syV: 0, leanX: 0, leanZ: 0,
+  mode: 'floor', boostAmt: 0, lift: null, rideT: 0, boardNext: null, spin: -1, spinCD: 0, phase: 0, saberA: 1.25, reach: 0, recoil: 0, idle: 3.6, still: 9, wave: -1, sy: 1, syV: 0, leanX: 0, leanZ: 0,
   glanceT: 0, glanceYaw: 0, glancePitch: 0, hYaw: 0, hPitch: 0, hRoll: 0,
   camOrbit: Math.PI * 0.8, shake: 0, dustAcc: 0, rollout: 0 };
 const camPos = new V3();
@@ -878,8 +880,8 @@ function biteCarrot(it) {
   it.bites++;
   it.body.scale.y = Math.max(0.05, 1 - it.bites * 0.3);
   it.group.localToWorld(tmp.set(0, 0.45 * it.body.scale.y, 0));
-  for (let i = 0; i < 12; i++) spawn(dustPool, tmp, tmp2.set((fx() - 0.5) * 3, fx() * 2.5, (fx() - 0.5) * 3),
-    { life: 0.5 + fx() * 0.3, size: 0.07, grow: 0.6, grav: 12, drag: 0.5, color: 0xe0701e, alpha: 1 });
+  for (const c of eating.crumbs()) spawn(dustPool, tmp, tmp2.set(c.vx, c.vy, c.vz),
+    { life: c.life, size: 0.07, grow: 0.6, grav: 12, drag: 0.5, color: 0xe0701e, alpha: 1 });
   if (it.bites >= 3) { scene.attach(it.group); it.group.visible = false; it.state = 'gone'; it.respawn = 3; held = null; }
 }
 function updateItems(dt) {
@@ -1087,7 +1089,7 @@ function update(dt, t) {
     if (s === 1) {
       if (held && held.kind === 'gun' && !isSpin && st.grounded && st.crouch <= 0) { ab = 0.22; sw = -0.75 + 0.08 * Math.sin(st.phase) * sn + st.recoil * 0.35; el = 0.5 + st.recoil * 0.5; wr = 0; }
       if (st.reach > 0) { const k = Math.sin(st.reach / 0.35 * Math.PI); ab = lerp(ab, 0.3, k); sw = lerp(sw, -1.0, k); el = lerp(el, 0.1, k); curl = lerp(curl, 0, k); }
-      if (st.bite > 0 && !isSpin) { const k = Math.sin(Math.min(st.bite / 0.5, 1) * Math.PI); ab = lerp(ab, 0.45, k); sw = lerp(sw, -1.45, k); el = lerp(el, 1.75, k); }
+      if (eating.frame.arm > 0 && !isSpin) { const k = eating.frame.arm; ab = lerp(ab, 0.45, k); sw = lerp(sw, -1.45, k); el = lerp(el, 1.75, k); }
       if (held) curl = Math.max(curl, 0.8);  // keep a grip on whatever it's holding
     }
 
@@ -1113,11 +1115,10 @@ function update(dt, t) {
   if (held) {
     if (held.kind === 'saber' && pressed.use) held.target = held.target ? 0 : 1;
     if (held.kind === 'gun') { held.cd -= dt; if (keys.use && held.cd <= 0 && !isSpin) { fireBolt(held); held.cd = 0.16; } }
-    if (held && held.kind === 'carrot') {
-      if (pressed.use && st.bite <= 0) { st.bite = 0.5; st.bitten = false; }
-      if (st.bite > 0) { st.bite -= dt; if (!st.bitten && st.bite < 0.25) { st.bitten = true; biteCarrot(held); } }
-    }
-  } else st.bite = 0;
+    if (held && held.kind === 'carrot' && pressed.use) eating.bite(held.bites + 1);
+  }
+  if (!held || held.kind !== 'carrot') eating.letGo();
+  if (eating.update(dt, bot).chomp && held && held.kind === 'carrot') biteCarrot(held);
   const hum = 1 + 0.06 * Math.sin(t * 57) + 0.04 * Math.sin(t * 23);
   for (const it of items) {
     if (it.kind !== 'saber') continue;
@@ -1132,7 +1133,7 @@ function update(dt, t) {
   let sa = 1.25 - 0.3 * sn;
   if (!st.grounded && st.vy > 1) sa = Math.PI;
   if (isSpin) sa = Math.PI;
-  if (held && held.kind === 'carrot' && st.bite > 0) sa = 0.4;
+  if (held && held.kind === 'carrot' && eating.frame.arm > 0) sa = 0.4;
   if (gunAim) sa = Math.PI - (c0.sw - c0.el + c0.wr);
   st.saberA = gunAim ? sa : damp(st.saberA, sa, isSpin ? 30 : 10, dt);
   bot.grip.rotation.x = st.saberA;
@@ -1150,6 +1151,7 @@ function update(dt, t) {
   let syT = 1;
   if (st.crouch > 0) syT = 0.8;
   else if (!st.grounded && st.vy > 0) syT = 1 + Math.min(st.vy * 0.012, 0.12);
+  syT *= eating.frame.squash;   // the gulp
   st.syV += ((syT - st.sy) * 220 - st.syV * 15) * dt;
   st.sy = clamp(st.sy + st.syV * dt, 0.62, 1.3);
   const sx = 1 / Math.sqrt(st.sy);
@@ -1167,7 +1169,7 @@ function update(dt, t) {
   st.hYaw = damp(st.hYaw, tn * 0.5 + st.glanceYaw - waving * 0.15, 7, dt);
   st.hPitch = damp(st.hPitch, -st.leanX * 0.9 + st.glancePitch + (st.grounded ? 0 : clamp(st.vy * 0.015, -0.15, 0.15)), 7, dt);
   st.hRoll = damp(st.hRoll, -st.leanZ * 0.7 + waving * 0.16 * Math.sin(st.wave * 3), 7, dt);
-  bot.head.rotation.set(st.hPitch, st.hYaw, st.hRoll, 'YXZ');
+  bot.head.rotation.set(st.hPitch + eating.frame.nod, st.hYaw, st.hRoll, 'YXZ');
   bot.head.position.y = 0.1 + 0.015 * Math.sin(t * 2.3) + 0.035 * sn * Math.abs(Math.sin(st.phase));
 
 
@@ -1552,7 +1554,7 @@ legacy.drivingOnFloor = () => (st.mode === 'floor' && st.rollout <= 0 ? bot.root
 legacy.releaseKeys = () => { for (const k in keys) keys[k] = false; };
 
 // Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
-if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships };
+if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships, eating, items };
 
 frame();
 })();

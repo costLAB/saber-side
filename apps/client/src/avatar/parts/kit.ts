@@ -94,4 +94,6 @@ export interface BodyMounts {
   shoulder: readonly [number, number, number];
   /** Where a robot with no arms carries what it holds. */
   hold: readonly [number, number, number];
+  /** Where a robot with no head has the hatch it eats through: a spot facing out on the front, and its size. */
+  mouth: { position: readonly [number, number, number]; lat: number; lon: number; w?: number; h?: number };
 }

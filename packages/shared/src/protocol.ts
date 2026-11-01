@@ -11,8 +11,9 @@ import type { RobotBuild } from './content/robot-parts.ts';
 
 // History: 1 = the station server; 2 = joining as a robot from the roster; 3 = robots see each other (pose.ts);
 // 4 = robots built from parts; 5 = guests and logins (players own robots); 6 = the Robot Registry;
-// 7 = the Cyber Crystal wallet; 8 = several robots per player; 9 = renaming your robot at the Bot Maker.
-export const PROTOCOL_VERSION = 9;
+// 7 = the Cyber Crystal wallet; 8 = several robots per player; 9 = renaming your robot at the Bot Maker;
+// 10 = robots open their mouths to eat (the `jaw` pose field).
+export const PROTOCOL_VERSION = 10;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';

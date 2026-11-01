@@ -39,6 +39,8 @@ export const POSE = [
   ...ARM.map((k) => [`arm0${k}`, 'angle'] as const),
   ...ARM.map((k) => [`arm1${k}`, 'angle'] as const),
   ['shown', 'flag'],
+  // how far the mouth is open (0 shut to 1 wide), for eating (sim/eating.ts)
+  ['jaw', 'scale'],
 ] as const satisfies readonly (readonly [string, PoseKind])[];
 
 export type PoseField = (typeof POSE)[number][0];
