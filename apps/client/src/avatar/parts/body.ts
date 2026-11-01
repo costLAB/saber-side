@@ -9,7 +9,26 @@ import { type BodyMounts, Cyl, flatRing, onDrum, onSphere, type PartKit, Sph, TA
 // from Math.random, so a different order would shift the seeded effects the screenshot tests pin down.
 
 /** Mounts on a bare wheel, for a robot built without a body. */
-const BARE_WHEEL: BodyMounts = { neckY: 0.86, shoulder: [0.97, 0.12, 0], hold: [0, 0.35, 1.05] };
+const BARE_WHEEL: BodyMounts = {
+  neckY: 0.86,
+  shoulder: [0.97, 0.12, 0],
+  hold: [0, 0.35, 1.05],
+  mouth: onSphereSpot(0.97, 0.9, 0),
+};
+
+/** A mouth spot on a sphere of radius r (as `onSphere` places things). */
+function onSphereSpot(r: number, lat: number, lon: number): BodyMounts['mouth'] {
+  return {
+    position: [r * Math.cos(lat) * Math.sin(lon), r * Math.sin(lat), r * Math.cos(lat) * Math.cos(lon)],
+    lat,
+    lon,
+  };
+}
+
+/** A mouth spot on an upright drum of radius r at height y (as `onDrum` places things). */
+function onDrumSpot(r: number, y: number, lon: number): BodyMounts['mouth'] {
+  return { position: [r * Math.sin(lon), y, r * Math.cos(lon)], lat: 0, lon };
+}
 
 /** The wheel: a drive ball that rolls, peeking out of a fixed band. Returns the ball (the animation spins it). */
 export function buildMobility(kit: PartKit, core: THREE.Group, pick: PartPick<'mobility'>): THREE.Mesh {
@@ -163,7 +182,11 @@ function ball(kit: PartKit, core: THREE.Group, paint: string): BuiltBody {
     socket(kit, sock);
   }
 
-  return { mounts: { neckY: 0.9, shoulder: [0.93, 0.22, 0.03], hold: [0, 0.3, 1.1] }, ledGlow };
+  return {
+    // the mouth hatch, for a robot with no head, sits above the chest panel
+    mounts: { neckY: 0.9, shoulder: [0.93, 0.22, 0.03], hold: [0, 0.3, 1.1], mouth: onSphereSpot(0.985, 0.62, 0) },
+    ledGlow,
+  };
 }
 
 /** An upright drum with hoops, riding on the wheel. */
@@ -216,7 +239,11 @@ function barrel(kit: PartKit, core: THREE.Group, paint: string): BuiltBody {
     core.add(sock);
     socket(kit, sock);
   }
-  return { mounts: { neckY: 1.14, shoulder: [0.98, 0.62, 0], hold: [0, 0.6, 1.2] }, ledGlow };
+  return {
+    // the mouth hatch, for a robot with no head, mirrors the LED panel
+    mounts: { neckY: 1.14, shoulder: [0.98, 0.62, 0], hold: [0, 0.6, 1.2], mouth: onDrumSpot(0.94, 0.75, -0.3) },
+    ledGlow,
+  };
 }
 
 /** A box balanced on top of the wheel, with framed edges and a screen. */
@@ -299,7 +326,13 @@ function crate(kit: PartKit, core: THREE.Group, paint: string): BuiltBody {
     core.add(rv);
   }
   return {
-    mounts: { neckY: Y + H / 2 + 0.02, shoulder: [W / 2 + 0.06, 1.3, 0], hold: [0, 1.0, D / 2 + 0.3] },
+    mounts: {
+      neckY: Y + H / 2 + 0.02,
+      shoulder: [W / 2 + 0.06, 1.3, 0],
+      hold: [0, 1.0, D / 2 + 0.3],
+      // the mouth hatch, for a robot with no head, sits under the screen
+      mouth: { position: [-0.3, Y - 0.33, D / 2 + 0.01], lat: 0, lon: 0, h: 0.2 },
+    },
     ledGlow,
   };
 }

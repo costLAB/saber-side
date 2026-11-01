@@ -1,9 +1,11 @@
 import type { PartPick } from '@saber-side/shared';
 import * as THREE from 'three';
+import { cutJaw, type Jaw } from './jaw';
 import { Cyl, flatRing, onSphere, type PartKit, Sph, TAU, zCyl } from './kit';
 
 // Heads. Each sits on a neck at the body's neck mount, inside a `head` group the animation turns and bobs. Heads with
-// an eye hand back its glowing parts, so the animation can pulse them and make the eye glance about.
+// an eye hand back its glowing parts, so the animation can pulse them and make the eye glance about. Every head has a
+// jaw that swings open to eat (parts/jaw.ts).
 
 export interface BuiltHead {
   /** Turned and bobbed by the animation (an empty group when there's no head). */
@@ -12,6 +14,8 @@ export interface BuiltHead {
   eyeGlow?: THREE.Sprite;
   eyeHot?: THREE.Sprite;
   eyeLight?: THREE.PointLight;
+  /** The mouth. Missing only when there's no head (the body has a hatch instead). */
+  jaw?: Jaw;
 }
 
 export function buildHead(
@@ -57,6 +61,9 @@ function dome(kit: PartKit, core: THREE.Group, paint: string, neckY: number, wit
   skull.scale.y = 0.9;
   skull.position.y = HY;
   head.add(skull);
+  // The jaw: the front of the skull below the panel seam under the eye (the texture's seam at v = 0.63, about 23°
+  // below the equator, falls on row 28 of 44), 22 of the 64 columns wide (about 120°), swinging down about 35°.
+  const jaw = cutJaw(kit, skull, { rows: [28, 38], cols: [5, 27] }, THREE.MathUtils.degToRad(35));
   const under = mesh(Cyl(0.44, 0.38, 0.1, 32), M.dark);
   under.position.y = 0.04;
   head.add(under);
@@ -134,7 +141,7 @@ function dome(kit: PartKit, core: THREE.Group, paint: string, neckY: number, wit
     sc.position.y = sc.position.y * 0.9 + HY;
     head.add(sc);
   }
-  return { head, eyeCore, eyeGlow, eyeHot, eyeLight };
+  return { head, eyeCore, eyeGlow, eyeHot, eyeLight, jaw };
 }
 
 /** A rounded helmet with a glowing slot visor and an antenna. */
@@ -154,6 +161,8 @@ function visor(kit: PartKit, core: THREE.Group, paint: string, neckY: number, wi
   helmet.scale.set(1.12, 0.78, 0.98);
   helmet.position.y = HY;
   head.add(helmet);
+  // The jaw: the chin below the brim (row 20 of 32 sits under the brim's ring), 16 of 48 columns wide.
+  const jaw = cutJaw(kit, helmet, { rows: [20, 28], cols: [4, 20] }, THREE.MathUtils.degToRad(30));
   const crest = mesh(new THREE.BoxGeometry(0.16, 0.08, 1.0), tint(M.head, paint));
   crest.position.y = HY + 0.47;
   head.add(crest);
@@ -210,7 +219,7 @@ function visor(kit: PartKit, core: THREE.Group, paint: string, neckY: number, wi
   const tipGlow = glow(0xff3a1a, 0.3, 0.8);
   tipGlow.position.copy(tip.position);
   head.add(tipGlow);
-  return { head, eyeCore, eyeGlow, eyeHot, eyeLight };
+  return { head, eyeCore, eyeGlow, eyeHot, eyeLight, jaw };
 }
 
 /** One round eye up on a periscope stalk. The stalk sways with the head. */
@@ -235,13 +244,32 @@ function stalk(kit: PartKit, core: THREE.Group, paint: string, neckY: number, wi
   }
 
   const EY = 1.18;
-  const ball = mesh(Sph(0.42, 40, 28), tint(M.head, paint));
+  const BR = 0.42;
+  const ball = mesh(Sph(BR, 40, 28), tint(M.head, paint));
   ball.position.y = EY;
   head.add(ball);
-  const seam = mesh(new THREE.TorusGeometry(0.425, 0.03, 8, 48), M.metal);
-  seam.rotation.y = Math.PI / 2;
-  seam.position.y = EY;
-  head.add(seam);
+  // The jaw: the ball below a new seam under the eye (row 21 of 28, 45° below the equator), 14 of 40 columns wide.
+  const rows = [21, 26] as const;
+  const jaw = cutJaw(kit, ball, { rows, cols: [3, 17] }, THREE.MathUtils.degToRad(45));
+  const across = mesh(new THREE.TorusGeometry(BR * Math.sin((rows[0] / 28) * Math.PI) + 0.006, 0.022, 6, 40), M.metal);
+  across.rotation.x = Math.PI / 2;
+  across.position.y = EY + BR * Math.cos((rows[0] / 28) * Math.PI);
+  head.add(across);
+  // The old seam runs up over the front and back. The stretch of it on the jaw swings with the jaw.
+  const a0 = Math.PI / 2 + (rows[0] / 28) * Math.PI;
+  const a1 = Math.PI / 2 + (rows[1] / 28) * Math.PI;
+  const seamArc = (from: number, to: number, parent: THREE.Object3D) => {
+    const g = new THREE.TorusGeometry(0.425, 0.03, 8, Math.max(2, Math.round((48 * (to - from)) / TAU)), to - from);
+    g.rotateZ(from);
+    const m = mesh(g, M.metal);
+    m.rotation.y = Math.PI / 2;
+    m.position.set(0, EY, 0);
+    if (parent === jaw.hinge) m.position.sub(jaw.hinge.position);
+    parent.add(m);
+  };
+  seamArc(0, a0, head);
+  seamArc(a0, a1, jaw.hinge);
+  seamArc(a1, TAU, head);
   const collar = mesh(Cyl(0.16, 0.2, 0.12, 24), M.dark);
   collar.position.y = EY - 0.42;
   head.add(collar);
@@ -273,5 +301,5 @@ function stalk(kit: PartKit, core: THREE.Group, paint: string, neckY: number, wi
   eye.add(eyeHot);
   const eyeLight = withLight ? light(0.45) : undefined;
   if (eyeLight) eye.add(eyeLight);
-  return { head, eyeCore, eyeGlow, eyeHot, eyeLight };
+  return { head, eyeCore, eyeGlow, eyeHot, eyeLight, jaw };
 }

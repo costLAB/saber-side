@@ -84,14 +84,17 @@ export async function hold(page: Page, key: string, ms: number) {
  * HUD panels and touch buttons are masked as solid boxes: their layout is still compared, but not their text,
  * because glyph rasterization (and fallback fonts for symbols like ↑ ▲) differs between machines. HUD text is
  * checked with DOM assertions instead.
+ *
+ * `clip` compares just part of the frame, for a close-up where a small change matters (the 1% tolerance applies to
+ * the clipped area).
  */
-export async function snap(page: Page, name: string) {
+export async function snap(page: Page, name: string, clip?: { x: number; y: number; width: number; height: number }) {
   await page.evaluate(() => {
     window.__draw = true;
   });
   await page.clock.fastForward(33);
   const mask = ['.hud', '#hint', '#prompt', '#touch .tb'].map((selector) => page.locator(selector));
-  const image = await page.screenshot({ timeout: 60_000, mask, maskColor: '#ff00ff' });
+  const image = await page.screenshot({ timeout: 60_000, mask, maskColor: '#ff00ff', clip });
   await page.evaluate(() => {
     window.__draw = false;
   });

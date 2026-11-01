@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { type Flight, PLANETS, type Planet, RING_DOCKS } from '@saber-side/shared';
 import { advance, boot, expect, hold, snap, test } from './fixtures';
 
@@ -7,6 +8,27 @@ interface SaberDebug {
   lifts: unknown[];
   bot: { root: { visible: boolean; position: { set(x: number, y: number, z: number): unknown } } };
   ships: { state: Flight };
+}
+
+/** Just the robot's head, in the close-up. */
+const HEAD = { x: 470, y: 80, width: 340, height: 260 };
+
+/** Stands the robot by the table with the carrot on it, and brings the camera in close on its face. */
+async function closeUp(page: Page) {
+  await page.goto('/?debug');
+  await page.evaluate(() => document.fonts.ready);
+  await advance(page, 300);
+  // The hint and the "Pick up the carrot" prompt sit right over the face, and snap would mask them.
+  await page.addStyleTag({ content: '#hint, #prompt { display: none !important; }' });
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const s = (window as any).__saber;
+    s.bot.root.position.set(-3.1, 0, -1.6);
+    s.st.yaw = Math.PI;
+    s.cam.zoom = 0.95;
+  });
+  // A robot sitting still has the camera drift round to its front.
+  await advance(page, 8000);
 }
 
 test('spawn view', async ({ page, errors }, info) => {
@@ -35,6 +57,62 @@ test('the Bot Maker and the Robot Registry next door', async ({ page, errors }, 
   });
   await advance(page, 8000);
   await snap(page, 'plaza-west.png');
+  expect(errors).toEqual([]);
+});
+
+test('a shut mouth looks just like the head did before it had one', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await closeUp(page);
+  await snap(page, 'head-shut.png', HEAD);
+  expect(errors).toEqual([]);
+});
+
+test('eating a carrot: three chomps and a gulp', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'keyboard actions are covered on the MacBook profile');
+  await closeUp(page);
+  // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+  const saber = await page.evaluateHandle(() => (window as any).__saber);
+  const carrot = () =>
+    saber.evaluate((s) => {
+      const it = s.items.find((i: { kind: string }) => i.kind === 'carrot');
+      return { state: it.state as string, bites: it.bites as number };
+    });
+  const mouth = () =>
+    saber.evaluate((s) => ({ jaw: s.bot.jaw.amount as number, hinge: s.bot.jaw.hinge.rotation.x as number }));
+
+  await hold(page, 'g', 70);
+  expect(await carrot()).toEqual({ state: 'held', bites: 0 });
+  expect((await mouth()).jaw).toBe(0);
+
+  // The first bite: the jaw swings wide open (about 35° on the big-eye dome), then snaps shut on the carrot.
+  await page.keyboard.down('f');
+  let widest = 0;
+  while (widest < 1) {
+    await advance(page, 33);
+    widest = Math.max(widest, (await mouth()).jaw);
+  }
+  await page.keyboard.up('f');
+  expect((await mouth()).hinge).toBeCloseTo((35 * Math.PI) / 180, 3);
+  await snap(page, 'head-open.png', HEAD);
+  await advance(page, 600);
+  expect(await carrot()).toEqual({ state: 'held', bites: 1 });
+  expect((await mouth()).jaw).toBe(0);
+
+  // Two more: the last one is the gulp, with a nod, and the carrot is gone.
+  await hold(page, 'f', 70);
+  await advance(page, 600);
+  expect(await carrot()).toEqual({ state: 'held', bites: 2 });
+  await hold(page, 'f', 70);
+  await advance(page, 300);
+  expect((await carrot()).state).toBe('gone');
+  let nod = 0;
+  for (let i = 0; i < 12; i++) {
+    await advance(page, 33);
+    nod = Math.max(nod, await saber.evaluate((s) => s.eating.frame.nod as number));
+  }
+  expect(nod).toBeGreaterThan(0.1);
+  await advance(page, 500);
+  expect(await mouth()).toEqual({ jaw: 0, hinge: 0 });
   expect(errors).toEqual([]);
 });
 
