@@ -13,6 +13,7 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "types": []
   }
 }

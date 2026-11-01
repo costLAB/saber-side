@@ -1,3 +1,7 @@
 packages:
   - apps/*
   - packages/*
+
+# msgpackr-extract (pulled in by Colyseus) is an optional native speed-up; msgpackr works without it.
+ignoredBuiltDependencies:
+  - msgpackr-extract

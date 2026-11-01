@@ -30,6 +30,9 @@ import { bendMaterial } from '../render/ring/bend';
 import { makeCanvas, textureKit, wrapX } from '../render/textures';
 import { dot } from '../render/kit';
 
+/** Hooks the new modules call into (see app/aboard.ts). Filled in below, once the scene exists. */
+export const legacy = { setRobotPaint(_hex) {} };
+
 (() => {
 const V3 = THREE.Vector3;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -100,6 +103,8 @@ const M = {
   carrotDark: new THREE.MeshStandardMaterial({ color: 0xb4521a, roughness: 0.8 }),
   leaf: new THREE.MeshStandardMaterial({ color: 0x4f8a2b, roughness: 0.75 }),
 };
+// the robot's paint: a tint over the off-white shell and head (only the robot uses these two materials)
+legacy.setRobotPaint = hex => { M.shell.color.set(hex); M.head.color.set(hex); };
 
 function mesh(geo, mat, cast = true) { const m = new THREE.Mesh(geo, mat); m.castShadow = cast; m.receiveShadow = true; return m; }
 function glow(color, size, opacity = 1) {
@@ -1588,7 +1593,7 @@ function updateWhere(p) {
 }
 
 // Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
-if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships };
+if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships, paint: () => `#${M.shell.color.getHexString()}` };
 
 frame();
 })();

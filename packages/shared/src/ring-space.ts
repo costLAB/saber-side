@@ -1,4 +1,4 @@
-import { TAU } from './math';
+import { TAU } from './math.ts';
 
 /**
  * Ring Seven geometry and the two coordinate frames the game uses.

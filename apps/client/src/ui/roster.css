@@ -1,0 +1,237 @@
+/* The roster screen: who's playing? A sheet over the game, sized for thumbs on an iPad. */
+.roster {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(20, 16, 14, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.roster[hidden] {
+  display: none;
+}
+.roster .sheet {
+  box-sizing: border-box;
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 20px 22px 16px;
+  border-radius: 10px;
+  background: rgba(34, 29, 26, 0.94);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  color: var(--ink);
+  font-family: var(--mono);
+}
+.roster h2 {
+  margin: 2px 0 14px;
+  font: 700 28px / 1.05 var(--display);
+  letter-spacing: 0.02em;
+  color: var(--bone);
+}
+.roster p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+.roster .error {
+  min-height: 1.3em;
+  margin: 0;
+  color: #f2a48c;
+}
+
+.roster .robots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.roster .robot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px solid rgba(228, 220, 205, 0.2);
+  border-radius: 8px;
+  background: rgba(228, 220, 205, 0.06);
+  color: var(--ink);
+  font: 500 15px var(--mono);
+  text-align: left;
+  cursor: pointer;
+}
+.roster .robot:hover,
+.roster .robot:focus-visible {
+  border-color: var(--rust);
+  outline: none;
+}
+.roster .robot.new {
+  justify-content: center;
+  border-style: dashed;
+  color: var(--ink-dim);
+}
+.roster .robot .lock {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink-dim);
+}
+.roster .paint {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--paint);
+  box-shadow:
+    inset 0 -3px 0 rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.roster form {
+  display: grid;
+  gap: 14px;
+}
+.roster label,
+.roster legend {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.roster input[type="text"],
+.roster input[type="password"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--bone-edge);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--ink);
+  font: 500 18px var(--mono);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.roster input:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 1px;
+}
+.roster fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.roster .paints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.roster .paints input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.roster .paints .paint {
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+}
+.roster .paints input:checked + .paint {
+  box-shadow:
+    inset 0 -3px 0 rgba(0, 0, 0, 0.25),
+    0 0 0 3px var(--soot),
+    0 0 0 5px var(--rust);
+}
+.roster .paints input:focus-visible + .paint {
+  outline: 2px solid var(--bone);
+  outline-offset: 4px;
+}
+
+.roster .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.roster button.primary,
+.roster button.ghost {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 6px;
+  font: 700 14px var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.roster button.primary {
+  border: 0;
+  background: var(--rust);
+  color: var(--ink);
+  box-shadow: inset 0 -3px 0 #8a4517;
+}
+.roster button.ghost {
+  border: 1px solid var(--bone-edge);
+  background: transparent;
+  color: var(--ink);
+}
+.roster button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.roster .foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+.roster .link {
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--ink-dim);
+  font: 500 12px var(--mono);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.roster .owner-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(228, 220, 205, 0.12);
+  font-size: 14px;
+}
+.roster .owner-row .name {
+  flex: 1 1 120px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.roster .dot {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--paint);
+}
+.roster .owner-row button {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--bone-edge);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  font: 500 12px var(--mono);
+  cursor: pointer;
+}

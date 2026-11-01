@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { HUB_CRADLES, type HubCradle, LEAVE_HEIGHT, PLANETS, type Planet, RING_DOCKS } from '../content/space';
-import { HALF_L, type XYZ } from '../ring-space';
-import { distance, Vec3 } from '../vec3';
-import type { Alien } from './aliens';
+import { HUB_CRADLES, type HubCradle, LEAVE_HEIGHT, PLANETS, type Planet, RING_DOCKS } from '../content/space.ts';
+import { HALF_L, type XYZ } from '../ring-space.ts';
+import { distance, Vec3 } from '../vec3.ts';
+import type { Alien } from './aliens.ts';
 import {
   altitude,
   board,
@@ -15,8 +15,8 @@ import {
   leaveSurface,
   makeFlight,
   stepFlight,
-} from './flight';
-import { aimShip, NO_INPUT, type ShipInput } from './ship';
+} from './flight.ts';
+import { aimShip, NO_INPUT, type ShipInput } from './ship.ts';
 
 const DT = 1 / 60;
 const earth = PLANETS[0] as Planet;
