@@ -28,6 +28,7 @@ import {
 import * as THREE from 'three';
 import { createFlightMode } from '../app/flight';
 import { buildBotMaker } from '../world/bot-maker';
+import { buildRobotRegistry } from '../world/robot-registry';
 import { buildRobot, disposeRobot } from '../avatar/robot';
 import { createRenderer } from '../render/renderer';
 import { bendMaterial } from '../render/ring/bend';
@@ -644,6 +645,10 @@ const TABLE = { x: -4, z: -3, w: 3.0, d: 1.2, top: 0.95 };
   const botMaker = buildBotMaker({ makeSign, glow, steel: W.steel, glass: W.glass, lamp: W.glowWarm, hazard });
   scene.add(botMaker.root);
   colliders.push(...botMaker.colliders);
+  // and the Robot Registry next door, where guests register (world/robot-registry.ts)
+  const registry = buildRobotRegistry({ makeSign, glow, steel: W.steel, glass: W.glass, lamp: W.glowWarm, hazard });
+  scene.add(registry.root);
+  colliders.push(...registry.colliders);
 }
 
 // height of whatever is under (x, z) for something falling from height y

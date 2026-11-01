@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: guests and logins done (#19); next is `feature/robot-registry` |
+| **Status** | In progress: guests and logins (#19) and the Registry (#20) done; next is `feature/cyber-crystal-wallet` |
 | **Phase** | P3, Online free roam ([plan, section 8](../REFACTOR_PLAN.md#p3-online-free-roam-m)), ahead of the carrot initiative's wallet |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid opens the game, taps **Play**, builds a robot, eats carrots as a guest, walks into the Robot Registry, registers, and from then on logs in with a username and PIN on any device to find their robots, cure, and wallet as they left them, and can buy a second robot with Cyber Crystals. |
@@ -188,8 +188,8 @@ merges.
 | # | Status | Branch | PR title | What it adds | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
 | 1 | **Done** (#19) | `feature/guest-arrival` | Let kids play straight away as a guest | Migration 4 (the old robots go). The arrival screen: **Play**, the builder with no name or PIN, auto-named guests held in the room's memory, and the **Log in** form with the last username filled in. `players` and `robots` tables, PINs per player with growing lockouts, one seat per player, the full-station takeover fix. Rebuilding your robot at the Bot Maker over the seat. The owner panel on players and robots. Nobody can register until PR 2, so for one PR everyone is a guest. | migration 4, `PROTOCOL_VERSION` 5 |
-| 2 | Next | `feature/robot-registry` | Let guests register at the Robot Registry | The Registry office next to the Bot Maker (`world/robot-registry.ts`), its kiosk, Register (username, PIN twice, the robot saved under the new player) and Log in (switching the seat to that player). The HUD nudges for guests. | `PROTOCOL_VERSION` 6 |
-| 3 | | `feature/cyber-crystal-wallet` | Give every registered player a Cyber Crystal wallet | Moved from the carrot initiative. The append-only ledger in shards, with balances derived from it. The wallet opens when a guest registers; guests have none. The `12 ◆ 45` HUD readout (12 CC, 45 shards), sent privately to the seat. Everyone starts at zero. Owner-panel grants and reversals. Removing a player posts their balance to the `removed` sink. No negative balances. | migration 5 (`ledger`), `PROTOCOL_VERSION` 7 |
+| 2 | **Done** (#20) | `feature/robot-registry` | Let guests register at the Robot Registry | The Registry office next to the Bot Maker (`world/robot-registry.ts`), its kiosk, Register (username, PIN twice, the robot saved under the new player) and Log in (switching the seat to that player). The HUD nudges for guests. | `PROTOCOL_VERSION` 6 |
+| 3 | Next | `feature/cyber-crystal-wallet` | Give every registered player a Cyber Crystal wallet | Moved from the carrot initiative. The append-only ledger in shards, with balances derived from it. The wallet opens when a guest registers; guests have none. The `12 ◆ 45` HUD readout (12 CC, 45 shards), sent privately to the seat. Everyone starts at zero. Owner-panel grants and reversals. Removing a player posts their balance to the `removed` sink. No negative balances. | migration 5 (`ledger`), `PROTOCOL_VERSION` 7 |
 | 4 | | `feature/several-robots-per-player` | Let registered players keep several robots | Building more robots at the Bot Maker, up to `ROBOTS_PER_PLAYER` (5): the first is free, and each extra one costs 10 CC × robots already owned, paid to the `bot_maker` sink. Picking which to pilot there, and switching in place with `MESSAGE.pilot` so the seat is never let go. | `PROTOCOL_VERSION` 8 |
 
 The protocol and migration numbers assume these PRs merge in this order, before the carrot initiative's PRs that bump

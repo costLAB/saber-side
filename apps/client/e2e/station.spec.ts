@@ -6,6 +6,7 @@ import {
   MESSAGE,
   POSE,
   PROTOCOL_VERSION,
+  ROBOT_REGISTRY,
   STATION_ROOM,
   type StationView,
 } from '@saber-side/shared';
@@ -116,11 +117,11 @@ test('turns a wrong login away without saying whether the name exists', async ({
   await page.goto('/');
   const name = fresh('Nobody');
   await page.getByLabel('Username').fill(name);
-  await page.getByLabel('PIN').fill('12');
+  await page.getByLabel('PIN', { exact: true }).fill('12');
   await page.getByRole('button', { name: 'Log in' }).click();
   await expect(page.locator('.arrival .error')).toHaveText('Your PIN is 4 digits.');
 
-  await page.getByLabel('PIN').fill('0000');
+  await page.getByLabel('PIN', { exact: true }).fill('0000');
   await page.getByRole('button', { name: 'Log in' }).click();
   await eventually(page, () => page.locator('.arrival .error').textContent()).toBe(
     "That username and PIN don't match.",
@@ -184,6 +185,55 @@ test('rebuilds the robot by driving back into the Bot Maker', async ({ page, err
   await expect(page.locator('#station')).toContainText(`as ${name}`);
   await advance(page, 6000);
   await expect(sheet).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('registers at the Robot Registry, then logs back in on the next visit', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  const sheet = page.locator('.arrival');
+  await online(page);
+  await page.goto('/?debug');
+  await page.getByRole('button', { name: 'Play' }).click();
+  await page.locator('[data-slot=head]').getByText('Stalk eye').click();
+  await page.getByRole('button', { name: 'Roll out' }).click();
+  await eventually(page, () => page.locator('#station').textContent()).toContain('Register at the Robot Registry');
+  await advance(page, 6000);
+
+  // Drive in through the Registry's door, next to the Bot Maker.
+  await page.evaluate(
+    ({ x, z }) => {
+      // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+      const s = (window as any).__saber;
+      s.bot.root.position.x = x;
+      s.bot.root.position.z = z;
+      s.st.yaw = -Math.PI / 2;
+    },
+    { x: ROBOT_REGISTRY.front + 6, z: ROBOT_REGISTRY.z },
+  );
+  await advance(page, 100);
+  await hold(page, 'ArrowUp', 2000);
+  await expect(sheet).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Robot Registry' })).toBeVisible();
+
+  const name = fresh('Kai');
+  await page.getByLabel('Pick a username').fill(name);
+  await page.getByLabel('Pick a 4-digit PIN').fill('1357');
+  await page.getByLabel('PIN again').fill('1375');
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(sheet.locator('.error').first()).toHaveText("The two PINs don't match.");
+  await page.getByLabel('PIN again').fill('1357');
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(sheet).toBeHidden();
+  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
+  await expect(page.locator('#station')).not.toContainText('Register');
+
+  // Next visit: the login form has the username filled in, and the PIN brings the same robot back.
+  await page.reload();
+  await expect(page.getByLabel('Username')).toHaveValue(name);
+  await page.getByLabel('PIN', { exact: true }).fill('1357');
+  await page.getByRole('button', { name: 'Log in' }).click();
+  await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
+  expect(await saber(page, 's.bot.build.head.part')).toBe('stalk');
   expect(errors).toEqual([]);
 });
 

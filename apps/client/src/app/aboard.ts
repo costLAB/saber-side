@@ -2,9 +2,14 @@ import type { Room } from '@colyseus/sdk';
 import {
   type AboardView,
   cleanRobotBuild,
+  insideBotMaker,
+  insideRegistry,
   JOIN_REFUSED,
   MESSAGE,
+  NOTICE,
+  type RegistryAnswer,
   type RobotBuild,
+  type SignIn,
   type StationView,
 } from '@saber-side/shared';
 import { legacy } from '../legacy/game.js';
@@ -13,15 +18,16 @@ import { type Credentials, linkToStation, type StationStatus } from '../net/stat
 import { createArrival } from '../ui/arrival';
 import { createRobotPreview } from '../ui/robot-preview';
 import { type StatusLine, showStationStatus } from '../ui/station-status';
-import { atBotMaker } from './at-bot-maker';
 import { device } from './device';
+import { onDoorway } from './doorways';
 import { createPresence } from './presence';
 
 /**
  * Coming aboard (docs/initiatives/players-and-robots.md): **Play** builds a robot and comes aboard as a guest, with
  * an auto-generated name and nothing saved. **Log in** comes aboard as a registered player's robot. Once the station
  * lets the seat in, the robot is assembled from its parts and rolls out of the Bot Maker onto the promenade. Driving
- * back into the Bot Maker opens the builder, to rebuild it.
+ * back into the Bot Maker opens the builder, to rebuild it. Driving into the Robot Registry next door opens its kiosk:
+ * a guest registers there (their robot is saved under the new player), and anyone can log in there.
  *
  * A guest's build is kept for as long as the page is open, so a restart brings the same robot back (as a new guest).
  * The device remembers the last username, never the PIN. The game stays playable behind all of this.
@@ -41,9 +47,11 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
   let me: AboardView | undefined;
   /** Whether this join has spawned yet. Rejoining after a drop or a restart doesn't roll out again. */
   let spawned = false;
+  /** The build this device last drew its robot with (as the station spells it), to redraw when the station's differs. */
+  let drawn = '';
 
   const status = (line: StatusLine) =>
-    showStationStatus(statusEl, line, me?.name, {
+    showStationStatus(statusEl, line, me?.name, me ? !me.player : false, {
       comeAboard: () => arrival.show(welcome()),
       playHere: () => credentials && board(credentials),
     });
@@ -65,9 +73,11 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
         credentials = { guest: { build } };
       }
       room?.send(MESSAGE.rebuild, build);
-      legacy.setRobotBuild(build);
+      draw(build);
       legacy.rollOutOfBotMaker();
     },
+    onRegister: async (name, pin) => signIn(MESSAGE.register, { name, pin }),
+    onSignIn: async (name, pin) => signIn(MESSAGE.login, { name, pin }),
     onLogin: (name, pin) => board({ login: { name, pin } }),
     preview: () => createRobotPreview(legacy.robotKit),
     onDismiss: () => {
@@ -83,7 +93,7 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
   });
 
   // Driving into the Bot Maker: rebuild the robot this seat pilots, or (not aboard) come aboard.
-  atBotMaker({
+  onDoorway(insideBotMaker, {
     open: () => {
       const build = me && readBuild(me);
       if (link && me && build) arrival.show({ kind: 'build', rebuild: { name: me.name, build } });
@@ -91,6 +101,40 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
     },
     isOpen: () => arrival.open,
   });
+  // Driving into the Robot Registry: register, or log in.
+  onDoorway(insideRegistry, {
+    open: () => {
+      if (link && me) arrival.show({ kind: 'registry', guest: !me.player, name: me.player ? me.name : undefined });
+      else arrival.show(welcome());
+    },
+    isOpen: () => arrival.open,
+  });
+
+  /** Asks the Registry to register or log in this seat. Resolves with an error to show, or nothing once it worked. */
+  async function signIn(type: string, details: SignIn): Promise<string | undefined> {
+    const seat = room;
+    if (!seat) return "You're not aboard right now.";
+    const reply = await new Promise<RegistryAnswer>((resolve) => {
+      const timer = setTimeout(() => resolve({ ok: false, error: "The station didn't answer. Try again." }), 10_000);
+      const stop = seat.onMessage(NOTICE.registry, (answer: RegistryAnswer) => {
+        clearTimeout(timer);
+        stop();
+        resolve(answer);
+      });
+      seat.send(type, details);
+    });
+    if (!reply.ok) return reply.error;
+    // From now on this seat is that player's: rejoins after a drop or a restart log in.
+    credentials = { login: { name: reply.name, pin: details.pin } };
+    device.username = reply.name;
+    return undefined;
+  }
+
+  /** Draws this device's robot with these parts. */
+  function draw(build: RobotBuild) {
+    drawn = JSON.stringify(build);
+    legacy.setRobotBuild(build);
+  }
 
   function board(join: Credentials) {
     link?.stop();
@@ -118,8 +162,11 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
       if (me && build && !spawned) {
         spawned = true;
         if (join.login) device.username = join.login.name;
-        legacy.setRobotBuild(build);
+        draw(build);
         legacy.rollOutOfBotMaker();
+      } else if (me && build && me.build !== drawn) {
+        // The station changed this robot's looks: a login at the Registry switched robots, say. Redraw it in place.
+        draw(build);
       }
     }
     if (s.kind === 'refused' || s.kind === 'removed') {

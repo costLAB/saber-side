@@ -1,6 +1,7 @@
 import {
   classicBuild,
   cleanRobotName,
+  isGuestName,
   isPin,
   ORIGINAL_PAINT,
   type OwnerPlayer,
@@ -22,6 +23,8 @@ export type ArrivalView =
   | { kind: 'welcome'; name?: string; error?: string }
   /** The robot builder: a new guest's robot, or new parts for the robot being piloted (at the Bot Maker). */
   | { kind: 'build'; rebuild?: { name: string; build: RobotBuild }; error?: string }
+  /** The Robot Registry's kiosk: register (guests), or log in. `name` is the registered player's. */
+  | { kind: 'registry'; guest: boolean; name?: string; error?: string }
   | { kind: 'owner-key'; error?: string }
   | { kind: 'owner'; key: string; error?: string };
 
@@ -34,6 +37,10 @@ export interface ArrivalHandlers {
   onRebuilt(build: RobotBuild): void;
   /** Log in. The server checks the PIN when the seat joins. */
   onLogin(name: string, pin: string): void;
+  /** At the Registry: register this guest. Resolves with an error to show, or nothing once it worked. */
+  onRegister(name: string, pin: string): Promise<string | undefined>;
+  /** At the Registry: log this seat in as a player. Resolves with an error to show, or nothing once it worked. */
+  onSignIn(name: string, pin: string): Promise<string | undefined>;
   /** "Just look around": play without coming aboard (or, from the builder, keep the robot as it is). */
   onDismiss(): void;
   /** A turntable for the robot builder, if this device can draw one. */
@@ -104,8 +111,9 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
   let preview: RobotPreview | undefined;
 
   function back() {
-    if (current.kind === 'welcome' || (current.kind === 'build' && current.rebuild)) dismiss();
-    else show({ kind: 'welcome' });
+    if (current.kind === 'welcome' || current.kind === 'registry' || (current.kind === 'build' && current.rebuild)) {
+      dismiss();
+    } else show({ kind: 'welcome' });
   }
 
   function dismiss() {
@@ -147,6 +155,8 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
         return renderWelcome(view.name, view.error);
       case 'build':
         return renderBuild(view.rebuild, view.error);
+      case 'registry':
+        return renderRegistry(view.guest, view.name, view.error);
       case 'owner-key':
         return renderOwnerKey(view.error);
       case 'owner':
@@ -154,38 +164,35 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
     }
   }
 
-  function renderWelcome(lastName?: string, err?: string): Node[] {
-    const play = button('Play', 'primary play', () => {
-      const build = handlers.onPlay();
-      if (!build) show({ kind: 'build' });
-    });
-    const name = h('input', {
+  const textInput = (name: string, autocomplete: string) =>
+    h('input', {
       type: 'text',
-      name: 'username',
+      name,
       maxlength: String(ROBOT_NAME_MAX),
-      autocomplete: 'username',
+      autocomplete,
       autocapitalize: 'words',
       spellcheck: 'false',
       enterkeyhint: 'next',
     });
+  const pinInput = (name: string, autocomplete: string) =>
+    h('input', { type: 'password', name, inputmode: 'numeric', maxlength: '4', autocomplete });
+
+  /**
+   * The login form: a username and a PIN. `submit` gets them once they look right, and returns an error to show (or
+   * nothing, when the answer comes later, as a join's does).
+   */
+  function loginForm(
+    lastName: string | undefined,
+    err: string | undefined,
+    submit: (name: string, pin: string) => Promise<string | undefined> | undefined,
+  ) {
+    const name = textInput('username', 'username');
     name.value = lastName ?? '';
-    const pin = h('input', {
-      type: 'password',
-      name: 'pin',
-      inputmode: 'numeric',
-      maxlength: '4',
-      autocomplete: 'current-password',
-    });
+    const pin = pinInput('pin', 'current-password');
     const err$ = error(err);
-    const login = h(
-      'form',
-      { class: 'login' },
-      h('label', {}, 'Username', name),
-      h('label', {}, 'PIN', pin),
-      button('Log in', 'ghost', () => {}, 'submit'),
-      err$,
-    );
-    login.addEventListener('submit', (e) => {
+    const go = button('Log in', 'ghost', () => {}, 'submit');
+    const form = h('form', { class: 'login' }, h('label', {}, 'Username', name), h('label', {}, 'PIN', pin), go, err$);
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!cleanRobotName(name.value)) {
         err$.textContent = 'Type your username.';
@@ -195,7 +202,21 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
         err$.textContent = 'Your PIN is 4 digits.';
         return;
       }
-      handlers.onLogin(name.value, pin.value);
+      go.disabled = true;
+      err$.textContent = (await submit(name.value, pin.value)) ?? '';
+      go.disabled = false;
+    });
+    return form;
+  }
+
+  function renderWelcome(lastName?: string, err?: string): Node[] {
+    const play = button('Play', 'primary play', () => {
+      const build = handlers.onPlay();
+      if (!build) show({ kind: 'build' });
+    });
+    const login = loginForm(lastName, err, (name, pin) => {
+      handlers.onLogin(name, pin);
+      return undefined;
     });
     return [
       title('Welcome aboard'),
@@ -212,6 +233,74 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
           show(key ? { kind: 'owner', key } : { kind: 'owner-key' });
         }),
       ),
+    ];
+  }
+
+  function renderRegistry(guest: boolean, name: string | undefined, err?: string): Node[] {
+    const leave = h('div', { class: 'foot' }, button('Leave', 'link', dismiss));
+    const login = loginForm(name, guest ? undefined : err, async (n, pin) => {
+      const failed = await handlers.onSignIn(n, pin);
+      if (!failed) hide();
+      return failed;
+    });
+    if (!guest) {
+      return [
+        title('Robot Registry'),
+        h('p', {}, `You're registered as ${name}. Log in as someone else on this device:`),
+        login,
+        leave,
+      ];
+    }
+    const user = textInput('new-username', 'username');
+    const pin = pinInput('new-pin', 'new-password');
+    const again = pinInput('new-pin-again', 'new-password');
+    const err$ = error(err);
+    const go = button('Register', 'primary', () => {}, 'submit');
+    const form = h(
+      'form',
+      {},
+      h('label', {}, 'Pick a username', user),
+      h('label', {}, 'Pick a 4-digit PIN', pin),
+      h('label', {}, 'PIN again', again),
+      err$,
+      h('div', { class: 'actions' }, go),
+    );
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const clean = cleanRobotName(user.value);
+      if (!clean) {
+        err$.textContent = 'Pick a username of 1 to 16 letters or numbers.';
+        return;
+      }
+      if (isGuestName(clean)) {
+        err$.textContent = 'Names like "Bot 7" are for guests. Pick another.';
+        return;
+      }
+      if (!isPin(pin.value)) {
+        err$.textContent = 'A PIN is exactly 4 digits.';
+        return;
+      }
+      if (pin.value !== again.value) {
+        err$.textContent = "The two PINs don't match.";
+        return;
+      }
+      go.disabled = true;
+      const failed = await handlers.onRegister(clean, pin.value);
+      go.disabled = false;
+      if (failed) err$.textContent = failed;
+      else hide();
+    });
+    return [
+      title('Robot Registry'),
+      h(
+        'p',
+        {},
+        'Register to keep your robot. Pick a username and a PIN, and log in with them on any device. Keep your PIN secret.',
+      ),
+      form,
+      h('div', { class: 'or' }, 'Already registered?'),
+      login,
+      leave,
     ];
   }
 

@@ -41,7 +41,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 
 | Initiative | Phase | Status |
 | --- | --- | --- |
-| [Players, their robots, and seats](initiatives/players-and-robots.md) | P3 | In progress: guests and logins done (#19), next `feature/robot-registry`; builds the wallet, and lands before the carrot initiative's paint cure |
+| [Players, their robots, and seats](initiatives/players-and-robots.md) | P3 | In progress: guests and logins (#19) and the Registry (#20) done, next `feature/cyber-crystal-wallet`; builds the wallet, and lands before the carrot initiative's paint cure |
 | [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 done (#13), next `feature/robot-mouth` |
 | [Robot parts catalogs](initiatives/robot-parts-catalog.md) | P3 (parts), P5 (prices) | Planned: next `feature/jack-o-lantern-head`; prices wait on the players initiative and the wallet |
 | [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md) | P5 | Planned: next `feature/ore-planet`; buying, mining, and refining wait on the wallet |
