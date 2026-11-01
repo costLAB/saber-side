@@ -17,6 +17,7 @@ import {
   launchPosition,
   leaveSurface,
   makeFlight,
+  mulberry,
   OMEGA,
   type Planet,
   type ShipInput,
@@ -83,7 +84,8 @@ export function createFlightMode(kit: StationKit): FlightMode {
   const { camera } = kit;
   const flight = makeFlight();
   const hangar = buildHangar(kit.hub, kit);
-  const fx = buildFlightFx(kit.glow, flight.lasers.lasers.length);
+  // Its own seeded stream, not Math.random, which three.js shares (see legacy/game.js).
+  const fx = buildFlightFx(kit.glow, flight.lasers.lasers.length, mulberry(0xf1e5));
   const surfaces = new Map<string, SurfaceScene>();
   let space: SpaceScene | null = null;
   let surface: SurfaceScene | null = null;

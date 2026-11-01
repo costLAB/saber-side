@@ -38,6 +38,10 @@ export const legacy = { robotKit: null, setRobotBuild(_build) {}, rollOutOfBotMa
 
 (() => {
 const V3 = THREE.Vector3;
+// Cosmetic randomness (glances, dust, sparks, tumbles) has its own seeded stream. three.js draws every object's id
+// from Math.random, so sharing it would make these effects shift whenever anything adds or removes an object, or
+// when fonts finish loading a moment sooner on one machine than another (signs redraw into new textures).
+const fx = mulberry(0x5eed);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 
@@ -725,7 +729,7 @@ function dropHeld() {
   const it = held; held = null; it.state = 'loose'; it.settled = false;
   scene.attach(it.group);
   it.vel.set(Math.sin(st.yaw) * (2 + st.vel * 0.6), 2.5, Math.cos(st.yaw) * (2 + st.vel * 0.6));
-  it.av.set((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 8);
+  it.av.set((fx() - 0.5) * 8, (fx() - 0.5) * 6, (fx() - 0.5) * 8);
   if (it.kind === 'saber') it.target = 0;
 }
 function resetItems() {
@@ -804,9 +808,9 @@ function updatePool(pool, dt) {
 const tmp = new V3(), tmp2 = new V3(), tmp3 = new V3();
 function dustBurst(x, z, count, power) {
   for (let i = 0; i < count; i++) {
-    const a = Math.random() * TAU, sp = power * (0.5 + Math.random());
-    spawn(dustPool, tmp.set(x + Math.cos(a) * 0.7, 0.15, z + Math.sin(a) * 0.7), tmp2.set(Math.cos(a) * sp, 0.6 + Math.random() * 1.2, Math.sin(a) * sp),
-      { life: 0.6 + Math.random() * 0.5, size: 0.5 + Math.random() * 0.4, grow: 2.4, drag: 3, color: 0xc7b9a6, alpha: 0.5 });
+    const a = fx() * TAU, sp = power * (0.5 + fx());
+    spawn(dustPool, tmp.set(x + Math.cos(a) * 0.7, 0.15, z + Math.sin(a) * 0.7), tmp2.set(Math.cos(a) * sp, 0.6 + fx() * 1.2, Math.sin(a) * sp),
+      { life: 0.6 + fx() * 0.5, size: 0.5 + fx() * 0.4, grow: 2.4, drag: 3, color: 0xc7b9a6, alpha: 0.5 });
   }
 }
 
@@ -877,8 +881,8 @@ let started = false;
 
 function bashCrate(c) { if (!c.bashed) { c.bashed = true; bashed++; showScore(); } }
 function sparkBurst(pos, n, color) {
-  for (let i = 0; i < n; i++) spawn(sparkPool, pos, tmp2.set((Math.random() - 0.5) * 7, Math.random() * 5, (Math.random() - 0.5) * 7),
-    { life: 0.25 + Math.random() * 0.25, size: 0.2, grow: 0.3, grav: 16, drag: 1.5, color, alpha: 1 });
+  for (let i = 0; i < n; i++) spawn(sparkPool, pos, tmp2.set((fx() - 0.5) * 7, fx() * 5, (fx() - 0.5) * 7),
+    { life: 0.25 + fx() * 0.25, size: 0.2, grow: 0.3, grav: 16, drag: 1.5, color, alpha: 1 });
 }
 const heldReach = () => !held ? 0 : held.kind === 'saber' ? held.lit * 1.2 : held.kind === 'carrot' ? 0.35 : 0;
 function nearestItem(p) {
@@ -894,8 +898,8 @@ function biteCarrot(it) {
   it.bites++;
   it.body.scale.y = Math.max(0.05, 1 - it.bites * 0.3);
   it.group.localToWorld(tmp.set(0, 0.45 * it.body.scale.y, 0));
-  for (let i = 0; i < 12; i++) spawn(dustPool, tmp, tmp2.set((Math.random() - 0.5) * 3, Math.random() * 2.5, (Math.random() - 0.5) * 3),
-    { life: 0.5 + Math.random() * 0.3, size: 0.07, grow: 0.6, grav: 12, drag: 0.5, color: 0xe0701e, alpha: 1 });
+  for (let i = 0; i < 12; i++) spawn(dustPool, tmp, tmp2.set((fx() - 0.5) * 3, fx() * 2.5, (fx() - 0.5) * 3),
+    { life: 0.5 + fx() * 0.3, size: 0.07, grow: 0.6, grav: 12, drag: 0.5, color: 0xe0701e, alpha: 1 });
   if (it.bites >= 3) { scene.attach(it.group); it.group.visible = false; it.state = 'gone'; it.respawn = 3; held = null; }
 }
 function updateItems(dt) {
@@ -940,7 +944,7 @@ function fireBolt(gun) {
   b.m.quaternion.setFromUnitVectors(AXIS_Z, tmp);
   b.m.visible = true; b.life = 1.1;
   st.recoil = 1;
-  for (let i = 0; i < 5; i++) spawn(sparkPool, b.m.position, tmp2.set(tmp.x * 3 + (Math.random() - 0.5) * 2, tmp.y * 3 + Math.random(), tmp.z * 3 + (Math.random() - 0.5) * 2),
+  for (let i = 0; i < 5; i++) spawn(sparkPool, b.m.position, tmp2.set(tmp.x * 3 + (fx() - 0.5) * 2, tmp.y * 3 + fx(), tmp.z * 3 + (fx() - 0.5) * 2),
     { life: 0.15, size: 0.28, grow: 0.3, color: 0xffb080, alpha: 1 });
 }
 function updateBolts(dt) {
@@ -956,7 +960,7 @@ function updateBolts(dt) {
       if (Math.abs(bp.x - cp.x) < r && Math.abs(bp.y - cp.y) < r && Math.abs(bp.z - cp.z) < r) {
         tmp.copy(b.vel).normalize();
         c.vel.x += tmp.x * 7; c.vel.z += tmp.z * 7; c.vel.y += 3.5;
-        c.av.set((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 10);
+        c.av.set((fx() - 0.5) * 10, (fx() - 0.5) * 8, (fx() - 0.5) * 10);
         bashCrate(c); sparkBurst(bp, 12, 0xffb060); dead = true;
         break;
       }
@@ -1067,21 +1071,21 @@ function update(dt, t) {
       const cp = c.mesh.position, dx = cp.x - p.x, dz = cp.z - p.z, d = Math.hypot(dx, dz);
       if (d < 2.5 + heldReach() + c.half * 0.6 && cp.y - c.half < st.y + 1.8 && cp.y + c.half > st.y + 0.2 && q > 0.08) {
         c.hitThisSpin = true;
-        const nx = dx / (d || 1), nz = dz / (d || 1), pw = 8 + Math.random() * 4;
-        c.vel.set(nx * pw - nz * 4, 5 + Math.random() * 3.5, nz * pw + nx * 4);
-        c.av.set((Math.random() - 0.5) * 16, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 16);
+        const nx = dx / (d || 1), nz = dz / (d || 1), pw = 8 + fx() * 4;
+        c.vel.set(nx * pw - nz * 4, 5 + fx() * 3.5, nz * pw + nx * 4);
+        c.av.set((fx() - 0.5) * 16, (fx() - 0.5) * 12, (fx() - 0.5) * 16);
         bashCrate(c);
         if (!reduceMotion) st.shake += 0.22;
         for (let i = 0; i < 16; i++) spawn(sparkPool, tmp.set(cp.x - nx * c.half, cp.y, cp.z - nz * c.half),
-          tmp2.set((Math.random() - 0.5) * 9 + nx * 3, Math.random() * 6, (Math.random() - 0.5) * 9 + nz * 3),
-          { life: 0.35 + Math.random() * 0.3, size: 0.22, grow: 0.3, grav: 18, drag: 1.5, color: 0xffb060, alpha: 1 });
+          tmp2.set((fx() - 0.5) * 9 + nx * 3, fx() * 6, (fx() - 0.5) * 9 + nz * 3),
+          { life: 0.35 + fx() * 0.3, size: 0.22, grow: 0.3, grav: 18, drag: 1.5, color: 0xffb060, alpha: 1 });
       }
     }
     // sparks off the fists
     for (const A of bot.arms) {
       A.wrist.getWorldPosition(tmp);
-      if (Math.random() < spinAmt) spawn(sparkPool, tmp, tmp2.set((Math.random() - 0.5) * 2, Math.random() * 2.5, (Math.random() - 0.5) * 2),
-        { life: 0.3 + Math.random() * 0.25, size: 0.16, grow: 0.2, grav: 9, drag: 2, color: 0xff9a4a, alpha: 0.9 });
+      if (fx() < spinAmt) spawn(sparkPool, tmp, tmp2.set((fx() - 0.5) * 2, fx() * 2.5, (fx() - 0.5) * 2),
+        { life: 0.3 + fx() * 0.25, size: 0.16, grow: 0.2, grav: 9, drag: 2, color: 0xff9a4a, alpha: 0.9 });
     }
     // a blaster sprays bolts all the way round
     if (held && held.kind === 'gun' && held.cd <= 0 && q > 0.1 && q < 0.92) { fireBolt(held); held.cd = 0.05; }
@@ -1097,7 +1101,7 @@ function update(dt, t) {
   const moving = Math.abs(st.vel) > 0.3 || Math.abs(st.angVel) > 0.3 || !st.grounded || st.spin >= 0 || st.crouch > 0;
   if (moving) { st.idle = 0; st.still = 0; st.wave = -1; } else { st.idle += dt; st.still += dt; }
   if (st.wave < 0 && st.idle > 3.4) st.wave = 0;
-  if (st.wave >= 0) { st.wave += dt; if (st.wave > 2.5) { st.wave = -1; st.idle = -1.5 - Math.random() * 3; } }
+  if (st.wave >= 0) { st.wave += dt; if (st.wave > 2.5) { st.wave = -1; st.idle = -1.5 - fx() * 3; } }
 
   // ---- pose targets ----
   const sn = Math.min(Math.abs(st.vel) / MAX, 1), dirS = Math.sign(st.vel);
@@ -1205,7 +1209,7 @@ function update(dt, t) {
   // head: leads turns, glances around while idle, tilts while waving
   if (!moving && st.wave < 0) {
     st.glanceT -= dt;
-    if (st.glanceT < 0) { st.glanceYaw = (Math.random() - 0.5) * 1.0; st.glancePitch = (Math.random() - 0.5) * 0.3; st.glanceT = 1.4 + Math.random() * 2.4; }
+    if (st.glanceT < 0) { st.glanceYaw = (fx() - 0.5) * 1.0; st.glancePitch = (fx() - 0.5) * 0.3; st.glanceT = 1.4 + fx() * 2.4; }
   } else { st.glanceYaw = 0; st.glancePitch = 0; }
   const waving = st.wave >= 0 ? smooth(0, 0.35, st.wave) * (1 - smooth(2.1, 2.5, st.wave)) : 0;
   st.hYaw = damp(st.hYaw, tn * 0.5 + st.glanceYaw - waving * 0.15, 7, dt);
@@ -1234,9 +1238,9 @@ function update(dt, t) {
     while (st.dustAcc > 1) {
       st.dustAcc--;
       const bx = p.x - Math.sin(st.yaw) * 0.5 * dirS, bz = p.z - Math.cos(st.yaw) * 0.5 * dirS;
-      spawn(dustPool, tmp.set(bx + (Math.random() - 0.5) * 0.6, 0.12, bz + (Math.random() - 0.5) * 0.6),
-        tmp2.set(-Math.sin(st.yaw) * dirS * 0.8 + (Math.random() - 0.5), 0.5 + Math.random() * 0.6, -Math.cos(st.yaw) * dirS * 0.8 + (Math.random() - 0.5)),
-        { life: 0.5 + Math.random() * 0.4, size: 0.35, grow: 2.2, drag: 2.5, color: 0xc7b9a6, alpha: 0.4 });
+      spawn(dustPool, tmp.set(bx + (fx() - 0.5) * 0.6, 0.12, bz + (fx() - 0.5) * 0.6),
+        tmp2.set(-Math.sin(st.yaw) * dirS * 0.8 + (fx() - 0.5), 0.5 + fx() * 0.6, -Math.cos(st.yaw) * dirS * 0.8 + (fx() - 0.5)),
+        { life: 0.5 + fx() * 0.4, size: 0.35, grow: 2.2, drag: 2.5, color: 0xc7b9a6, alpha: 0.4 });
     }
   }
 
@@ -1266,7 +1270,7 @@ function update(dt, t) {
   // the camera works on the flat strip too, then gets bent onto the ring with "up" pointing at the axis
   tmp.copy(camPos);
   st.shake = Math.max(0, st.shake - dt * 1.6);
-  if (st.shake > 0) tmp.add(tmp2.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(st.shake));
+  if (st.shake > 0) tmp.add(tmp2.set(fx() - 0.5, fx() - 0.5, fx() - 0.5).multiplyScalar(st.shake));
   bendPoint(tmp, camera.position);
   bendUp(tmp.z, camera.up);
   camera.lookAt(bendPoint(tmp2.set(p.x, 1.4 + st.y * 0.6, p.z), tmp3));
@@ -1323,7 +1327,7 @@ function updateCrates(dt, rp) {
       const nx = dx / (d || 1), nz = dz / (d || 1), ov = minD - d;
       cp.x += nx * ov; cp.z += nz * ov;
       const vn = rvx * nx + rvz * nz;
-      if (vn > 0) { c.vel.x += nx * vn * 0.9; c.vel.z += nz * vn * 0.9; c.av.y += (Math.random() - 0.5) * vn; }
+      if (vn > 0) { c.vel.x += nx * vn * 0.9; c.vel.z += nz * vn * 0.9; c.av.y += (fx() - 0.5) * vn; }
     }
   }
   // crates shove each other apart
@@ -1515,7 +1519,7 @@ function updateReal(dt, t) {
     st.spin += dt;
     const q = Math.min(st.spin / SPIN_DUR, 1);
     bot.spinner.rotation.y = q * q * (3 - 2 * q) * TAU * 3; spinAmt = Math.sin(q * Math.PI);
-    for (const A of bot.arms) { A.wrist.getWorldPosition(tmp); if (Math.random() < spinAmt) spawn(sparkPool, tmp, tmp2.set((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2), { life: 0.4, size: 0.16, grow: 0.2, drag: 2, color: 0xff9a4a, alpha: 0.9 }); }
+    for (const A of bot.arms) { A.wrist.getWorldPosition(tmp); if (fx() < spinAmt) spawn(sparkPool, tmp, tmp2.set((fx() - 0.5) * 2, (fx() - 0.5) * 2, (fx() - 0.5) * 2), { life: 0.4, size: 0.16, grow: 0.2, drag: 2, color: 0xff9a4a, alpha: 0.9 }); }
     if (q >= 1) { st.spin = -1; bot.spinner.rotation.y = 0; st.spinCD = 0.22; }
   }
   bot.swooshMat.opacity = spinAmt;
