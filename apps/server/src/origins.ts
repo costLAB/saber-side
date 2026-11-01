@@ -3,8 +3,8 @@
  * station; it isn't a password, since anything that isn't a browser can claim any origin.
  *
  * - An empty list allows everything (local dev).
- * - A `*` matches letters, digits, and dashes within one part of a hostname, so `https://*--saber-side.netlify.app`
- *   matches `https://deploy-preview-12--saber-side.netlify.app` but not `https://evil.com/.netlify.app`.
+ * - A `*` matches letters, digits, and dashes within one part of a hostname, so `https://saber-side-pr-*.onrender.com`
+ *   matches `https://saber-side-pr-12.onrender.com` but not `https://saber-side-pr-.evil.com/.onrender.com`.
  * - Requests with no Origin header (health checks, test bots, curl) are allowed: they aren't browsers.
  */
 export function originChecker(patterns: readonly string[]): (origin: string | null | undefined) => boolean {
