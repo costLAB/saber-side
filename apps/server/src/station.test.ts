@@ -216,8 +216,8 @@ describe('station server', () => {
   });
 
   it('only lets pages from the allowed origins join', async () => {
-    const site = 'https://saber-side.netlify.app';
-    const server = await boot({ ALLOWED_ORIGINS: `${site}, https://*--saber-side.netlify.app`, ADMIN_KEY: 'k' });
+    const site = 'https://saber-side.onrender.com';
+    const server = await boot({ ALLOWED_ORIGINS: `${site}, https://saber-side-pr-*.onrender.com`, ADMIN_KEY: 'k' });
     const matchmake = (origin: string) =>
       fetch(`${server.base}/matchmake/join/${STATION_ROOM}`, {
         method: 'POST',
@@ -225,7 +225,7 @@ describe('station server', () => {
         body: JSON.stringify({ protocol: PROTOCOL_VERSION }),
       });
     expect((await matchmake(site)).headers.get('access-control-allow-origin')).toBe(site);
-    const preview = 'https://deploy-preview-7--saber-side.netlify.app';
+    const preview = 'https://saber-side-pr-7.onrender.com';
     expect((await matchmake(preview)).headers.get('access-control-allow-origin')).toBe(preview);
     expect((await matchmake('https://evil.example')).headers.get('access-control-allow-origin')).toBeNull();
 

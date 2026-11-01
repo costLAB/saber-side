@@ -2,8 +2,8 @@ import type { PoseField } from './pose.ts';
 
 // The contract between the game client and the station server.
 //
-// The client is served by Netlify and the server runs on Render, and they deploy separately: for a minute or so after a
-// merge, one can be newer than the other. Bump PROTOCOL_VERSION whenever a change would make an older client misread
+// The client and the server are separate Render services that deploy separately: for a minute or so after a merge,
+// one can be newer than the other. Bump PROTOCOL_VERSION whenever a change would make an older client misread
 // the server (or the reverse). The server then turns older clients away with JOIN_REFUSED.outdated, and they offer a
 // reload instead of half-working.
 

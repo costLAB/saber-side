@@ -313,6 +313,85 @@ test('registers at the Robot Registry, logs back in on the next visit, renames i
   expect(errors).toEqual([]);
 });
 
+/** Makes the station answer like a server on an older protocol, which turns every join away as outdated. */
+async function olderStation(page: Page) {
+  await page.route('**/matchmake/**', async (route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}');
+    await route.continue({ postData: JSON.stringify({ ...body, protocol: PROTOCOL_VERSION - 1 }) });
+  });
+}
+
+test("doesn't offer the login as the Bot Maker when the station turns the page away as outdated", async ({
+  page,
+  errors,
+}, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  const sheet = page.locator('.arrival');
+  await online(page);
+  await olderStation(page);
+  await page.goto('/?debug');
+  await page.getByRole('button', { name: 'Play' }).click();
+  await page.getByRole('button', { name: 'Roll out' }).click();
+  // The station refuses the join, and the page says why, with the one thing that fixes it.
+  await eventually(page, () => page.locator('#station').textContent()).toContain('Saber Side was updated');
+  await expect(page.getByRole('heading', { name: 'Saber Side was updated' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Reload' })).toBeVisible();
+  await sheet.getByRole('button', { name: 'Not now' }).click();
+  await expect(sheet).toBeHidden();
+
+  // Driving into the Bot Maker says the same, not "Welcome aboard" with a login.
+  await advance(page, 6000);
+  await driveInto(page, BOT_MAKER);
+  await expect(sheet).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bot Maker' })).toBeVisible();
+  await expect(sheet).toContainText('Saber Side was updated');
+  await expect(sheet.getByRole('button', { name: 'Reload' })).toBeVisible();
+  await expect(sheet.getByLabel('Username')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Welcome aboard' })).toHaveCount(0);
+  // The browser logs the refused join (HTTP 426) itself; that one is expected.
+  expect(errors.filter((e) => !e.includes('status of 426'))).toEqual([]);
+});
+
+test('rebuilds a guest robot at the Bot Maker while the station is offline', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  const sheet = page.locator('.arrival');
+  await online(page);
+  await page.route('**/matchmake/**', (route) => route.abort('connectionrefused'));
+  await page.goto('/?debug');
+  await page.getByRole('button', { name: 'Play' }).click();
+  await page.getByRole('button', { name: 'Roll out' }).click();
+  await eventually(page, () => page.locator('#station').textContent()).toContain('Station offline');
+  await advance(page, 500);
+  await driveInto(page, BOT_MAKER);
+  // The builder for the guest's one robot, saying why it isn't aboard, and no login.
+  await expect(page.getByRole('heading', { name: 'Rebuild your robot' })).toBeVisible();
+  await expect(sheet).toContainText('The station is offline');
+  await expect(sheet.getByLabel('Username')).toHaveCount(0);
+  await page.locator('[data-slot=head]').getByText('Visor').click();
+  await page.getByRole('button', { name: 'Roll out' }).click();
+  await expect(sheet).toBeHidden();
+  expect(await saber(page, 's.bot.build.head.part')).toBe('visor');
+  // The browser logs the failed requests itself.
+  expect(errors.filter((e) => !e.includes('ERR_CONNECTION_REFUSED') && !e.includes('Failed to fetch'))).toEqual([]);
+});
+
+test('says the robot is not aboard at the Bot Maker after "Just look around"', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  const sheet = page.locator('.arrival');
+  await online(page);
+  await page.goto('/?debug');
+  await page.getByRole('button', { name: 'Just look around' }).click();
+  await advance(page, 500);
+  await driveInto(page, BOT_MAKER);
+  await expect(page.getByRole('heading', { name: 'Bot Maker' })).toBeVisible();
+  await expect(sheet).toContainText("You're not aboard the station");
+  await expect(sheet.getByLabel('Username')).toHaveCount(0);
+  // Coming aboard from there is the arrival screen, as usual.
+  await sheet.getByRole('button', { name: 'Come aboard' }).click();
+  await expect(page.getByRole('heading', { name: 'Welcome aboard' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("sees another player's robot, and sends its own", async ({ page, errors }, info) => {
   test.skip(info.project.name === 'ipad', 'one profile is enough');
   await online(page);
