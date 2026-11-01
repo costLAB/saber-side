@@ -25,6 +25,7 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **No day/night cycle.** It's space. The economy runs in **real time**.
 - **Shops sell:** carrots, hats, **pet bots** (that follow on foot or fly overhead), and a **wide assortment of lightsabers and blasters**.
 - **Modes:** **free roam first**.
+- **No crate smashing.** The bashable crates on the promenade are gone. (Cargo crates still drift in the hub as scenery.)
 - **Hosting:** cheap and simple, for kids rather than production grade, but it should just work.
 - **Voice chat:** wanted, friends only, no moderation. Lower priority.
 - **Owner panel:** just the owners.
@@ -48,7 +49,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 - **The ring-bend technique** (`index.html:161-199`). Floor content is simulated on a flat strip (x across, z around, y up) and bent onto the cylinder in the vertex shader. This keeps physics simple and works per eye in VR, because the bend happens in world space before `viewMatrix`.
 - **Procedural shops already exist** (`buildShop`, `makeSign`, `index.html:675-809`). They become the rentable shop spots.
 - **Procedural items:** `makeSaber(color)`, `makeBlaster()`, `makeCarrot()`. These become the generators for a wide, data-driven catalog.
-- **Bashable crates and the zero-g hub.** These become places to find **Cyber Ore**.
+- **Bashable crates and the zero-g hub.** The hub becomes a place to find **Cyber Ore**. *(Crate bashing was removed later; see Owner decisions.)*
 - **Abstract actions:** input fills `keys` / `pressed` with action names, and there's a touch pad that feeds the same map (`index.html:1241-1294`).
 - **Blob shadows instead of shadow maps**, plus instanced and batched static parts. Both are right for Quest performance.
 
@@ -118,7 +119,7 @@ Profiles hot-swap: a keyboard on the iPad hides the touch UI, a gamepad switches
 ### D7. Multiplayer: clients own their bodies, the server owns the world and every shard
 
 - **Movement is client-owned.** VR arm locomotion can't be predicted well by a server. Clients stream poses at about 30 Hz, and the server applies light sanity checks.
-- **The server is authoritative** for item ownership, crates, ore, lifts, shops, inventory, prices, and **every currency change**. Clients *request* ("buy item 812 for 3 CC 20 shards"), and the server validates, applies, and broadcasts the result.
+- **The server is authoritative** for item ownership, ore, lifts, shops, inventory, prices, and **every currency change**. Clients *request* ("buy item 812 for 3 CC 20 shards"), and the server validates, applies, and broadcasts the result.
 - Remote avatars render about 100 ms behind, from an interpolation buffer.
 - **Stack:** Node + **Colyseus** (rooms, reconnection, binary state sync) over WebSocket, which works everywhere including Quest Browser and Safari.
 
@@ -142,7 +143,7 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
 
 ### Loop
 
-> Find Cyber Ore (bash crates, catch floating chunks in the hub) → refine it into crystals at the Refinery → open your free first shop → buy stock at the Depot → set prices and fill shelves → earn from robot shoppers and friends → pay rent and running costs → save up → open another shop or upgrade.
+> Find Cyber Ore (catch floating chunks in the hub) → refine it into crystals at the Refinery → open your free first shop → buy stock at the Depot → set prices and fill shelves → earn from robot shoppers and friends → pay rent and running costs → save up → open another shop or upgrade.
 
 ### Currency
 
@@ -173,7 +174,6 @@ Sabers get emissive cores plus additive glow sprites, with **no light per saber*
 ### Cyber Ore and the Refinery
 
 - **Where ore comes from:**
-  - bashing crates on the promenade, which sometimes drops ore chunks
   - **ore chunks drifting in the zero-g hub**, which you grab and carry out. This is great in VR.
 
   Ore respawns slowly so it can't be farmed endlessly.
@@ -194,8 +194,8 @@ All item types are **data-driven variants of procedural generators**, so "a wide
 
 | Category | Variants | Notes |
 | --- | --- | --- |
-| **Lightsabers** | Hilt (several styles), blade color (about 10), blade type (single, double-bladed, crossguard, short "shoto", curved hilt), blade length, hum pitch | Extends `makeSaber`. Rarity tiers (Common → Legendary) set the wholesale price. Ignite, swing, and slice crates. No damage to players. |
-| **Blasters** | Body (pistol, carbine, rifle), bolt color, fire rate, sound | Extends `makeBlaster`. Fires at crates and targets. Bolts pass harmlessly through robots with a spark. |
+| **Lightsabers** | Hilt (several styles), blade color (about 10), blade type (single, double-bladed, crossguard, short "shoto", curved hilt), blade length, hum pitch | Extends `makeSaber`. Rarity tiers (Common → Legendary) set the wholesale price. Ignite and swing. No damage to players. |
+| **Blasters** | Body (pistol, carbine, rifle), bolt color, fire rate, sound | Extends `makeBlaster`. Fires at targets. Bolts pass harmlessly through robots with a spark. |
 | **Hats** | Caps, helmets, antennas, crowns, traffic cones, ... | Attach to the robot's head. Shown on remote players through the loadout (D5). |
 | **Pet bots** | **Walkers** that roll or hop along behind you, and **flyers** (drones, orbs) that hover overhead | Follow behavior runs on each client (D5). **Up to 3 equipped at once**, in any mix. |
 | **Carrots** | Regular, golden, giant | Biteable (existing). A cheap, fast-selling starter item. |
@@ -291,10 +291,10 @@ saber-side/
 │  └─ shared/src/
 │     ├─ constants.ts      habitat dimensions in meters
 │     ├─ ring-space.ts     bend / unbend / wrap / frames
-│     ├─ sim/              movement, collision, lifts, zero-g, crates, items, ore
+│     ├─ sim/              movement, collision, lifts, zero-g, items, ore
 │     ├─ economy/          pure rules: currency math, rent, demand curve, Refinery yield (no I/O)
 │     ├─ catalog/          item catalog: saber/blaster/hat/pet/carrot variants, rarity, prices
-│     ├─ content/          level data: spots, crate stacks, ore spawns, spawn points
+│     ├─ content/          level data: spots, ore spawns, spawn points
 │     ├─ protocol/         messages, versioning, pose codecs
 │     └─ rng.ts
 └─ docs/
@@ -311,7 +311,7 @@ Where today's code goes:
 | robot (414-567) | `avatar/robot.ts` + `avatar/animate.ts` |
 | habitat, shops, landmarks, end caps (568-1057) | `shared/content/` (spot and layout data) + `world/` (builders) |
 | weapon table + items (1058-1168) | `shared/sim/items.ts`, `shared/catalog/`, `items/` |
-| crates (1169-1200, 1706-1754) | `shared/sim/crates.ts` + `world/crates.ts` |
+| crates (1169-1200, 1706-1754) | *(removed: no crate smashing)* |
 | particles (1201-1239) | `render/fx/` |
 | input (1240-1295) | `input/devices/*`, `input/bindings/` |
 | `update()` (1296-1705) | `shared/sim/movement.ts`, `controllers/piloted.ts`, `avatar/animate.ts`, `render/cameras/third-person.ts` |
@@ -410,9 +410,9 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 | Phase | Status | Done | Still to do |
 | --- | --- | --- | --- |
 | P0 Groundwork | **Done** | Everything | |
-| P1 Decompose | **Partly done** | `packages/shared` and its tests, ships and planets on the new layout, render modules, the robot factory, seeded cosmetic RNG | Meters (units are still feet-scaled, `FT`), the entity/world model (the player, crates, items, and lifts still live on meshes), a fixed tick, emissive sabers (each saber still has a point light), the three.js upgrade (still r128), and most of `game.js` (1,661 lines, `update()` included) |
+| P1 Decompose | **Partly done** | `packages/shared` and its tests, ships and planets on the new layout, render modules, the robot factory, seeded cosmetic RNG | Meters (units are still feet-scaled, `FT`), the entity/world model (the player, items, and lifts still live on meshes), a fixed tick, emissive sabers (each saber still has a point light), the three.js upgrade (still r128), and most of `game.js` (1,661 lines, `update()` included) |
 | P2 Input + avatar | Not started | | Action map and device adapters, `PilotedController`, the embodied avatar, the iPad touch rework (including the legend/d-pad overlap) |
-| P3 Online free roam | **Partly done** | The station server on Render, the roster with PINs, the owner panel skeleton, robots built from parts, the Bot Maker spawn, seeing friends' robots | Server-authoritative item pickup/drop, crates, and lifts (sabers and blasters as shared toys); off-site backups (Litestream) |
+| P3 Online free roam | **Partly done** | The station server on Render, the roster with PINs, the owner panel skeleton, robots built from parts, the Bot Maker spawn, seeing friends' robots | Server-authoritative item pickup/drop and lifts (sabers and blasters as shared toys); off-site backups (Litestream) |
 | P4 Quest VR | Not started | | |
 | P5 Economy v1 | **Started** | Step 0 of the [carrot initiative](initiatives/carrot-economy.md) (#13) | The rest of the carrot initiative, then the rest of P5 |
 | P6, P7 | Not started | | |
@@ -450,10 +450,10 @@ P5 is going ahead of P2-P4 on purpose: the carrot initiative is the next feature
 
 - Extract modules per section 4 behind the screenshot tests (the strangler pattern: the game stays playable after every PR).
 - `packages/shared`: meters (D3), `ring-space` (D4), level data with **spots defined as data**.
-- The entity/world model (D2): player, crates, items, and lifts move out of meshes. Fixed tick and seeded RNG.
+- The entity/world model (D2): player, items, and lifts move out of meshes. Fixed tick and seeded RNG.
 - Saber lighting moves to emissive + glow (D9).
 - **Upgrade three.js** and re-verify the bend shader patches, color management, and light intensities.
-- Unit tests for ring math, lifts, movement, and crates. The sim runs headless in Node.
+- Unit tests for ring math, lifts, movement, and items. The sim runs headless in Node.
 
 **Exit:** gameplay is the same, and `shared/sim` runs in Vitest with no browser.
 
@@ -473,11 +473,12 @@ P5 is going ahead of P2-P4 on purpose: the carrot initiative is the next feature
 - [x] `apps/server`: one Node process running Colyseus and SQLite (`node:sqlite`, so no native modules), with no build step because Node runs the TypeScript directly. The server creates one `station` room at boot and never disposes it; clients `join` rather than `joinOrCreate`, so an 11th player is told the station is full instead of getting a second, empty one. It also has numbered migrations, a `/healthz` check, a protocol version check on join, origin allow-listing, and a "restarting" notice on shutdown. Render and Netlify are configured, and server tests boot the real process (full station, outdated client, restart persistence, origins). The client shows a station status line and rejoins after drops and restarts.
 - [x] The roster (D8): **Who's playing?** on arrival. Pick a robot or make one (name, paint color, optional 4-digit PIN, hashed with scrypt and locked for a minute after 5 wrong tries). Each device remembers its last robot (never the PIN). One robot has one body: coming aboard from a second device takes over from the first, and a reloaded page takes over its old held seat. The robot is painted its color. The owner panel skeleton (`ADMIN_KEY`) renames robots, clears forgotten PINs, and removes robots (kicking them if they're aboard). `PROTOCOL_VERSION` is now 2.
 - [x] **Build a robot from parts.** A new robot is chosen part by part, in four slots: **mobility** (just the single wheel for now, and the only slot a robot needs to play), **body** (rust ball, barrel, crate), **head** (big eye, visor, stalk eye), and **arms** (grabbers, pincers, noodles). Each part has its own paint, or keeps its original skin. A turntable beside the picker shows the robot as it's built, drawn with the game's own kit. The parts catalog and build rules live in `shared/content/robot-parts.ts`; the client draws each part in `avatar/parts/`, and `buildRobot` assembles every robot from them, the classic one included (its frames are byte-identical). The roster stores each robot's build (migration 3, `build_json`); robots made earlier get the classic build in their old color. Coming aboard **spawns** the robot: it's rebuilt from its parts and rolls itself out of the **Bot Maker**, a workshop on the start plaza, through its bay door into the walkway (`shared/content/spawn.ts`, `world/bot-maker.ts`). The Bot Maker's walls are solid and its door stays open, so robots can drive back in. The station shares each player's build, and other players' robots are drawn from their parts (`app/presence.ts`). `PROTOCOL_VERSION` is now 4.
+- [x] **Crate smashing removed** (owner decision). The crates on the promenade, spin and blaster hits on them, the "crates bashed" tally, and restacking are gone. R and the HUD button now just put the sabers, blaster, and carrot back. The cargo crates drifting in the hub stay as scenery.
 
 - `apps/server` as one process (Colyseus + SQLite; Netlify serves the static files), deployed to Render with backups.
 - One station room capped at 10 players, the roster picker (name + color, optional PIN), and the `ADMIN_KEY` owner panel skeleton.
 - Presence: pose streaming, interpolation, reconnection.
-- Server-authoritative item pickup/drop, crates, and lifts. Sabers and blasters as shared toys.
+- Server-authoritative item pickup/drop and lifts. Sabers and blasters as shared toys.
 
 **Exit:** friends on iPads and MacBooks free-roam together in the persistent station, and it survives a server restart.
 
@@ -495,7 +496,7 @@ P5 is going ahead of P2-P4 on purpose: the carrot initiative is the next feature
 
 P5 starts with the initiative [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md), a series of PRs that build the wallet, the first shop, the Farmers, carrot stands, and farms, with carrots as the only goods. Its PR table is the source of truth for that slice's order and status. The rest of P5 then builds on the same ledger, shops, and inventory:
 
-- **Cyber Ore**: crate drops, hub drifters, respawn. The **Refinery** with its fee.
+- **Cyber Ore**: hub drifters, respawn. The **Refinery** with its fee.
 - Capex for additional shops.
 - The item catalog and generators: a wide saber and blaster assortment, hats, golden and giant carrots, and **pet bots** (walkers + flyers, up to 3 equipped through the loadout).
 - The Depot (wholesale and buyback), and shelves and buying for every item, not just carrots (flat UI first, VR interactions once P4 lands).
@@ -545,7 +546,7 @@ The **station itself is the game** (free roam plus the economy). Other modes com
 
 | Mode | What it is | When |
 | --- | --- | --- |
-| **Free roam** | Explore the ring, bash crates, ride lifts, float in the hub, play with sabers and blasters | **First** (P3) |
+| **Free roam** | Explore the ring, ride lifts, float in the hub, play with sabers and blasters | **First** (P3) |
 | **Market** | The persistent economy (section 3). Not a separate mode; it's the world. | P5 |
 | **Tag** | One player is "it", tagging means touching with a hand, everyone races around the promenade and hub | P6 |
 | **Hub race** | Zero-g race through the lift tubes and hub rings | P7 |
@@ -558,7 +559,7 @@ The **station itself is the game** (free roam plus the economy). Other modes com
 
 | Layer | Tool | What |
 | --- | --- | --- |
-| Shared sim + economy rules | Vitest (Node) | Ring math, movement, lifts, crates, currency math, rent, demand curve, Refinery yield, settlement, paint cure, eating timeline, farm growth |
+| Shared sim + economy rules | Vitest (Node) | Ring math, movement, lifts, items, currency math, rent, demand curve, Refinery yield, settlement, paint cure, eating timeline, farm growth |
 | Server | Vitest + bot clients | Ledger invariants, last-item races, lease races, reconnection, restart persistence, 10-player cap |
 | Catalog | Vitest + Playwright screenshots | Every catalog variant builds, and a screenshot sheet of all sabers, blasters, hats, and pets |
 | Input | Vitest | Bindings → actions, profile hot-swap, generated hand poses |

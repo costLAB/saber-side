@@ -53,7 +53,7 @@ With a station server (always in `pnpm dev`, and on the hosted game), the game o
 | Q E, drag | Orbit camera |
 | − +, scroll | Zoom |
 | C, double-click | Reset camera |
-| R | Restack crates |
+| R | Put the sabers, blaster, and carrot back |
 
 The ring is 800 ft across with an 85 ft hull, 400 ft long, and spins at 3.05 rpm for 1 g at the floor. Four lift tubes run from the promenade to a zero-gravity hub on the axis.
 

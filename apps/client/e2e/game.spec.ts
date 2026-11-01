@@ -15,7 +15,8 @@ test('spawn view', async ({ page, errors }, info) => {
   await expect(page.locator('h1')).toHaveText('SABERSIDE');
   await expect(page.locator('#spec')).toContainText('3.05 rpm = 1 g');
   await expect(page.locator('#where')).toContainText('around the ring');
-  await expect(page.locator('#score')).toHaveText('0 / 14');
+  await expect(page.locator('#aliens')).toHaveText('0');
+  await expect(page.locator('#reset')).toHaveText('Reset items (R)');
   if (info.project.name === 'macbook') await expect(page.locator('#keysbox .keys')).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -57,7 +58,7 @@ test('every action runs without errors', async ({ page, errors }, info) => {
     await hold(page, key, ms);
     await advance(page, 100);
   }
-  await expect(page.locator('#score')).toContainText('/');
+  await expect(page.locator('#aliens')).toHaveText('0');
   expect(errors).toEqual([]);
 });
 
