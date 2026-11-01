@@ -1,6 +1,7 @@
 // Legacy single-file game, moved here unchanged from the original index.html (Phase 0).
 // It is being split into modules in Phase 1; see docs/REFACTOR_PLAN.md. Excluded from lint.
 import {
+  BOT_MAKER,
   bendPoint,
   classicBuild,
   bendUp,
@@ -11,7 +12,6 @@ import {
   HALF_L,
   HUB_L,
   HUB_R,
-  HUB_SPAWN,
   LEN,
   lerp,
   mulberry,
@@ -26,6 +26,7 @@ import {
 } from '@saber-side/shared';
 import * as THREE from 'three';
 import { createFlightMode } from '../app/flight';
+import { buildBotMaker } from '../world/bot-maker';
 import { buildRobot, disposeRobot } from '../avatar/robot';
 import { createRenderer } from '../render/renderer';
 import { bendMaterial } from '../render/ring/bend';
@@ -33,7 +34,7 @@ import { makeCanvas, textureKit, wrapX } from '../render/textures';
 import { dot } from '../render/kit';
 
 /** Hooks the new modules call into (see app/aboard.ts). Filled in below, once the scene exists. */
-export const legacy = { robotKit: null, setRobotBuild(_build) {}, launchIntoHub() {}, world: null, frameHooks: [] };
+export const legacy = { robotKit: null, setRobotBuild(_build) {}, rollOutOfBotMaker() {}, world: null, frameHooks: [] };
 
 (() => {
 const V3 = THREE.Vector3;
@@ -633,6 +634,13 @@ const TABLE = { x: -4, z: -3, w: 3.0, d: 1.2, top: 0.95 };
   }
   const shelf = mesh(new THREE.BoxGeometry(TABLE.w - 0.2, 0.05, TABLE.d - 0.2), M.dark); shelf.position.y = 0.25; tg.add(shelf);
 }
+// ---- the Bot Maker, where new robots roll out onto the promenade (world/bot-maker.ts) ----
+{
+  const botMaker = buildBotMaker({ makeSign, glow, steel: W.steel, glass: W.glass, lamp: W.glowWarm, hazard });
+  scene.add(botMaker.root);
+  colliders.push(...botMaker.colliders);
+}
+
 // height of whatever is under (x, z) for something falling from height y
 function surfaceY(x, z, y) {
   return y > TABLE.top - 0.25 && Math.abs(x - TABLE.x) < TABLE.w / 2 && Math.abs(z - TABLE.z) < TABLE.d / 2 ? TABLE.top : 0;
@@ -863,7 +871,7 @@ const MAX = 7, ACC = 16, DRAG = 9, TURN = 2.7, G = 28, JUMP_V = 10.5, SPIN_DUR =
 const st = { vel: 0, prevVel: 0, yaw: 0, angVel: 0, y: 0, vy: 0, grounded: true, crouch: 0, jumpBuf: 0, land: 0,
   mode: 'floor', boostAmt: 0, lift: null, rideT: 0, boardNext: null, spin: -1, spinCD: 0, phase: 0, saberA: 1.25, reach: 0, bite: 0, bitten: false, recoil: 0, idle: 3.6, still: 9, wave: -1, sy: 1, syV: 0, leanX: 0, leanZ: 0,
   glanceT: 0, glanceYaw: 0, glancePitch: 0, hYaw: 0, hPitch: 0, hRoll: 0,
-  camOrbit: Math.PI * 0.8, shake: 0, dustAcc: 0 };
+  camOrbit: Math.PI * 0.8, shake: 0, dustAcc: 0, rollout: 0 };
 const camPos = new V3();
 let started = false;
 
@@ -983,16 +991,22 @@ function update(dt, t) {
     return;
   }
   if (st.mode !== 'floor') { updateReal(dt, t); for (const k in pressed) pressed[k] = false; return; }
-  const fwd = (keys.up ? 1 : 0) - (keys.down ? 1 : 0);
-  const turn = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
+  // a new robot drives itself out of the Bot Maker before it's handed over
+  const rolling = st.rollout > 0;
+  if (rolling) {
+    st.rollout = bot.root.position.x >= BOT_MAKER.spawn.rollToX ? 0 : st.rollout - dt;
+    for (const k in pressed) pressed[k] = false;
+  }
+  const fwd = rolling ? 1 : (keys.up ? 1 : 0) - (keys.down ? 1 : 0);
+  const turn = rolling ? 0 : (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
   const spinning = st.spin >= 0;
   if (pressed.reset) restack();
 
   // drive
   const air = !st.grounded;
   // Shift: hold for 5x top speed; easing back down when it is let go
-  const boost = keys.boost ? 5 : 1;
-  st.boostAmt = damp(st.boostAmt, keys.boost && fwd ? 1 : 0, 4, dt);
+  const boost = keys.boost && !rolling ? 5 : 1;
+  st.boostAmt = damp(st.boostAmt, boost > 1 && fwd ? 1 : 0, 4, dt);
   if (fwd) st.vel += fwd * ACC * boost * (air ? 0.5 : 1) * dt;
   else st.vel -= Math.sign(st.vel) * Math.min(Math.abs(st.vel), DRAG * (air ? 0.3 : 1) * dt);
   const vTop = MAX * boost * (spinning ? 1.2 : 1), vBack = MAX * 0.55 * boost;
@@ -1247,6 +1261,7 @@ function update(dt, t) {
   const D = Math.hypot(d, h - 1.4) * cam.zoom;
   const elev = clamp(Math.atan2(h - 1.4, d) + cam.pitch, 0.03, 1.4);
   tmp.set(p.x - Math.sin(a) * D * Math.cos(elev), Math.max(0.35, 1.4 + st.y * 0.4 + D * Math.sin(elev)), p.z - Math.cos(a) * D * Math.cos(elev));
+  if (rolling) { const c = BOT_MAKER.spawn.camera; tmp.set(c.x, c.y, c.z); }   // watching it roll out from the walkway
   if (!started) { camPos.copy(tmp); started = true; } else camPos.lerp(tmp, 1 - Math.exp(-(camBusy ? 14 : 5) * dt));
   // the camera works on the flat strip too, then gets bent onto the ring with "up" pointing at the axis
   tmp.copy(camPos);
@@ -1602,7 +1617,7 @@ function updateWhere(p) {
   if (txt !== whereTxt) { whereTxt = txt; whereEl.textContent = txt; }
 }
 
-// ---- coming aboard as your own robot (app/aboard.ts): rebuilt from its parts, then fired into the hub ----
+// ---- coming aboard as your own robot (app/aboard.ts): rebuilt from its parts, then rolled out of the Bot Maker ----
 const eyePair = lightPairs.find(L => L.src === bot.eyeLight);
 let noEye = null;   // stands in for the eye light of a robot built without an eye
 legacy.setRobotBuild = build => {
@@ -1619,28 +1634,24 @@ legacy.setRobotBuild = build => {
   Object.assign(bot, next);
   disposeRobot(old, Object.values(M));
 };
-legacy.launchIntoHub = () => {
-  if (st.mode === 'ship') return;   // out flying: docking brings it back to the hub anyway
-  st.boardNext = null;
-  st.mode = 'hub'; st.rideT = 0;
-  st.vel = 0; st.angVel = 0; st.y = 0; st.vy = 0; st.grounded = true;
-  realGroup.add(bot.root);
-  st.yaw = Math.PI / 2;   // facing +x, down the length of the hub
-  bot.root.quaternion.setFromAxisAngle(Y_AXIS, st.yaw);
-  bot.root.position.set(HUB_SPAWN.pos.x, HUB_SPAWN.pos.y, HUB_SPAWN.pos.z);
-  fl.V.set(HUB_SPAWN.speed, 0, 0);
-  fl.cam.copy(bot.root.position).add(tmp.set(7, 2.5, 6));   // watch it come out of the tube, then swing in behind
-  bot.blob.visible = false; cab.visible = false;
-  st.spin = 0; st.spinCD = 0;   // comes out of the tube spinning
-  for (let i = 0; i < 36; i++) {
-    spawn(sparkPool, tmp.set(HUB_SPAWN.pos.x - 1.5, REAL_OFF + HUB_SPAWN.pos.y, HUB_SPAWN.pos.z),
-      tmp2.set(2 + Math.random() * 9, (Math.random() - 0.5) * 7, (Math.random() - 0.5) * 7),
-      { life: 0.5 + Math.random() * 0.5, size: 0.3, grow: 0.4, drag: 2.2, color: i % 3 ? 0xffb060 : 0xfff0d0, alpha: 1 });
+legacy.rollOutOfBotMaker = () => {
+  if (st.mode === 'ship') return;   // out flying a ship: it carries on from where it docks
+  if (st.mode !== 'floor') {   // up in the hub or on a lift: back down to the floor
+    scene.add(bot.root); bot.root.quaternion.identity(); bot.root.visible = true;
+    bot.blob.visible = true; cab.visible = false;
   }
+  const S = BOT_MAKER.spawn;
+  st.mode = 'floor'; st.boardNext = null;
+  bot.root.position.set(S.x, 0, S.z); st.yaw = S.yaw; bot.root.rotation.y = S.yaw;
+  st.vel = 0; st.prevVel = 0; st.angVel = 0; st.y = 0; st.vy = 0; st.grounded = true; st.crouch = 0; st.land = 0;
+  st.spin = -1; bot.spinner.rotation.y = 0;
+  st.idle = 0; st.still = 0; st.wave = -1; st.camOrbit = 0;
+  st.rollout = S.maxSeconds;
+  camPos.set(S.camera.x, S.camera.y, S.camera.z); started = true;
 };
 
 // Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
-if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, fl, cam, camera, camPos, keys, clock, lifts: LIFTS, ships };
+if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships };
 
 frame();
 })();
