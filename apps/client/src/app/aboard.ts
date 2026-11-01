@@ -4,6 +4,7 @@ import {
   type BotMakerAnswer,
   cleanRobotBuild,
   type Garage,
+  hasPaint,
   insideBotMaker,
   insideRegistry,
   JOIN_REFUSED,
@@ -77,10 +78,17 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
   /** Who this seat is, for the HUD, once the station has shown it. */
   function who(): Who | undefined {
     if (!room || !me) return undefined;
-    if (!me.player) return { guest: me.name };
+    const paint = paintCure();
+    if (!me.player) return { guest: me.name, paint };
     // The station sends the username as saved; until it does (or from an older station), the name typed to log in.
     const player = garage?.player ?? credentials?.login?.name ?? device.username ?? '';
-    return { player, robot: me.name };
+    return { player, robot: me.name, paint };
+  }
+
+  /** This robot's paint cure, in percent, when paint cures on this station and it has paint to cure. */
+  function paintCure(): number | undefined {
+    const build = me && readBuild(me);
+    return room?.state.paintCure && me && build && hasPaint(build) ? me.cure : undefined;
   }
 
   const welcome = (error?: string) => ({ kind: 'welcome' as const, name: device.username, error });
@@ -134,7 +142,7 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
     open: () => {
       const build = aboardNow() && me && readBuild(me);
       if (me?.player && build && garage) arrival.show({ kind: 'garage', garage, piloting: me.robot });
-      else if (me && build) arrival.show({ kind: 'build', rebuild: { name: me.name, build } });
+      else if (me && build) arrival.show({ kind: 'build', rebuild: { name: me.name, build, cure: paintCure() } });
       else if (guestBuild && retrying(said)) {
         // A guest whose station is away for now (a drop, a restart, a full station) still rebuilds their one robot:
         // the next join takes it aboard.
@@ -269,7 +277,11 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
       (joined) => {
         room = joined;
         presence.attach(joined);
-        joined?.onStateChange(() => presence.sync());
+        joined?.onStateChange(() => {
+          presence.sync();
+          // The paint readout follows the robot's cure, and the station's setting.
+          if (said.kind === 'aboard') showWho(whoEl, who());
+        });
         // A registered player's balance comes to their seat alone. Guests have no wallet, so it stays hidden.
         showWallet(undefined);
         garage = undefined;

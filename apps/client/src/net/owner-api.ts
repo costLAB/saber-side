@@ -1,4 +1,4 @@
-import type { ApiError, LedgerEntry, OwnerPlayer, OwnerRobot } from '@saber-side/shared';
+import type { ApiError, LedgerEntry, OwnerPlayer, OwnerRobot, OwnerSettings } from '@saber-side/shared';
 
 /** A refusal from the station's HTTP API, carrying its friendly message (shown as-is in the owner panel). */
 export class ApiFailure extends Error {
@@ -49,6 +49,9 @@ export function ownerApi(server: string, key: string) {
     removePlayer: (playerId: string) => call<void>('DELETE', `/players/${id(playerId)}`),
     renameRobot: (robotId: string, name: string) => call<OwnerRobot>('POST', `/robots/${id(robotId)}/rename`, { name }),
     removeRobot: (robotId: string) => call<void>('DELETE', `/robots/${id(robotId)}`),
+    setCure: (robotId: string, cure: number) => call<OwnerRobot>('POST', `/robots/${id(robotId)}/cure`, { cure }),
+    settings: () => call<OwnerSettings>('GET', '/settings'),
+    setSettings: (changes: Partial<OwnerSettings>) => call<OwnerSettings>('POST', '/settings', changes),
     ledger: (playerId: string) => call<LedgerEntry[]>('GET', `/players/${id(playerId)}/ledger`),
     grant: (playerId: string, shards: number) =>
       call<LedgerEntry>('POST', `/players/${id(playerId)}/grant`, { shards }),

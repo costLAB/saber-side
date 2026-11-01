@@ -8,12 +8,14 @@ import type { PoseField } from './pose.ts';
 // reload instead of half-working.
 
 import type { RobotBuild } from './content/robot-parts.ts';
+import type { StationSettings } from './sim/paint-cure.ts';
 
 // History: 1 = the station server; 2 = joining as a robot from the roster; 3 = robots see each other (pose.ts);
 // 4 = robots built from parts; 5 = guests and logins (players own robots); 6 = the Robot Registry;
 // 7 = the Cyber Crystal wallet; 8 = several robots per player; 9 = renaming your robot at the Bot Maker;
-// 10 = robots open their mouths to eat (the `jaw` pose field).
-export const PROTOCOL_VERSION = 10;
+// 10 = robots open their mouths to eat (the `jaw` pose field); 11 = paint that cures (each robot's `cure`, and the
+// station's `paintCure` setting).
+export const PROTOCOL_VERSION = 11;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';
@@ -71,6 +73,8 @@ export interface OwnerRobot {
   /** One of ROBOT_COLORS: the robot's main paint (see buildColor). */
   color: string;
   build: RobotBuild;
+  /** How cured its paint is, in percent (sim/paint-cure.ts). */
+  cure: number;
 }
 
 /** A registered player, as the owner panel sees it (`GET /api/owner/players`). Never their PIN. */
@@ -99,12 +103,16 @@ export type AboardView = {
   color: string;
   /** The robot's RobotBuild, as JSON, so everyone aboard can draw it. */
   build: string;
+  /** How cured the robot's paint is, in percent, so everyone draws its coat the same (sim/paint-cure.ts). */
+  cure: number;
 } & { [K in PoseField]: K extends 'shown' ? boolean : number };
 
 /** The synced station state, as the client sees it. */
 export interface StationView {
   name: string;
   aboard: number;
+  /** The station setting: paint cures by eating carrots. Off, every coat is drawn fully cured. */
+  paintCure: boolean;
   players: Map<string, AboardView>;
 }
 
@@ -155,6 +163,8 @@ export interface Garage {
   robots: OwnerRobot[];
   /** What the next robot costs, in shards (see robotPrice), or null when they have as many as they can keep. */
   nextPrice: number | null;
+  /** Whether paint cures on this station (else the roster shows no cure). Optional for an older station. */
+  paintCure?: boolean;
 }
 
 /** What `register` and `login` carry. */
@@ -199,6 +209,9 @@ export interface LedgerEntry {
   /** Whether a later entry reversed this one. */
   reversed: boolean;
 }
+
+/** The station's settings, as the owner panel reads and changes them (`/api/owner/settings`). */
+export type OwnerSettings = StationSettings;
 
 /** `GET /healthz`: what the host's health check and the uptime monitor see. */
 export interface StationHealth {

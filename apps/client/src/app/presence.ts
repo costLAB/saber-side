@@ -15,6 +15,7 @@ import { applyArmPose, buildRobot, openMouth, type Robot, type RobotArm, type Ro
 import type { DrawTexFn } from '../render/kit';
 import { textLabel } from '../render/label';
 import { bendMaterial } from '../render/ring/bend';
+import { showCure } from './paint-cure';
 
 // Other players' robots: built from their parts when they come aboard, labeled with their name, and moved to
 // follow the poses the station passes on. Remote robots are drawn a little in the past (DELAY_MS) and blended between
@@ -69,6 +70,8 @@ interface Remote {
   name: string;
   color: string;
   build: string;
+  /** How cured its paint is, in percent, as the station last said. */
+  cure: number;
   snaps: Snapshot[];
 }
 
@@ -187,14 +190,12 @@ export function createPresence(world: PresenceWorld, now: () => number = () => p
       if (!(drawn as THREE.Mesh).isMesh && !(drawn as THREE.Sprite).isSprite) return;
       o.frustumCulled = false;
       for (const m of Array.isArray(drawn.material) ? drawn.material : [drawn.material]) {
-        if (m.onBeforeCompile !== THREE.Material.prototype.onBeforeCompile) continue;
-        m.userData.bent = false;
         bendMaterial(m);
       }
     });
     robot.root.visible = false;
     world.scene.add(robot.root);
-    return { robot, label, name: entry.name, color: entry.color, build: entry.build, snaps: [] };
+    return { robot, label, name: entry.name, color: entry.color, build: entry.build, cure: entry.cure, snaps: [] };
   }
 
   function remove(id: string) {
@@ -233,6 +234,7 @@ export function createPresence(world: PresenceWorld, now: () => number = () => p
         r = build(entry);
         remotes.set(id, r);
       }
+      r.cure = entry.cure;
       const v = entryPose(entry);
       const last = r.snaps[r.snaps.length - 1];
       if (last?.v.every((x, i) => x === v[i])) return;
@@ -245,6 +247,10 @@ export function createPresence(world: PresenceWorld, now: () => number = () => p
 
   function frame(dt: number) {
     const target = now() - DELAY_MS;
+    // Paint: every robot's coat is as cured as the station says (this one's too), or fully cured offline.
+    const paintCure = !!room?.state.paintCure;
+    showCure(world.bot, room?.state.players?.get(room.sessionId)?.cure, paintCure, dt);
+    for (const r of remotes.values()) showCure(r.robot, r.cure, paintCure, dt);
     for (const r of remotes.values()) {
       const { snaps } = r;
       if (!snaps.length) continue;

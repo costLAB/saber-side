@@ -1,7 +1,10 @@
 import {
   ccToShards,
   classicBuild,
+  cleanCure,
   cleanRobotName,
+  cureText,
+  FRESH_COAT,
   type Garage,
   isGuestName,
   isPin,
@@ -32,7 +35,8 @@ export type ArrivalView =
    */
   | {
       kind: 'build';
-      rebuild?: { name: string; build: RobotBuild };
+      /** `cure` is its paint's cure in percent, when paint cures on this station (the preview shows it at 100%). */
+      rebuild?: { name: string; build: RobotBuild; cure?: number };
       newRobot?: { price: number };
       note?: string;
       error?: string;
@@ -119,6 +123,14 @@ const paint = (hex: string) =>
     style: `--paint: ${hex}`,
     'aria-hidden': 'true',
   });
+
+/** A paint swatch in a ring that fills as the paint cures (shared sim/paint-cure.ts), for the roster. */
+const cureRing = (hex: string, cure: number) =>
+  h(
+    'span',
+    { class: 'cure-ring', style: `--paint: ${hex}; --cure: ${cure}%`, title: `${cureText(cure)} cured` },
+    paint(hex),
+  );
 
 const SLOT_NAMES: Record<PartSlot, string> = { mobility: 'Mobility', body: 'Body', head: 'Head', arms: 'Arms' };
 
@@ -367,7 +379,7 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
   }
 
   function renderBuild(
-    rebuild: { name: string; build: RobotBuild } | undefined,
+    rebuild: { name: string; build: RobotBuild; cure?: number } | undefined,
     newRobot: { price: number } | undefined,
     note: string | undefined,
     err?: string,
@@ -414,7 +426,15 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
       else handlers.onBuilt(build);
     });
     const heading = newRobot ? 'Build another robot' : rebuild ? `Rebuild ${rebuild.name}` : 'Build your robot';
-    return note ? [title(heading), h('p', { class: 'notice' }, note), form] : [title(heading), form];
+    // Paint that cures: say how far along this robot is, and that the turntable shows what it's working toward.
+    const out: Node[] = [title(heading)];
+    if (note) out.push(h('p', { class: 'notice' }, note));
+    if (rebuild?.cure !== undefined) {
+      const text = `${rebuild.name}'s paint is ${rebuild.cure}% cured. The turntable shows it at 100%. New paint starts again at ${FRESH_COAT}%.`;
+      out.push(h('p', { class: 'cure-note' }, text));
+    }
+    out.push(form);
+    return out;
   }
 
   function renderGarage(garage: Garage, piloting: string, err?: string): Node[] {
@@ -425,8 +445,13 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
       const card = h(
         'button',
         { type: 'button', class: here ? 'robot here' : 'robot', 'data-robot': robot.id },
-        paint(robot.color),
-        h('span', { class: 'name' }, robot.name),
+        garage.paintCure ? cureRing(robot.color, robot.cure) : paint(robot.color),
+        h(
+          'span',
+          { class: 'name' },
+          robot.name,
+          garage.paintCure && h('span', { class: 'cure' }, cureText(robot.cure)),
+        ),
         here && h('span', { class: 'lock' }, 'PILOTING'),
       );
       card.addEventListener('click', async () => {
@@ -454,7 +479,10 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
         { class: 'actions' },
         flying &&
           button(`Rebuild ${flying.name}`, 'ghost', () =>
-            show({ kind: 'build', rebuild: { name: flying.name, build: flying.build } }),
+            show({
+              kind: 'build',
+              rebuild: { name: flying.name, build: flying.build, cure: garage.paintCure ? flying.cure : undefined },
+            }),
           ),
         flying && button(`Rename ${flying.name}`, 'ghost', () => show({ kind: 'rename', name: flying.name })),
       ),
@@ -651,8 +679,21 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
         h(
           'div',
           { class: 'owner-row robot-row', 'data-robot': robot.id },
-          h('span', { class: 'name' }, h('span', { class: 'dot', style: `--paint: ${robot.color}` }), robot.name),
+          h(
+            'span',
+            { class: 'name' },
+            h('span', { class: 'dot', style: `--paint: ${robot.color}` }),
+            robot.name,
+            h('span', { class: 'cure' }, cureText(robot.cure)),
+          ),
           rename('robot', robot.name, (name) => owner.renameRobot(robot.id, name)),
+          button('Paint', '', () => {
+            const typed = prompt(`How cured is ${robot.name}'s paint? (0 to 100%)`, String(robot.cure));
+            if (typed === null) return;
+            const cure = cleanCure(typed);
+            if (cure === undefined) err$.textContent = 'Type a cure from 0 to 100.';
+            else act(() => owner.setCure(robot.id, cure));
+          }),
           player.robots.length > 1 &&
             button('Remove', '', () => {
               if (confirm(`Remove the robot ${robot.name}?`)) act(() => owner.removeRobot(robot.id));
@@ -660,6 +701,23 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
         ),
       ),
     ];
+    // Station settings: paint cure stays off (every coat drawn at 100%) until carrots can be bought.
+    const settings = h('div', { class: 'owner-row settings' }, h('span', { class: 'name' }, 'Paint cure: …'));
+    owner.settings().then(
+      (s) =>
+        settings.replaceChildren(
+          h(
+            'span',
+            { class: 'name' },
+            `Paint cure: ${s.paintCure ? 'on' : 'off'}`,
+            h('span', { class: 'need' }, s.paintCure ? ' · carrots cure paint' : ' · every coat drawn at 100%'),
+          ),
+          button(s.paintCure ? 'Turn off' : 'Turn on', '', () =>
+            act(() => owner.setSettings({ paintCure: !s.paintCure })),
+          ),
+        ),
+      (e) => settings.replaceChildren(error(message(e))),
+    );
     owner.players().then(
       (players) =>
         list.replaceChildren(
@@ -671,6 +729,7 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
     return [
       title('Owner panel'),
       err$,
+      settings,
       list,
       h(
         'div',

@@ -448,3 +448,35 @@ test('stays single-player when the build has no server', async ({ page, errors }
   await expect(page.locator('.arrival')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('paints a guest robot with a fresh coat once the owner turns paint cure on', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  const paintCure = (on: boolean) =>
+    page.request.post(`${STATION}/api/owner/settings`, { headers: owner, data: { paintCure: on } });
+  await online(page);
+  await page.goto('/?debug');
+  try {
+    // A guest robot with a painted body.
+    await page.getByRole('button', { name: 'Play' }).click();
+    await page.getByLabel('Body paint: Bubblegum').check({ force: true });
+    await page.getByRole('button', { name: 'Roll out' }).click();
+    const who = page.locator('#who');
+    await eventually(page, () => who.textContent()).toMatch(/^Guest · Bot \d+/);
+    // Off (the default until carrots can be bought), every coat is drawn at 100% and there's no readout.
+    await expect(who).not.toContainText('Paint');
+    expect(await saber<number>(page, 's.bot.coat.value')).toBe(1);
+
+    // On: a fresh coat, 10%, eased in.
+    expect((await paintCure(true)).ok()).toBe(true);
+    await eventually(page, () => who.textContent()).toContain('Paint 10%');
+    await advance(page, 2000);
+    expect(await saber<number>(page, 's.bot.coat.value')).toBeCloseTo(0.1, 3);
+  } finally {
+    await paintCure(false);
+  }
+  await eventually(page, () => page.locator('#who').textContent()).not.toContain('Paint');
+  // Back to full color, eased over about a second.
+  await advance(page, 2000);
+  expect(await saber<number>(page, 's.bot.coat.value')).toBe(1);
+  expect(errors).toEqual([]);
+});

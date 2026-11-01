@@ -146,3 +146,37 @@ describe('robots', () => {
     expect(p.renameRobot(mia.robot.id, 'Sparky')).toMatchObject({ ok: true, value: { name: 'Sparky' } });
   });
 });
+
+describe('paint cure', () => {
+  const red = classicBuild('#e8935a');
+  const blue = classicBuild('#5d97d8');
+
+  it('starts a new robot at a fresh coat, or at the cure it earned as a guest', () => {
+    const { p } = players();
+    expect(register(p).robot.cure).toBe(10);
+    const made = p.register('Kai', '1234', red, 37);
+    expect(made).toMatchObject({ ok: true, value: { robot: { cure: 37 } } });
+    if (!made.ok) return;
+    const extra = p.addRobot(made.value.player.id, 'Kai2', red);
+    expect(extra).toMatchObject({ ok: true, value: { cure: 10 } });
+  });
+
+  it('starts a fresh coat on new paint, and keeps the cure otherwise', () => {
+    const { p } = players();
+    const made = p.register('Mia', '1234', red, 60);
+    if (!made.ok) throw new Error(made.error);
+    const id = made.value.robot.id;
+    expect(p.rebuild(id, { ...red, arms: null })).toMatchObject({ ok: true, value: { cure: 60 } });
+    expect(p.rebuild(id, blue)).toMatchObject({ ok: true, value: { cure: 10 } });
+  });
+
+  it('lets the owner set a cure, from 0 to 100', () => {
+    const { p } = players();
+    const { robot } = register(p);
+    expect(p.setCure(robot.id, 45)).toMatchObject({ ok: true, value: { cure: 45 } });
+    expect(p.setCure(robot.id, 400)).toMatchObject({ ok: true, value: { cure: 100 } });
+    expect(p.setCure(robot.id, 'lots')).toMatchObject({ ok: false, status: 400 });
+    expect(p.setCure('nope', 50)).toMatchObject({ ok: false, status: 404 });
+    expect(p.robot(robot.id)?.cure).toBe(100);
+  });
+});

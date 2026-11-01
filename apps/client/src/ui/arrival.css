@@ -396,3 +396,29 @@
 .arrival .robot.full {
   cursor: default;
 }
+
+/* Paint that cures: a ring round the swatch fills as the robot's paint cures. */
+.arrival .cure-ring {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  padding: 3px;
+  border-radius: 50%;
+  background: conic-gradient(var(--paint) var(--cure), rgba(228, 220, 205, 0.16) 0);
+}
+.arrival .robot .name {
+  display: flex;
+  flex-direction: column;
+}
+.arrival .cure {
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.arrival .owner-row .cure {
+  font-size: 12px;
+}
+.arrival .cure-note {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--ink-dim);
+}

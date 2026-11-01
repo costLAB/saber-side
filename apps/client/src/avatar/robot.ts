@@ -5,7 +5,7 @@ import { type BuiltArms, buildArms, type RobotArm } from './parts/arms';
 import { buildBody, buildMobility } from './parts/body';
 import { buildHead } from './parts/head';
 import { bodyHatch, type Jaw, setJaw } from './parts/jaw';
-import { type BodyMounts, type PartKit, partKit, type RobotKit } from './parts/kit';
+import { type BodyMounts, type CoatCure, type PartKit, partKit, type RobotKit } from './parts/kit';
 
 // A robot, put together from parts (packages/shared content/robot-parts.ts): a wheel, then a body, a head, and arms,
 // each in its own paint. The classic rusty ball-bodied bot with the big red eye is one build among the rest; its parts
@@ -13,7 +13,7 @@ import { type BodyMounts, type PartKit, partKit, type RobotKit } from './parts/k
 
 export type { RobotArm } from './parts/arms';
 export type { Jaw } from './parts/jaw';
-export type { RobotKit, RobotMaterials } from './parts/kit';
+export type { CoatCure, RobotKit, RobotMaterials } from './parts/kit';
 
 /** The parts the animation moves. `root` is where the robot stands; everything else hangs off it. */
 export interface Robot {
@@ -38,6 +38,8 @@ export interface Robot {
   eyeLight?: THREE.PointLight;
   /** The mouth it eats with: the head's jaw, or a hatch on the body when there's no head. */
   jaw: Jaw;
+  /** How opaque its paint coats are drawn, 0 (bare skin) to 1 (fully cured). Every painted part shares it. */
+  coat: CoatCure;
   /** Empty on a robot with no arms. */
   arms: RobotArm[];
   /** In the left fist (or in front of an armless body): whatever the robot holds is parented here, along +y. */
@@ -170,6 +172,7 @@ export function buildRobot(
     eyeLight: head.eyeLight,
     ledGlow: body.ledGlow,
     jaw,
+    coat: parts.cure,
     arms,
     grip,
     swooshMat,
