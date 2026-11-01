@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import { GAME_PORT, STATION_PORT } from './e2e/ports';
 
 // Headless Chromium renders WebGL through SwiftShader (software), so screenshots match across machines.
 const launchOptions = { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] };
-const PORT = 4173;
 
 export default defineConfig({
   testDir: './e2e',
@@ -18,15 +18,26 @@ export default defineConfig({
     toMatchSnapshot: { maxDiffPixelRatio: 0.01 },
   },
   use: {
-    baseURL: `http://localhost:${PORT}`,
+    baseURL: `http://localhost:${GAME_PORT}`,
     trace: 'retain-on-failure',
   },
-  webServer: {
-    command: `pnpm build && pnpm preview --port ${PORT} --strictPort`,
-    url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: `pnpm build && pnpm preview --port ${GAME_PORT} --strictPort`,
+      url: `http://localhost:${GAME_PORT}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      // A throwaway station server (nothing saved) for the online tests in station.spec.ts. The build itself has no
+      // server URL, so every other test stays single-player.
+      command: 'pnpm --filter @saber-side/server start',
+      env: { PORT: String(STATION_PORT), DATABASE_PATH: ':memory:' },
+      url: `http://localhost:${STATION_PORT}/healthz`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+  ],
   projects: [
     {
       name: 'macbook',

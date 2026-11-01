@@ -345,6 +345,8 @@ Where today's code goes:
 ## 6. Hosting (simple, cheap, just works)
 
 > **Decision (2026-10-31): the client is hosted on Netlify** (the owner already has an account), using `netlify.toml` in the repo. Netlify can't run a long-lived WebSocket server or keep a disk, so from Phase 3 the game server runs on a separate always-on host (a Render web service with a persistent disk is the front-runner). The client connects to it over `wss://`. That replaces the "one process does everything" layout below: the server only runs Colyseus, the economy, and SQLite.
+>
+> **Decision (2026-10-31): the server runs on Render**, from `render.yaml`: a Starter instance with a 1 GB disk for the real station, plus a free staging service that Netlify deploy previews join, so a PR never touches real data. Render deploys only after CI passes, and only when server or shared code changed. Splitting the hosts means the client and server can briefly run different versions after a merge, so every join carries `PROTOCOL_VERSION` and a mismatched page offers a reload. Setup steps and deploy behavior are in [HOSTING.md](HOSTING.md).
 
 - **One process does everything:** the Node server serves the built client files, runs Colyseus, runs the economy, and writes SQLite to a persistent volume. That means one deploy, one URL, and HTTPS from the host. WebXR requires HTTPS.
 - **What to look for in a host:**
@@ -433,7 +435,12 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 
 ### P3: Online free roam (M)
 
-- `apps/server` as one process (static files + Colyseus + SQLite), deployed to the chosen host with backups.
+**Progress:**
+
+- [x] `apps/server`: one Node process running Colyseus and SQLite (`node:sqlite`, so no native modules), with no build step because Node runs the TypeScript directly. The server creates one `station` room at boot and never disposes it; clients `join` rather than `joinOrCreate`, so an 11th player is told the station is full instead of getting a second, empty one. It also has numbered migrations, a `/healthz` check, a protocol version check on join, origin allow-listing, and a "restarting" notice on shutdown. Render and Netlify are configured, and server tests boot the real process (full station, outdated client, restart persistence, origins). The client shows a station status line and rejoins after drops and restarts.
+- [x] The roster (D8): **Who's playing?** on arrival. Pick a robot or make one (name, paint color, optional 4-digit PIN, hashed with scrypt and locked for a minute after 5 wrong tries). Each device remembers its last robot (never the PIN). One robot has one body: coming aboard from a second device takes over from the first, and a reloaded page takes over its old held seat. The robot is painted its color. The owner panel skeleton (`ADMIN_KEY`) renames robots, clears forgotten PINs, and removes robots (kicking them if they're aboard). `PROTOCOL_VERSION` is now 2.
+
+- `apps/server` as one process (Colyseus + SQLite; Netlify serves the static files), deployed to Render with backups.
 - One station room capped at 10 players, the roster picker (name + color, optional PIN), and the `ADMIN_KEY` owner panel skeleton.
 - Presence: pose streaming, interpolation, reconnection.
 - Server-authoritative item pickup/drop, crates, and lifts. Sabers and blasters as shared toys.

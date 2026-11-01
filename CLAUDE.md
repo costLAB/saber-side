@@ -23,8 +23,13 @@ Name every branch and PR for its **purpose**: what the work is for, not a list o
 
 - `apps/client`: the game (Vite + TypeScript + three.js). `src/legacy/game.js` is the original prototype script,
   being split into modules during Phase 1. It's excluded from lint.
-- `packages/shared`: game rules, ring math, and constants. Pure TypeScript with no DOM and no scene graph, so it runs
-  in the browser, on the server, and in tests.
+- `apps/server`: the station server (Colyseus + SQLite via `node:sqlite`). Node runs its TypeScript directly, with no
+  build step. Hosting and deploys are in [docs/HOSTING.md](docs/HOSTING.md).
+- `packages/shared`: game rules, ring math, constants, and the client/server protocol (`protocol.ts`). Pure TypeScript
+  with no DOM and no scene graph, so it runs in the browser, on the server, and in tests.
+- Code the server runs (`apps/server`, `packages/shared`) must suit Node's type stripping: relative imports end in
+  `.ts` (Biome enforces this), and only erasable syntax is allowed (no enums, namespaces, or `constructor(public x)`;
+  `tsc` enforces this).
 - New features go in modules, not in `game.js`: rules and level data in `packages/shared` (`sim/`, `content/`), scene
   builders in `apps/client/src/world/` and `render/`, and the glue in `apps/client/src/app/`. The legacy file only gets
   a small hook. `app/flight.ts` (ships and planets) is the example to follow.
@@ -33,10 +38,10 @@ Name every branch and PR for its **purpose**: what the work is for, not a list o
 
 ```bash
 pnpm install
-pnpm dev            # dev server; pnpm dev:https to test on an iPad or Quest on the same Wi-Fi
+pnpm dev            # game + local station server; pnpm dev:https to test on an iPad or Quest on the same Wi-Fi
 pnpm lint           # Biome (pnpm format to auto-fix)
 pnpm typecheck
-pnpm test           # Vitest unit tests
+pnpm test           # Vitest unit tests, and server tests that boot the real station
 pnpm e2e            # Playwright: screenshots, determinism, every action (about a minute)
 pnpm e2e:update     # re-record screenshot baselines after an intended visual change
 ```
@@ -50,6 +55,8 @@ Run `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e` before pushing. CI ru
 - Headless WebGL renders in software (seconds per frame), so draw calls are skipped except on frames captured by
   `snap`. Screenshots mask HUD text, which rasterizes differently between machines; check HUD text with DOM
   assertions instead.
-- Locally, Playwright reuses any server already on port 4173. Stop a stray `vite preview` first, or tests run against
-  a stale build.
+- Locally, Playwright reuses any server already on ports 4173 (the game) and 4174 (a throwaway station). Stop a stray
+  `vite preview` or station first, or tests run against a stale build.
+- Bump `PROTOCOL_VERSION` in `packages/shared/src/protocol.ts` whenever an older client would misread the server (or
+  the reverse). Schema changes are new entries in `MIGRATIONS` (`apps/server/src/db.ts`); never edit a merged one.
 - Refactors of the legacy game must keep the screenshot baselines and the determinism test passing unchanged.

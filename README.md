@@ -7,7 +7,7 @@ A rusty ball-bodied robot who lives on Ring Seven, an 800 ft spinning cylinder h
 
 ### Running it
 
-Needs Node 22+ and pnpm (`corepack enable` sets pnpm up from `package.json`).
+Needs Node 22.18+ and pnpm (`corepack enable` sets pnpm up from `package.json`).
 
 ```bash
 pnpm install
@@ -17,23 +17,27 @@ pnpm install
 pnpm dev
 ```
 
-Then open the printed URL. To try it on an iPad or Quest on the same Wi-Fi, run `pnpm dev:https` and open the `https://` network URL (WebXR needs HTTPS; accept the self-signed certificate warning).
+This starts the game and a local station server together. Open the printed URL, make a robot, and under the title it should say **Station · online · 1 aboard**. A second browser window (or a private one) can come aboard as another robot. Locally the owner panel is off unless you start with `ADMIN_KEY=something pnpm dev`. To try it on an iPad or Quest on the same Wi-Fi, run `pnpm dev:https` and open the `https://` network URL (WebXR needs HTTPS; accept the self-signed certificate warning).
 
 | Command | What it does |
 | --- | --- |
-| `pnpm dev` / `pnpm dev:https` | Dev server with hot reload |
+| `pnpm dev` / `pnpm dev:https` | Game (hot reload) and station server (restarts on change) |
 | `pnpm build` / `pnpm preview` | Production build in `apps/client/dist`, and a server for it |
 | `pnpm lint` / `pnpm format` | Biome lint and format check / auto-fix |
 | `pnpm typecheck` | TypeScript |
-| `pnpm test` | Unit tests |
-| `pnpm e2e` | Playwright tests: MacBook and iPad screenshots, a determinism check, every action |
+| `pnpm test` | Unit tests, plus server tests that boot the real station |
+| `pnpm e2e` | Playwright tests: MacBook and iPad screenshots, a determinism check, every action, joining the station |
 | `pnpm e2e:update` | Re-record screenshot baselines after an intended visual change |
 
 The screenshot tests pause time and seed randomness, so every run renders the same frames. If a change is supposed to alter the picture, run `pnpm e2e:update` and commit the new images in `apps/client/e2e/game.spec.ts-snapshots/`.
 
 ### Deploying
 
-The game is static files for now. Netlify builds and hosts it using `netlify.toml` (build `pnpm build`, publish `apps/client/dist`): import the repo in Netlify and it picks those settings up, deploys every merge to `main`, and gives each PR a preview link. Online play (Phase 3) adds a small always-on game server on a separate host; see the plan.
+Netlify hosts the game (`netlify.toml`) and gives each PR a preview link. Render runs the station server (`render.yaml`), with the SQLite database on a persistent disk. Previews join a separate staging server, so they never touch the real station. [docs/HOSTING.md](docs/HOSTING.md) has the one-time setup and what happens on each merge.
+
+### Coming aboard
+
+With a station server (always in `pnpm dev`, and on the hosted game), the game opens on the station's roster: **Who's playing?** Pick your robot or make a new one (a name, a paint color, and an optional 4-digit PIN). There are no accounts: the same robot works on the iPad, the MacBook, and the Quest, and each device remembers who last played on it. Coming aboard from a second device takes over from the first. Owners can unlock the owner panel (**Owner**, with the server's `ADMIN_KEY`) to rename robots, clear a forgotten PIN, or remove a robot.
 
 ### Controls
 

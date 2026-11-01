@@ -1,7 +1,7 @@
-import type { HubCradle } from '../content/space';
-import { clamp, damp, smooth, TAU } from '../math';
-import type { SettableXYZ, XYZ } from '../ring-space';
-import { Vec3 } from '../vec3';
+import type { HubCradle } from '../content/space.ts';
+import { clamp, damp, smooth, TAU } from '../math.ts';
+import type { SettableXYZ, XYZ } from '../ring-space.ts';
+import { Vec3 } from '../vec3.ts';
 
 /**
  * A flying ship. The model points along +z. Its heading is yaw (about +y) then pitch (nose up), and the body also
