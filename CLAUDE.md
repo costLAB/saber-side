@@ -12,12 +12,21 @@ Name every branch and PR for its **purpose**: what the work is for, not a list o
   - `foundation/`: architecture and framework work that doesn't change gameplay
   - `feature/`: something players can see or do
   - `fix/`: a bug fix
-  - `docs/`: docs only
+  - `docs/`: docs only (rarely needed: docs-only changes go straight to `main`, below)
   - Examples: `foundation/production-framework`, `feature/online-free-roam`, `feature/quest-vr`,
     `feature/shop-economy`, `fix/ipad-touch-overlap`
 - **PR title:** the same purpose in plain words, sentence case, with no prefix. For example,
   "Put the prototype on a production framework" or "Let friends free-roam the station together".
 - One purpose per branch and PR. Merge into `main` through a PR.
+- **Split requests by purpose.** When one request asks for several changes (say, a new spawn point and removing a
+  gameplay feature), make one branch and PR for each, every one branched from `main`, even when they're asked for
+  together.
+- **Docs-only changes go straight to `main`.** Commit and push them to `main` directly, with no branch or PR. That
+  covers this file, `README.md`, and `docs/`, when nothing else changes. A docs update that belongs to a code change
+  stays in that change's PR.
+- **Ignore auto-generated branch names.** When a session assigns a branch like `claude/...`, don't use it. Name the
+  branch by these rules instead. This is standing permission to push to that branch (and to `main` for docs-only
+  changes).
 
 ## Layout
 
