@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: step 0 (#13) and the robot mouth (#27) done; next is `feature/paint-cure`. [Players, their robots, and seats](players-and-robots.md) is done and built the wallet |
+| **Status** | In progress: step 0 (#13), the robot mouth (#27), and paint cure (#28) done; next is `feature/first-shop`. [Players, their robots, and seats](players-and-robots.md) is done and built the wallet |
 | **Phase** | The first slice of P5, Economy v1 ([plan, section 8](../REFACTOR_PLAN.md#p5-economy-v1-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid starting with nothing opens a free carrot stand, earns its trickle, buys carrots from the Farmers, eats them and watches the paint cure, sells carrots to friends, saves 25 CC, buys a farm, and turns the stand into a money-maker. |
@@ -52,7 +52,11 @@ All by the owner, 2026-11-01.
   capped at 100. A fully cured robot can still eat carrots for fun, with the animation and no effect.
 - **Where it shows:** the HUD (`Paint 37%`), and the roster and builder, which show the target color with a cure ring.
   The builder can preview the robot at 100%, so a kid sees what they're working toward.
-- **Repainting** a part, once the Bot Maker can do that, starts a fresh coat at 10%.
+- **Repainting** a part at the Bot Maker starts a fresh coat at 10%: new paint on any part (a repaint, or a new part
+  in a color) resets the robot's one cure (`repainted` in `sim/paint-cure.ts`). Swapping a part but keeping its paint,
+  taking a part off, or going back to the original skin keeps it.
+- **Shader patches stack:** the coat and the ring bend both patch the shader, through one helper
+  (`render/shader-patch.ts`) that chains patches per material under a combined program cache key.
 - **Rule location:** `packages/shared/src/sim/paint-cure.ts`, plain functions such as `cureAfter(cure, carrots)` and
   `freshCoat()`, so the server and client agree.
 
@@ -135,7 +139,7 @@ merges.
 | --- | --- | --- | --- | --- | --- |
 | 0 | **Done** (#13) | `foundation/cosmetic-rng` | Keep screenshots stable when the scene changes | Cosmetic effects have their own seeded RNG (D2), so adding the jaw's meshes doesn't shift screenshots. | none |
 | 1 | **Done** (#27) | `feature/robot-mouth` | Let robots open their mouths to eat carrots | The jaw on every head (the dome's seam, the visor's chin, the stalk's new seam, and a body hatch on a robot with no head). The eating timeline in `shared/sim/eating.ts`: three chomps and a gulp, with crumbs. Friends see it through the new `jaw` pose field. Eating is still just a snack: no rules change. | `PROTOCOL_VERSION` 10 |
-| 2 | | `feature/paint-cure` | Let robot paint cure from a sheer coat to full color | The `coat` material with `uCure`, which has to work alongside the ring bend's `onBeforeCompile` patch. `shared/sim/paint-cure.ts`. Each robot's cure is stored on `robots` (a guest's is held by the room and saved when they register), starts at 10%, is sent with the roster card and the aboard view, and is shown in the HUD, roster, and builder (with a 100% preview). The owner panel can set a robot's cure. The server credits a gulp only for a carrot from your pocket, and pocket carrots arrive with PR 5. Until then, a station setting (`paintCure`, in `settings_json`) leaves every coat drawn at 100%, so robots don't sit pale before carrots can be bought. | migration 6 (`robots.paint_cure`), `PROTOCOL_VERSION` 11 |
+| 2 | **Done** (#28) | `feature/paint-cure` | Let robot paint cure from a sheer coat to full color | The `coat` material with `uCure`, which has to work alongside the ring bend's `onBeforeCompile` patch. `shared/sim/paint-cure.ts`. Each robot's cure is stored on `robots` (a guest's is held by the room and saved when they register), starts at 10%, is sent with the roster card and the aboard view, and is shown in the HUD, roster, and builder (with a 100% preview). The owner panel can set a robot's cure. The server credits a gulp only for a carrot from your pocket, and pocket carrots arrive with PR 5. Until then, a station setting (`paintCure`, in `settings_json`) leaves every coat drawn at 100%, so robots don't sit pale before carrots can be bought. | migration 6 (`robots.paint_cure`), `PROTOCOL_VERSION` 11 |
 | 3 | Moved | `feature/cyber-crystal-wallet` | Give every registered player a Cyber Crystal wallet | Moved to [Players, their robots, and seats](players-and-robots.md) (its PR 3, #21), because buying a second robot needs the wallet. It lands before this initiative's PR 1. | — |
 | 4 | | `feature/first-shop` | Let players open their first shop | Spots as data, the "FOR LEASE" kiosk, and the free first shop, open while its owner is aboard. The window-shopper trickle against rent, 5-minute settlement, and "Closed for repairs". For now, shelves hold carrots only. | migration 7 (`spots`, `shops`), `PROTOCOL_VERSION` 12 |
 | 5 | | `feature/carrot-farmers` | Sell carrots at the Farmers' stand | The Farm Stand on the ring farms (a `world/` builder), the pocket inventory (`items`), buying carrots wholesale, and eating pocket carrots to cure. The owner turns on `paintCure` once this ships. From here the whole loop runs: trickle → buy → eat → cure. | migration 8 (`items`), `PROTOCOL_VERSION` 13 |
