@@ -1,10 +1,31 @@
-import { HUB_L, type XYZ } from '../ring-space.ts';
+import type { XYZ } from '../ring-space.ts';
 
 /**
- * Coming aboard: a freshly built robot is fired out of the hub's -x end cap, along the axis, into zero g. It starts
- * inside the hub's padding (the robot keeps 2.4 units off the walls) and drifts to a stop near the middle.
+ * The Bot Maker: the workshop on the promenade where new robots are made. It stands on the west (-x) side of the
+ * start plaza, between two lamp posts, with its bay door facing the walkway. Coming aboard, a robot is put together
+ * inside and rolls itself out through the door into the walkway, and then it's yours to drive.
+ *
+ * Floor-strip coordinates (x across the ring, z around it).
  */
-export const HUB_SPAWN: { readonly pos: Readonly<XYZ>; readonly speed: number } = {
-  pos: { x: -(HUB_L / 2 - 2.4), y: 0, z: 0 },
-  speed: 12,
-};
+export const BOT_MAKER = {
+  /** The x of the front wall (facing the walkway) and of the back wall. */
+  front: -26,
+  back: -40,
+  /** The z the shop (and its door) is centered on, and how wide it is along z. */
+  z: 19.2,
+  width: 18,
+  height: 8.5,
+  /** The open bay door in the middle of the front wall. */
+  door: { width: 7, height: 5.6 },
+  spawn: {
+    /** Where a new robot starts, inside the shop, facing the door (+x). */
+    x: -35,
+    z: 19.2,
+    yaw: Math.PI / 2,
+    /** It drives itself out until it reaches this x, out in the walkway (or for `maxSeconds`, if something's in the way). */
+    rollToX: -15,
+    maxSeconds: 6,
+    /** The camera watches from the walkway while it rolls out, then swings in behind it. */
+    camera: { x: -12, y: 3.4, z: 31 } satisfies XYZ,
+  },
+} as const;

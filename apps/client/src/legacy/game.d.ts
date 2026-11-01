@@ -9,8 +9,8 @@ export declare const legacy: {
   robotKit: RobotKit;
   /** Rebuilds the player's robot from these parts, wherever it is. */
   setRobotBuild(build: RobotBuild): void;
-  /** Fires the player's robot out of the hub's end cap into zero g (unless it's out flying a ship). */
-  launchIntoHub(): void;
+  /** Puts the player's robot in the Bot Maker and has it roll out into the walkway (unless it's out flying a ship). */
+  rollOutOfBotMaker(): void;
   /** The scene, the player's own robot, and what it takes to build more robots. */
   world: { scene: THREE.Scene; bot: Robot; kit: RobotKit; drawTex: DrawTexFn };
   /** Called every frame after the game updates and before it draws, with the frame time in seconds. */

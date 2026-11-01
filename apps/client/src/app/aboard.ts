@@ -12,7 +12,7 @@ const ROSTER_RETRY_MS = [1000, 2000, 5000, 10_000, 20_000, 30_000];
 
 /**
  * Coming aboard: load the roster, pick (or build) a robot, and keep this device aboard as it. Once the station lets
- * it in, the robot is assembled from its parts and fired out of the hub's end cap into zero g.
+ * it in, the robot is assembled from its parts and rolls out of the Bot Maker onto the promenade.
  *
  * A device remembers the robot it last played, so the next visit goes straight aboard. Robots with a PIN always ask
  * for it, since siblings often share a device. The game stays playable behind all of this.
@@ -73,7 +73,7 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
       if (!spawned) {
         spawned = true;
         legacy.setRobotBuild(picked.build ?? classicBuild(picked.color));
-        legacy.launchIntoHub();
+        legacy.rollOutOfBotMaker();
       }
     }
     if (s.kind === 'refused' || s.kind === 'removed') {

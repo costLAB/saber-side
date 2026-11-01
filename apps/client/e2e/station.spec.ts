@@ -1,6 +1,6 @@
 import { Client } from '@colyseus/sdk';
 import type { Page } from '@playwright/test';
-import { MESSAGE, POSE, PROTOCOL_VERSION, STATION_ROOM, type StationView } from '@saber-side/shared';
+import { BOT_MAKER, MESSAGE, POSE, PROTOCOL_VERSION, STATION_ROOM, type StationView } from '@saber-side/shared';
 import { advance, boot, expect, test } from './fixtures';
 import { STATION_PORT } from './ports';
 
@@ -35,7 +35,7 @@ async function saber<T>(page: Page, read: string): Promise<T> {
   return page.evaluate((expr) => new Function('s', `return ${expr}`)((window as any).__saber), read);
 }
 
-test('builds a robot from parts, is fired into the hub, and is remembered on the next visit', async ({
+test('builds a robot from parts, rolls it out of the Bot Maker, and remembers it on the next visit', async ({
   page,
   errors,
 }, info) => {
@@ -77,18 +77,21 @@ test('builds a robot from parts, is fired into the hub, and is remembered on the
   };
   expect(await saber(page, 's.bot.build')).toEqual(built);
   expect(await saber(page, 's.bot.arms.length')).toBe(0);
-  // Spawning fires the new robot out of the end cap into the zero-g hub, and it drifts in along the axis.
-  expect(await saber(page, 's.st.mode')).toBe('hub');
-  const x0 = await saber<number>(page, 's.bot.root.position.x');
-  await advance(page, 500);
-  expect(await saber<number>(page, 's.bot.root.position.x')).toBeGreaterThan(x0 + 2);
+  // Spawning puts the new robot in the Bot Maker, and it rolls itself out through the door into the walkway.
+  expect(await saber(page, 's.st.mode')).toBe('floor');
+  expect(await saber<number>(page, 's.st.rollout')).toBeGreaterThan(0);
+  expect(await saber<number>(page, 's.bot.root.position.x')).toBeLessThan(BOT_MAKER.front);
+  await advance(page, 5000);
+  expect(await saber<number>(page, 's.st.rollout')).toBe(0);
+  expect(await saber<number>(page, 's.bot.root.position.x')).toBeGreaterThan(BOT_MAKER.spawn.rollToX);
+  expect(await saber<number>(page, 's.bot.root.position.z')).toBeCloseTo(BOT_MAKER.z, 0);
 
   // Next visit on this device: straight aboard, no roster.
   await page.reload();
   await eventually(page, () => page.locator('#station').textContent()).toContain(`as ${name}`);
   await expect(sheet).toBeHidden();
   expect(await saber(page, 's.bot.build')).toEqual(built);
-  expect(await saber(page, 's.st.mode')).toBe('hub');
+  expect(await saber<number>(page, 's.st.rollout')).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
 
@@ -139,10 +142,8 @@ test("sees another player's robot, and sends its own", async ({ page, errors, re
       page.evaluate(() => (window as unknown as { __presence: { count: number } }).__presence.count),
     ).toBe(1);
 
-    // And this page's robot reaches the bot, where it really is. (Coming aboard fired it into the hub, so stop its
-    // drift first.)
-    await saber(page, 's.fl.V.set(0, 0, 0)');
-    await advance(page, 300);
+    // And this page's robot reaches the bot, where it really is. (Let it finish rolling out of the Bot Maker first.)
+    await advance(page, 6000);
     const here = await saber<number[]>(page, '[s.bot.root.position.x, s.bot.root.position.z]');
     const seen = () => {
       for (const [id, p] of bot.state.players ?? [])
