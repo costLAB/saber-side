@@ -76,7 +76,7 @@ All by the owner, 2026-11-01.
 - **The Bot Maker** lets a guest rebuild their one robot (the paint-cure rules for repainting apply).
 - **What a guest can't do:** hold a wallet, lease a shop, buy a farm, put a robot on duty, or build a second robot. The
   server refuses those requests from guest seats, and the client points them to the Registry instead.
-- **Nudges:** the HUD reminds guests where the Robot Registry is ("Register at the Robot Registry to keep your robot"),
+- **Nudges:** the HUD (the top-left panel, which shows "Guest · Bot 3") reminds guests where the Robot Registry is ("Register at the Robot Registry to keep your robot"),
   after they build their robot and when they try something only registered players can do.
 
 ### The Robot Registry
@@ -199,7 +199,8 @@ Fixes and small features after the initiative merged, from the owner's reports o
 | # | Status | Branch | PR title | What it changes | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
 | 5 | **Done** (#23) | `fix/bot-maker-opens-login` | Stop the Bot Maker opening the login when you're not aboard | When the page isn't aboard, the Bot Maker (and the Registry) showed the arrival screen, as if Play / Log in were the robot editor. That happens whenever the station turns the page away: above all a page older than the station (a stale deploy or a cached page), which the station refuses as outdated. Now they say why (updated and needs a reload, offline, full, restarting, on another device, or not aboard yet) with the one thing to do about it, a guest whose station is away for now still rebuilds their robot, and an outdated page says to reload as soon as it's turned away. Every halt ends the link. | none |
-| 6 | In review (#24) | `feature/rename-robot-at-bot-maker` | Let players rename their robot at the Bot Maker | A **Rename** button in the garage, beside Rebuild, for the robot the seat pilots. `MESSAGE.rename { name }` over the seat, under the owner panel's rules for robot names (`cleanRobotName`, unique ignoring case, not `Bot <n>`), answered on `NOTICE.botMaker`. The seat's synced name changes for everyone aboard, and the garage is sent again. Guests keep their made-up name. | `PROTOCOL_VERSION` 9 |
+| 6 | **Done** (#24) | `feature/rename-robot-at-bot-maker` | Let players rename their robot at the Bot Maker | A **Rename** button in the garage, beside Rebuild, for the robot the seat pilots. `MESSAGE.rename { name }` over the seat, under the owner panel's rules for robot names (`cleanRobotName`, unique ignoring case, not `Bot <n>`), answered on `NOTICE.botMaker`. The seat's synced name changes for everyone aboard, and the garage is sent again. Guests keep their made-up name. | `PROTOCOL_VERSION` 9 |
+| 7 | **Done** (#25) | `feature/player-and-robot-in-hud` | Show who you're playing as in the HUD | A `#who` line in the top-left panel: "Mia · piloting Sprout" for a registered player, "Guest · Bot 3" and the nudge to register for a guest, hidden when not aboard. The station line keeps only the station's state. The garage notice carries the player's username as saved (`Garage.player`, optional, so no protocol bump), which the device also remembers for the login form. | none |
 
 The protocol and migration numbers assume these PRs merge in this order, before the carrot initiative's PRs that bump
 them. If they land in a different order, or another PR takes a number first, use the next free one when you merge.

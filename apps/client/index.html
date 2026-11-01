@@ -35,6 +35,9 @@
   #station[data-state="unreachable"]::before, #station[data-state="outdated"]::before { background: #c8553d; }
   #station button { pointer-events: auto; font: 500 11px var(--mono); color: var(--ink); background: transparent; border: 1px solid var(--bone-edge); border-radius: 4px; padding: 1px 6px; cursor: pointer; }
   #station button:hover { border-color: var(--rust); color: var(--rust); }
+  #who { font-weight: 700; color: var(--ink); }
+  #who .guest { color: var(--rust); }
+  #who .nudge { font-weight: 400; color: var(--ink-dim); }
   #wallet { font: 700 16px var(--display); letter-spacing: 0.04em; color: var(--bone); }
 
 
@@ -69,7 +72,7 @@
 <div id="stage"></div>
 
 <header class="hud tl">
-  <div class="readout"><span id="where"></span><span id="station" hidden></span><span id="wallet" hidden></span></div>
+  <div class="readout"><span id="where"></span><span id="who" hidden></span><span id="station" hidden></span><span id="wallet" hidden></span></div>
 </header>
 
 <div class="hud bl" id="keys">
