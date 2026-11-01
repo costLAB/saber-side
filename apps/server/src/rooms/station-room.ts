@@ -5,6 +5,7 @@ import {
   buildColor,
   CLOSED,
   cleanRobotBuild,
+  freshCoat,
   type Garage,
   guestName,
   JOIN_REFUSED,
@@ -22,10 +23,12 @@ import {
   ROBOTS_PER_PLAYER,
   type RobotBuild,
   readPose,
+  repainted,
   robotPrice,
   SHARDS_PER_CC,
   type SignIn,
   STATION_CAPACITY,
+  type StationSettings,
   type WalletNotice,
 } from '@saber-side/shared';
 import { type Ledger, playerAccount, SYSTEM } from '../ledger.ts';
@@ -52,12 +55,17 @@ export const Aboard = schema(
     color: t.string(),
     /** The robot's parts and paint (RobotBuild as JSON). */
     build: t.string(),
+    /** How cured its paint is, in percent. A guest's is held only here, until they register. */
+    cure: t.uint8(),
     ...Object.fromEntries(POSE.map(([name, kind]) => [name, POSE_FIELD[kind]()])),
   },
   'Aboard',
 );
 export type Aboard = SchemaType<typeof Aboard>;
-export const StationState = schema({ name: t.string(), aboard: t.number(), players: t.map(Aboard) }, 'StationState');
+export const StationState = schema(
+  { name: t.string(), aboard: t.number(), paintCure: t.boolean(), players: t.map(Aboard) },
+  'StationState',
+);
 export type StationState = SchemaType<typeof StationState>;
 
 /** How long a dropped player's seat is held while their device reconnects (a Wi-Fi blip, an iPad waking up). */
@@ -76,12 +84,16 @@ export interface StationControl {
   refreshRobot(robot: RobotRecord): void;
   /** Tells a player's seat (if they're aboard) their balance and robots, after the owner panel changed them. */
   playerChanged(playerId: string): void;
+  /** The owner panel changed the station's settings. */
+  settingsChanged(settings: StationSettings): void;
 }
 
 export interface StationRoomDeps {
   name: string;
   players: Players;
   ledger: Ledger;
+  /** The station's settings as they are now. */
+  settings(): StationSettings;
   /** Told whenever the number of players aboard changes (the health check reports it). */
   onAboardChange(aboard: number): void;
   /** Handed the room once it exists. */
@@ -114,6 +126,7 @@ export function defineStationRoom(deps: StationRoomDeps) {
       player: deps.players.player(playerId)?.name,
       robots: robots.map(ownerRobot),
       nextPrice: robotPrice(robots.length) ?? null,
+      paintCure: deps.settings().paintCure,
     };
     client.send(NOTICE.garage, garage);
   };
@@ -157,6 +170,7 @@ export function defineStationRoom(deps: StationRoomDeps) {
     override onCreate() {
       live = this;
       this.state.name = deps.name;
+      this.state.paintCure = deps.settings().paintCure;
       // Each device reports its own robot's pose; anything malformed is ignored. Colyseus passes on only what changed.
       this.onMessage(MESSAGE.pose, (client, msg: unknown) => {
         const pose = readPose(msg);
@@ -172,7 +186,11 @@ export function defineStationRoom(deps: StationRoomDeps) {
         if (!aboard) return;
         if (!aboard.player) {
           const build = cleanRobotBuild(msg);
-          if (build) show(aboard, { name: aboard.name, color: buildColor(build), build });
+          if (!build) return;
+          // New paint starts a fresh coat, for a guest as for a saved robot (Players.rebuild).
+          const before = cleanRobotBuild(parseJson(aboard.build));
+          const cure = before && !repainted(before, build) ? aboard.cure : freshCoat();
+          show(aboard, { name: aboard.name, color: buildColor(build), build, cure });
           return;
         }
         const result = deps.players.rebuild(aboard.robot, msg);
@@ -189,13 +207,8 @@ export function defineStationRoom(deps: StationRoomDeps) {
         if (!aboard) return;
         const { name, pin } = signIn(msg);
         if (aboard.player) return answer(client, { ok: false, error: "You're registered already." });
-        let build: unknown;
-        try {
-          build = JSON.parse(aboard.build);
-        } catch {
-          build = undefined;
-        }
-        const made = deps.players.register(name, pin, build);
+        // Their robot is saved as built, with the cure it earned as a guest.
+        const made = deps.players.register(name, pin, parseJson(aboard.build), aboard.cure);
         if (!made.ok) return answer(client, { ok: false, error: made.error });
         this.#seat(client, aboard, made.value.player.id, made.value.robot);
         answer(client, { ok: true, name: made.value.player.name });
@@ -283,6 +296,14 @@ export function defineStationRoom(deps: StationRoomDeps) {
             if (aboard.player === playerId && client) sendPlayer(client, playerId);
           });
         },
+        settingsChanged: (settings) => {
+          this.state.paintCure = settings.paintCure;
+          // The roster's cure rings come and go with the setting.
+          this.state.players.forEach((aboard, sessionId) => {
+            const client = this.clients.find((c) => c.sessionId === sessionId);
+            if (aboard.player && client) sendPlayer(client, aboard.player);
+          });
+        },
         refreshRobot: (robot) => {
           this.state.players.forEach((aboard) => {
             if (aboard.player && aboard.robot === robot.id) show(aboard, robot);
@@ -298,7 +319,12 @@ export function defineStationRoom(deps: StationRoomDeps) {
         const names = [...this.state.players.values()].filter((a) => !a.player).map((a) => a.name);
         aboard.player = '';
         aboard.robot = `guest-${client.sessionId}`;
-        show(aboard, { name: guestName(nextGuestNumber(names)), color: buildColor(auth.guest), build: auth.guest });
+        show(aboard, {
+          name: guestName(nextGuestNumber(names)),
+          color: buildColor(auth.guest),
+          build: auth.guest,
+          cure: freshCoat(),
+        });
       } else {
         const robot = deps.players.robot(auth.robot);
         if (!robot) {
@@ -414,9 +440,18 @@ function built(client: Client, reply: BotMakerAnswer) {
 
 const refused = (status: number, error: string) => ({ ok: false, status, error }) as const;
 
-/** Puts a robot's name and looks on its seat, for everyone aboard to see. */
-function show(aboard: Aboard, robot: { name: string; color: string; build: RobotBuild }) {
+/** Puts a robot's name and looks (paint cure and all) on its seat, for everyone aboard to see. */
+function show(aboard: Aboard, robot: { name: string; color: string; build: RobotBuild; cure: number }) {
   aboard.name = robot.name;
   aboard.color = robot.color;
   aboard.build = JSON.stringify(robot.build);
+  aboard.cure = robot.cure;
+}
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
 }

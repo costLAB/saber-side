@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { type Flight, PLANETS, type Planet, RING_DOCKS } from '@saber-side/shared';
+import { classicBuild, type Flight, PLANETS, type Planet, RING_DOCKS } from '@saber-side/shared';
 import { advance, boot, expect, hold, snap, test } from './fixtures';
 
 /** The part of the `?debug` hook these tests use. */
@@ -12,6 +12,8 @@ interface SaberDebug {
 
 /** Just the robot's head, in the close-up. */
 const HEAD = { x: 470, y: 80, width: 340, height: 260 };
+/** The whole robot, in the close-up. */
+const ROBOT = { x: 400, y: 70, width: 480, height: 620 };
 
 /** Stands the robot by the table with the carrot on it, and brings the camera in close on its face. */
 async function closeUp(page: Page) {
@@ -113,6 +115,39 @@ test('eating a carrot: three chomps and a gulp', async ({ page, errors }, info) 
   expect(nod).toBeGreaterThan(0.1);
   await advance(page, 500);
   expect(await mouth()).toEqual({ jaw: 0, hinge: 0 });
+  expect(errors).toEqual([]);
+});
+
+test('paint cures from a sheer coat to full color, on the bent floor and in real space', async ({
+  page,
+  errors,
+}, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await closeUp(page);
+  // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+  const saber = await page.evaluateHandle(() => (window as any).__saber);
+  const coat = (cure: number) =>
+    saber.evaluate((s, value) => {
+      s.bot.coat.value = value;
+    }, cure);
+  // An Ocean-blue robot (shell and head painted; offline, nothing else sets its coat).
+  await saber.evaluate((s, build) => s.legacy.setRobotBuild(build), classicBuild('#5d97d8'));
+  await coat(0.1);
+  await advance(page, 300);
+  await snap(page, 'coat-10.png', ROBOT);
+  await coat(1);
+  await snap(page, 'coat-100.png', ROBOT);
+
+  // Up lift 1 into the hub, where things are drawn unbent: the coat still shows through the bend's patch.
+  await coat(0.1);
+  await saber.evaluate((s) => {
+    s.st.boardNext = s.lifts[0];
+  });
+  await advance(page, 9500);
+  await expect(page.locator('#where')).toHaveText('Ring Seven · Hub');
+  await advance(page, 3000);
+  await snap(page, 'coat-hub.png');
+  expect(await saber.evaluate((s) => s.bot.coat.value)).toBe(0.1);
   expect(errors).toEqual([]);
 });
 

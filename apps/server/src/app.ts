@@ -1,8 +1,14 @@
 import { defineRoom, defineServer, matchMaker } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
-import { PROTOCOL_VERSION, STATION_CAPACITY, STATION_ROOM, type StationHealth } from '@saber-side/shared';
+import {
+  PROTOCOL_VERSION,
+  STATION_CAPACITY,
+  STATION_ROOM,
+  type StationHealth,
+  type StationSettings,
+} from '@saber-side/shared';
 import type { ServerConfig } from './config.ts';
-import { loadStation, openDatabase } from './db.ts';
+import { loadSettings, loadStation, openDatabase, saveSettings } from './db.ts';
 import { addRoutes } from './http.ts';
 import { Ledger } from './ledger.ts';
 import { originChecker } from './origins.ts';
@@ -27,6 +33,15 @@ export async function startStation(config: ServerConfig): Promise<RunningStation
   const ledger = new Ledger(db);
   let aboard = 0;
   let station: StationControl | undefined;
+  let current = loadSettings(db);
+  const settings = {
+    get: (): StationSettings => current,
+    set(next: StationSettings) {
+      saveSettings(db, next);
+      current = next;
+      station?.settingsChanged(next);
+    },
+  };
   const health = (): StationHealth => ({
     ok: true,
     protocol: PROTOCOL_VERSION,
@@ -59,6 +74,7 @@ export async function startStation(config: ServerConfig): Promise<RunningStation
           name: record.name,
           players,
           ledger,
+          settings: settings.get,
           onAboardChange: (n) => {
             aboard = n;
           },
@@ -69,7 +85,15 @@ export async function startStation(config: ServerConfig): Promise<RunningStation
       ),
     },
     express: (app) =>
-      addRoutes(app, { players, ledger, health, allowed, adminKey: config.adminKey, station: () => station }),
+      addRoutes(app, {
+        players,
+        ledger,
+        settings,
+        health,
+        allowed,
+        adminKey: config.adminKey,
+        station: () => station,
+      }),
   });
   server.onShutdown(() => db.close());
 

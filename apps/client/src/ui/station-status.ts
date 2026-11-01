@@ -1,3 +1,4 @@
+import { cureText } from '@saber-side/shared';
 import type { StationStatus } from '../net/station-link';
 
 /** The station line can also say we're not aboard (the arrival screen was dismissed, or a join was refused or removed). */
@@ -70,8 +71,11 @@ export function showStationStatus(
   }
 }
 
-/** Who this seat is, for the HUD: a registered player and the robot they pilot, or a guest. */
-export type Who = { player: string; robot: string } | { guest: string };
+/**
+ * Who this seat is, for the HUD: a registered player and the robot they pilot, or a guest. `paint` is the robot's
+ * paint cure in percent, when paint cures on this station and the robot has any paint.
+ */
+export type Who = ({ player: string; robot: string } | { guest: string }) & { paint?: number };
 
 /**
  * The line above the station line saying who you're playing as: "Mia · piloting Sprout" for a registered player, or
@@ -102,4 +106,5 @@ export function showWho(el: HTMLElement, who: Who | undefined) {
     el.dataset.kind = 'player';
     el.append(`${who.player} · piloting ${who.robot}`);
   }
+  if (who.paint !== undefined) el.append(span('paint', ` · ${cureText(who.paint)}`));
 }

@@ -1,5 +1,6 @@
 import { R_IN } from '@saber-side/shared';
 import type * as THREE from 'three';
+import { hasPatch, patchShader } from '../shader-patch';
 
 // Everything that lives on the floor is simulated on a flat strip (x across, z around the ring, y up) and bent onto the
 // cylinder in the vertex shader. The CPU uses the same mapping (bendPoint in @saber-side/shared) for the camera and
@@ -17,12 +18,12 @@ vec3 bendDir( vec3 v, float th ) { float c = cos( th ), s = sin( th ); return ve
 
 /**
  * Patches a material's vertex shader so whatever uses it is bent onto the ring (or drawn as-is in real space).
- * Works for meshes, instanced meshes, and sprites. Safe to call twice.
+ * Works for meshes, instanced meshes, and sprites. Safe to call twice, and it stacks with other patches (a robot's
+ * paint coat) through `patchShader`.
  */
 export function bendMaterial(m: THREE.Material) {
-  if (m.userData.bent) return;
-  m.userData.bent = true;
-  m.onBeforeCompile = (sh) => {
+  if (isBent(m)) return;
+  patchShader(m, 'bend', (sh) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>\n${BEND_GLSL}`);
     if ((m as THREE.SpriteMaterial).isSpriteMaterial) {
       sh.vertexShader = sh.vertexShader.replace(
@@ -54,7 +55,10 @@ export function bendMaterial(m: THREE.Material) {
         transformedNormal = mat3( viewMatrix ) * ( bp0.y > 5000.0 ? wn0 : bendDir( wn0, -bp0.z / BEND_R ) );
       }`,
     );
-  };
-  m.customProgramCacheKey = () => 'bend';
-  m.needsUpdate = true;
+  });
+}
+
+/** Whether a material is already bent onto the ring. (A clone of a bent material isn't, until it's bent too.) */
+export function isBent(m: THREE.Material): boolean {
+  return hasPatch(m, 'bend');
 }

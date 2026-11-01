@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { cleanSettings, type StationSettings } from '@saber-side/shared';
 
 /**
  * Schema changes, applied in order. `PRAGMA user_version` records how many have run.
@@ -72,6 +73,10 @@ export const MIGRATIONS: readonly string[] = [
    CREATE INDEX ledger_from ON ledger (from_acct);
    CREATE INDEX ledger_to ON ledger (to_acct);
    CREATE INDEX ledger_ref ON ledger (ref);`,
+
+  // 6: paint that cures (docs/initiatives/carrot-economy.md): how cured a robot's coat is, in percent. Robots made
+  // before it start a fresh coat at 10%, like everyone else (an owner decision).
+  `ALTER TABLE robots ADD COLUMN paint_cure INTEGER NOT NULL DEFAULT 10 CHECK (paint_cure BETWEEN 0 AND 100);`,
 ];
 
 /** Opens (creating if needed) the station database and brings its schema up to date. */
@@ -117,6 +122,35 @@ export function migrate(db: DatabaseSync, migrations: readonly string[] = MIGRAT
 export interface StationRecord {
   name: string;
   createdAt: string;
+}
+
+/** The station's settings (`settings_json`), with defaults for anything missing. */
+export function loadSettings(db: DatabaseSync): StationSettings {
+  const row = db.prepare('SELECT settings_json FROM station WHERE id = 1').get() as
+    | { settings_json: string }
+    | undefined;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(row?.settings_json ?? '{}');
+  } catch {
+    raw = undefined;
+  }
+  return cleanSettings(raw);
+}
+
+/** Saves the station's settings, keeping any keys this server doesn't know (a newer one may have written them). */
+export function saveSettings(db: DatabaseSync, settings: StationSettings) {
+  const row = db.prepare('SELECT settings_json FROM station WHERE id = 1').get() as
+    | { settings_json: string }
+    | undefined;
+  let kept: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(row?.settings_json ?? '{}');
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) kept = parsed;
+  } catch {
+    kept = {};
+  }
+  db.prepare('UPDATE station SET settings_json = ? WHERE id = 1').run(JSON.stringify({ ...kept, ...settings }));
 }
 
 export function loadStation(db: DatabaseSync): StationRecord {

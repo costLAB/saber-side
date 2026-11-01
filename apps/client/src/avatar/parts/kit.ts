@@ -1,12 +1,18 @@
 import { ORIGINAL_PAINT } from '@saber-side/shared';
 import * as THREE from 'three';
+import { patchShader } from '../../render/shader-patch';
 
 // What every robot part is built with: the shared materials and helpers (the legacy game's, so everything casts and
 // glows the same way), plus the paint for this robot.
+//
+// Paint is a coat over the part's original skin (docs/initiatives/carrot-economy.md): each painted part draws
+// `mix(skin, skin × paint, cure)`, so the skin's seams, rivets, grime, and bump read through it. One `cure` uniform per
+// robot sets how opaque every coat on it is, from 0 (bare skin) to 1 (fully cured, exactly the old flat tint). A coat
+// still curing looks a little glossy, like wet paint.
 
 export const TAU = Math.PI * 2;
 
-/** The materials robots are built from. Parts with paint get tinted copies; unpainted parts share these. */
+/** The materials robots are built from. Parts with paint get coat copies; unpainted parts share these. */
 export interface RobotMaterials {
   shell: THREE.Material;
   head: THREE.Material;
@@ -29,33 +35,61 @@ export interface RobotKit {
   toTex(c: HTMLCanvasElement, srgb: boolean): THREE.Texture;
 }
 
+/** How opaque a robot's paint coats are drawn, from 0 to 1: one uniform shared by every coat on the robot. */
+export type CoatCure = { value: number };
+
 /** A kit for building one robot: the shared kit, plus `tint` for its painted parts. */
 export interface PartKit extends RobotKit {
   /**
-   * The material for a part in `paint`: the shared one for the original skin, otherwise a tinted copy. `boost`
-   * brightens the tint for dark skins, which would otherwise swallow the color.
+   * The material for a part in `paint`: the shared one for the original skin, otherwise a coat copy. `boost`
+   * brightens the coat for dark skins, which would otherwise swallow the color.
    */
   tint(base: THREE.Material, paint: string, boost?: number): THREE.Material;
+  /** The robot's coat cure (starts fully cured). */
+  cure: CoatCure;
 }
+
+/** A coat that's just been painted is this much glossier than the skin (its roughness, times this). */
+const WET = 0.6;
 
 export function partKit(kit: RobotKit): PartKit {
   const copies = new Map<string, THREE.Material>();
+  const cure: CoatCure = { value: 1 };
   return {
     ...kit,
+    cure,
     tint(base, paint, boost = 1) {
       if (paint === ORIGINAL_PAINT) return base;
       const key = `${base.uuid}|${paint}|${boost}`;
       let m = copies.get(key);
       if (!m) {
+        // A copy doesn't carry its original's shader patches (the ring bend): whoever bends the robot bends it too.
         m = base.clone();
-        // A copy doesn't carry its original's shader patches (the ring bend), so it mustn't say it does either.
-        delete m.userData.bent;
-        (m as THREE.MeshStandardMaterial).color.set(paint).multiplyScalar(boost);
+        coat(m, new THREE.Color(paint).multiplyScalar(boost), cure);
         copies.set(key, m);
       }
       return m;
     },
   };
+}
+
+/** Makes a material a paint coat: its skin (color and map) times `paint`, as opaque as `cure` says. */
+function coat(m: THREE.Material, paint: THREE.Color, cure: CoatCure) {
+  const uCoat = { value: paint };
+  patchShader(m, 'coat', (sh) => {
+    sh.uniforms.uCure = cure;
+    sh.uniforms.uCoat = uCoat;
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uCure;\nuniform vec3 uCoat;')
+      .replace(
+        '#include <map_fragment>',
+        '#include <map_fragment>\n  diffuseColor.rgb *= mix( vec3( 1.0 ), uCoat, uCure );',
+      )
+      .replace(
+        '#include <roughnessmap_fragment>',
+        `#include <roughnessmap_fragment>\n  roughnessFactor *= mix( ${WET.toFixed(2)}, 1.0, uCure );`,
+      );
+  });
 }
 
 /** Places obj on a sphere of radius r: lat up from the equator, lon from +z toward +x; obj's +z faces outward. */

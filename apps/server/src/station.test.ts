@@ -577,4 +577,64 @@ describe('owner panel', () => {
     expect(entries[0]).toMatchObject({ to: 'removed', shards: 500, reason: 'removed' });
     expect((await list(server)).map((p) => [p.name, p.shards])).toEqual([['Zed', 300]]);
   });
+
+  it("sets a robot's paint cure, and everyone aboard sees it", async () => {
+    const server = await boot({ ADMIN_KEY: key, ...seeded({ name: 'Zed', pin: '1111' }) });
+    const room = await logIn(server, 'Zed', '1111');
+    const garages = garage(room);
+    await until(() => room.state.players?.get(room.sessionId)?.cure === 10, 'a fresh coat');
+    const robot = (await list(server))[0]?.robots[0] as OwnerRobot;
+    expect(robot.cure).toBe(10);
+    const res = await api<OwnerRobot>(server, 'POST', `/owner/robots/${robot.id}/cure`, { cure: 37 }, owner);
+    expect(res).toMatchObject({ status: 200, body: { cure: 37 } });
+    await until(() => room.state.players.get(room.sessionId)?.cure === 37, 'the cure to sync');
+    await until(() => garages.at(-1)?.robots[0]?.cure === 37, 'the garage to show the cure');
+    expect((await api(server, 'POST', `/owner/robots/${robot.id}/cure`, { cure: 'x' }, owner)).status).toBe(400);
+    expect((await api(server, 'POST', '/owner/robots/nope/cure', { cure: 5 }, owner)).status).toBe(404);
+  });
+
+  it('turns paint cure on and off for the whole station, and keeps it across a restart', async () => {
+    const env = { ADMIN_KEY: key, ...seeded({ name: 'Zed', pin: '1111' }) };
+    const first = await boot(env);
+    const room = await logIn(first, 'Zed', '1111');
+    const garages = garage(room);
+    await until(() => room.state.players?.get(room.sessionId) !== undefined, 'Zed to be aboard');
+    expect(room.state.paintCure).toBe(false);
+    expect((await api(first, 'GET', '/owner/settings', undefined, owner)).body).toEqual({ paintCure: false });
+    const on = await api(first, 'POST', '/owner/settings', { paintCure: true }, owner);
+    expect(on).toMatchObject({ status: 200, body: { paintCure: true } });
+    await until(() => room.state.paintCure === true, 'the setting to sync');
+    await until(() => garages.at(-1)?.paintCure === true, 'the garage to say so');
+    // Anything malformed leaves it as it was.
+    expect((await api(first, 'POST', '/owner/settings', { paintCure: 'no' }, owner)).body).toEqual({ paintCure: true });
+    expect((await api(first, 'POST', '/owner/settings', { paintCure: true })).status).toBe(401);
+    await first.stop();
+
+    const second = await boot(env);
+    const back = await logIn(second, 'Zed', '1111');
+    await until(() => back.state.players?.get(back.sessionId) !== undefined, 'Zed to be back');
+    expect(back.state.paintCure).toBe(true);
+  });
+});
+
+describe('paint cure for guests', () => {
+  const red = classicBuild('#e8935a');
+  const blue = classicBuild('#5d97d8');
+
+  it("holds a guest's cure in the room, starts it fresh on new paint, and saves it when they register", async () => {
+    const server = await boot();
+    const guest = await comeAboard(server, { guest: { build: red } });
+    const me = () => guest.state.players?.get(guest.sessionId);
+    await until(() => me()?.cure === 10, 'a fresh coat');
+    // Swapping a part in the same paint keeps the coat; new paint starts it again (here, still 10).
+    guest.send(MESSAGE.rebuild, { ...red, arms: null });
+    await until(() => me()?.build.includes('"arms":null') ?? false, 'the rebuild');
+    expect(me()?.cure).toBe(10);
+    guest.send(MESSAGE.rebuild, blue);
+    await until(() => me()?.color === '#5d97d8', 'the repaint');
+    expect(me()?.cure).toBe(10);
+    expect(await ask(guest, MESSAGE.register, { name: 'Mia', pin: '4321' })).toEqual({ ok: true, name: 'Mia' });
+    await until(() => me()?.name === 'Mia', "the seat to be Mia's");
+    expect(me()?.cure).toBe(10);
+  });
 });

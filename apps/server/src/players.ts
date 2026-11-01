@@ -3,8 +3,10 @@ import type { DatabaseSync } from 'node:sqlite';
 import {
   buildColor,
   classicBuild,
+  cleanCure,
   cleanRobotBuild,
   cleanRobotName,
+  freshCoat,
   isGuestName,
   isPin,
   type OwnerPlayer,
@@ -13,6 +15,7 @@ import {
   PLAYERS_MAX,
   pinLockSeconds,
   type RobotBuild,
+  repainted,
 } from '@saber-side/shared';
 
 // Registered players and their robots (docs/initiatives/players-and-robots.md). Guests never reach this: the room
@@ -29,6 +32,8 @@ export interface RobotRecord {
   name: string;
   color: string;
   build: RobotBuild;
+  /** How cured its paint is, in percent (shared sim/paint-cure.ts). */
+  cure: number;
 }
 
 /** A change that worked, or why not (with the HTTP status to send). */
@@ -50,11 +55,12 @@ interface RobotRow {
   display_name: string;
   color: string;
   build_json: string;
+  paint_cure: number;
 }
 
 /** What `pin_hash` holds after an owner resets a forgotten PIN: the next PIN typed at login becomes the new one. */
 const PIN_RESET = 'reset';
-const ROBOT_COLUMNS = 'id, player_id, display_name, color, build_json';
+const ROBOT_COLUMNS = 'id, player_id, display_name, color, build_json, paint_cure';
 /** A login's robot: the one piloted most recently, else the oldest. */
 const ROBOT_ORDER = 'ORDER BY piloted_at IS NULL, piloted_at DESC, created_at, rowid';
 const NOW_SQL = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
@@ -102,6 +108,7 @@ const robotRecord = (row: RobotRow): RobotRecord => ({
   name: row.display_name,
   color: row.color,
   build: storedBuild(row),
+  cure: row.paint_cure,
 });
 
 /** The players and robots in the database, plus the in-memory PIN lockouts. */
@@ -196,9 +203,14 @@ export class Players {
 
   /**
    * Saves a new player with a PIN and their first robot, named after them. (The Robot Registry calls this when a
-   * guest signs up.)
+   * guest signs up, bringing the cure their robot earned as a guest.)
    */
-  register(rawName: string, pin: string, rawBuild: unknown): Outcome<{ player: PlayerRecord; robot: RobotRecord }> {
+  register(
+    rawName: string,
+    pin: string,
+    rawBuild: unknown,
+    cure: number = freshCoat(),
+  ): Outcome<{ player: PlayerRecord; robot: RobotRecord }> {
     const name = cleanRobotName(rawName);
     if (!name) return fail(400, BAD_NAME);
     if (isGuestName(name)) return fail(400, GUEST_NAME);
@@ -218,10 +230,10 @@ export class Players {
         .run(player.id, name, hashPin(pin));
       this.#db
         .prepare(
-          `INSERT INTO robots (id, player_id, display_name, color, build_json, created_at, piloted_at)
-           VALUES (?, ?, ?, ?, ?, ${NOW_SQL}, ${NOW_SQL})`,
+          `INSERT INTO robots (id, player_id, display_name, color, build_json, paint_cure, created_at, piloted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ${NOW_SQL}, ${NOW_SQL})`,
         )
-        .run(robotId, player.id, name, buildColor(build), JSON.stringify(build));
+        .run(robotId, player.id, name, buildColor(build), JSON.stringify(build), cleanCure(cure) ?? freshCoat());
       this.#db.exec('COMMIT');
     } catch (e) {
       this.#db.exec('ROLLBACK');
@@ -252,13 +264,24 @@ export class Players {
     return { ok: true, value: this.robot(id) as RobotRecord };
   }
 
-  /** New parts and paint for a saved robot. */
+  /** New parts and paint for a saved robot. New paint starts a fresh coat (see `repainted`). */
   rebuild(robotId: string, rawBuild: unknown): Outcome<RobotRecord> {
     const build = cleanRobotBuild(rawBuild);
     if (!build) return fail(400, 'A robot needs a wheel, and parts and paint from the list.');
-    const changed = this.#db
-      .prepare('UPDATE robots SET build_json = ?, color = ? WHERE id = ?')
-      .run(JSON.stringify(build), buildColor(build), robotId).changes;
+    const before = this.robot(robotId);
+    if (!before) return fail(404, 'No such robot.');
+    const cure = repainted(before.build, build) ? freshCoat() : before.cure;
+    this.#db
+      .prepare('UPDATE robots SET build_json = ?, color = ?, paint_cure = ? WHERE id = ?')
+      .run(JSON.stringify(build), buildColor(build), cure, robotId);
+    return { ok: true, value: this.robot(robotId) as RobotRecord };
+  }
+
+  /** Sets how cured a robot's paint is (the owner panel), as a whole percent. */
+  setCure(robotId: string, raw: unknown): Outcome<RobotRecord> {
+    const cure = cleanCure(raw);
+    if (cure === undefined) return fail(400, 'Type a cure from 0 to 100.');
+    const changed = this.#db.prepare('UPDATE robots SET paint_cure = ? WHERE id = ?').run(cure, robotId).changes;
     return changed ? { ok: true, value: this.robot(robotId) as RobotRecord } : fail(404, 'No such robot.');
   }
 
@@ -334,5 +357,5 @@ export class Players {
 }
 
 export function ownerRobot(robot: RobotRecord): OwnerRobot {
-  return { id: robot.id, name: robot.name, color: robot.color, build: robot.build };
+  return { id: robot.id, name: robot.name, color: robot.color, build: robot.build, cure: robot.cure };
 }

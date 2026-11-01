@@ -1,5 +1,14 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { type ApiError, CLOSED, type LedgerEntry, type OwnerPlayer, type StationHealth } from '@saber-side/shared';
+import {
+  type ApiError,
+  CLOSED,
+  cleanSettings,
+  type LedgerEntry,
+  type OwnerPlayer,
+  type OwnerSettings,
+  type StationHealth,
+  type StationSettings,
+} from '@saber-side/shared';
 import express, { type Application, type RequestHandler, type Response } from 'express';
 import { type Ledger, playerAccount } from './ledger.ts';
 import { type Outcome, ownerRobot, type Players } from './players.ts';
@@ -8,6 +17,8 @@ import type { StationControl } from './rooms/station-room.ts';
 export interface RouteDeps {
   players: Players;
   ledger: Ledger;
+  /** The station's settings: read them, or change and save them (and tell the live room). */
+  settings: { get(): StationSettings; set(next: StationSettings): void };
   health(): StationHealth;
   allowed(origin: string | undefined): boolean;
   /** The owner panel's key (ADMIN_KEY). Unset turns the owner endpoints off. */
@@ -35,6 +46,15 @@ export function addRoutes(app: Application, deps: RouteDeps) {
   owner.use(requireOwner(deps.adminKey));
   owner.get('/check', (_req, res) => {
     res.status(204).end();
+  });
+  owner.get('/settings', (_req, res) => {
+    res.json(deps.settings.get() satisfies OwnerSettings);
+  });
+  // Changes only the settings the body names; the rest stay as they are.
+  owner.post('/settings', (req, res) => {
+    const next = cleanSettings(req.body, deps.settings.get());
+    deps.settings.set(next);
+    res.json(next satisfies OwnerSettings);
   });
   owner.get('/players', (_req, res) => {
     const players = deps.players.list().map((p) => ({ ...p, shards: deps.ledger.balance(playerAccount(p.id)) }));
@@ -80,6 +100,15 @@ export function addRoutes(app: Application, deps: RouteDeps) {
   });
   owner.post('/robots/:id/rename', (req, res) => {
     const result = deps.players.renameRobot(req.params.id, String(req.body?.name ?? ''));
+    if (result.ok) {
+      deps.station()?.refreshRobot(result.value);
+      deps.station()?.playerChanged(result.value.playerId);
+    }
+    send(res, result.ok ? { ok: true, value: ownerRobot(result.value) } : result);
+  });
+  // How cured a robot's paint is, in percent.
+  owner.post('/robots/:id/cure', (req, res) => {
+    const result = deps.players.setCure(req.params.id, req.body?.cure);
     if (result.ok) {
       deps.station()?.refreshRobot(result.value);
       deps.station()?.playerChanged(result.value.playerId);
