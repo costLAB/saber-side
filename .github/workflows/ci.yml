@@ -28,6 +28,15 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm --filter @saber-side/client exec playwright install --with-deps chromium
       - run: pnpm e2e
+      - name: How to update the screenshots
+        if: failure()
+        run: |
+          {
+            echo "### If the picture changed on purpose"
+            echo "Run **Actions → Update screenshots → Run workflow** with this branch (\`${{ github.head_ref || github.ref_name }}\`)."
+            echo "It re-records the baselines on CI's machine, commits them here, and runs CI again."
+            echo "Otherwise, the diffs are in the playwright-report artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
