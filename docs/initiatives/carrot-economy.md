@@ -33,6 +33,9 @@ All by the owner, 2026-11-01.
   **buy a farm**, grow their own carrots, and make the stand very profitable.
 - **A farm's bin is capped**, at 60 carrots, so a farm doesn't keep piling up carrots while a kid is at school.
 - **The free carrot on the table is a snack.** It respawns every few seconds, so it doesn't cure paint.
+- **Carrot beds on the ring farms (2026-11-02).** The farm strips have real carrots planted in beds. A spin move in a
+  bed kicks a few up into the air, to grab and eat; the plants grow back in about 40 seconds. Up to 100 harvested
+  carrots can lie about at once. Like the table carrot, they're snacks for now (see *Where carrots go*).
 
 ## Design
 
@@ -100,6 +103,9 @@ All by the owner, 2026-11-01.
   - Walk up to the bin to pull the carrots into your pocket, then stock your stand with them. A delivery bot that
     carries them for you can be an upgrade later.
   - Farm carrots cost almost nothing to stock, so a stand fed by your own farm is **very profitable**.
+- **Wild carrots from the beds** (`content/carrot-beds.ts`, `sim/harvest.ts`) are snacks, outside the ledger: they
+  don't go into pockets or cure paint, and each player's harvest is their own until loose items are shared (P3).
+  Whether a bed carrot should cure paint is an open question below.
 - **Where carrots go:** carrots enter the world only from the Farmers and from farms. They leave only by being eaten or
   bought by robot shoppers. Tests check that carrots are conserved, just like shards.
 
@@ -173,6 +179,9 @@ PR takes a number first, use the next free one when you merge.
 | Kids sit with pale robots before they can buy carrots | `paintCure` stays off until PR 5 ships |
 
 ## Open questions
+
+- **Should carrots harvested from the farm beds cure paint?** They're free, so if they did, nobody would need to buy
+  carrots from the Farmers or from stands. Today they're snacks; decide before `feature/carrot-farmers`.
 
 - **Where do guests get carrots to cure with?** Guests can cure, but have no wallet to buy carrots with. Tracked in
   [Players, their robots, and seats](players-and-robots.md#open-questions); needed before `feature/carrot-farmers`.
