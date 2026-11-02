@@ -36,6 +36,9 @@ All by the owner, 2026-11-01.
 - **Carrot beds on the ring farms (2026-11-02).** The farm strips have real carrots planted in beds. A spin move in a
   bed kicks a few up into the air, to grab and eat; the plants grow back in about 40 seconds. Up to 100 harvested
   carrots can lie about at once. Like the table carrot, they're snacks for now (see *Where carrots go*).
+- **Fully cured paint is exactly the color picked (2026-11-02).** At 100%, every painted part is the selected color,
+  covering the skin completely: none of its seams, rivets, grime, or panel pattern shows through. Light, shadow, and
+  the part's shape still shade it. This replaces the first design, where the skin read through faintly at 100%.
 
 ## Design
 
@@ -44,13 +47,19 @@ All by the owner, 2026-11-01.
 - **One cure value per robot**, from 0 to 100 (%), kept by the server: in `robots.paint_cure` for registered players'
   robots, and in the room's memory for a guest's, until the guest registers at the Robot Registry and it's saved. It applies to every painted part at once. Parts
   left in their original skin don't change.
-- **How it looks:** each painted part draws its coat over the skin texture as `mix(skin, coat, cure)`. The coat is the
-  chosen paint, lit by the skin's own light and shade, so the panel seams, rivets, grime, and bump still read through
-  faintly at 100%. That matters because the mouth opens on one of those seams.
-  - Today's `tint` (a flat multiply in `avatar/parts/kit.ts`) becomes a `coat` material with one `uCure` uniform.
-    `partKit` already gives each robot its own painted copies, so every robot can have its own cure.
-  - A coat that's still curing looks a little glossy, like wet paint, and goes to the skin's roughness at 100%.
+- **How it looks:** each painted part blends from its bare skin to the flat paint as `mix(skin, paint, cure)`.
+  - At 0% it's the skin untouched: its texture, bump, and finish.
+  - At 100% the part's albedo is exactly the color picked (the hex converted to linear, as three.js converts colors),
+    with one painted finish on every part (satin, not metallic) and the skin's bump flattened away. No seam, rivet,
+    grime, or panel pattern shows. Light, shadow, and the part's shape still shade it, so it isn't flat-lit.
+  - In between, the color, the bump, and the finish all blend smoothly, so a half-cured coat is a wash of the paint
+    with the skin's pattern fading under it.
+  - The coat is a `coat` material in `avatar/parts/kit.ts` with one `uCure` uniform. `partKit` gives each robot its
+    own painted copies, so every robot can have its own cure.
+  - A coat that's still curing looks a little glossy, like wet paint: wettest on a fresh coat, drying as it cures.
   - When a carrot lands, the change eases in over about a second.
+  - The jaw's cut follows the same seam, so a shut jaw at 100% shows no line at all (the head reads as one smooth
+    dome), and an open one shows the dark mouth inside.
 - **Rates (config):** a fresh coat starts at 10%, and each carrot adds 1 point (`CURE_PER_CARROT = 1`). The cure is
   capped at 100. A fully cured robot can still eat carrots for fun, with the animation and no effect.
 - **Where it shows:** the HUD (`Paint 37%`), and the roster and builder, which show the target color with a cure ring.
@@ -156,6 +165,14 @@ merges.
 The protocol and migration numbers assume the PRs merge in this order, after the four PRs of [Players, their robots, and seats](players-and-robots.md) (migrations 4 and 5, protocol 5 to 8), and renaming robots (#24, protocol 9). If they land in a different order, or another
 PR takes a number first, use the next free one when you merge.
 
+### Paint cure follow-ups
+
+Changes to the paint cure after it shipped, from the owner's decisions.
+
+| # | Status | Branch | PR title | What it changes | Protocol / schema |
+| --- | --- | --- | --- | --- | --- |
+| 2a | In review (#PRNUM) | `feature/solid-cured-paint` | Make fully cured paint the exact color you picked | The coat blends from the bare skin to the flat paint (`mix(skin, paint, cure)`) instead of multiplying the skin, so at 100% a painted part is exactly the color picked: the hex converted to linear, one satin non-metallic finish on every part, and the skin's bump flattened. The `boost` for dark skins is gone. With `paintCure` off, every coat is drawn at 100%, so every painted robot changes look. An e2e check reads back a painted panel's pixels. | none |
+
 ## Tests
 
 - **Unit:** cure math (the start, the cap, and that a fully cured robot eats with no effect), the eating timeline, farm
@@ -167,7 +184,8 @@ PR takes a number first, use the next free one when you merge.
     shoppers + carrots in pockets, on shelves, and in bins.
   - Two kids buying the last carrot on a shelf at once.
 - **E2E:** an "eat a carrot" action that checks the jaw angle and the cure through the `?debug` hook. A close-up
-  screenshot mid-gulp, and painted robots at 10% and 100%.
+  screenshot mid-gulp, and painted robots at 10%, 50%, and 100%. A painted panel drawn under neutral light and read
+  back: at 100% every pixel is the paint's hex with no variation, and at 0% it's the bare skin, pixel for pixel.
 
 ## Risks
 
@@ -175,7 +193,7 @@ PR takes a number first, use the next free one when you merge.
 | --- | --- |
 | The paint coat's shader fights the ring bend (both use `onBeforeCompile`, and `tint` copies drop the bend flag today) | One shader-patch helper that chains patches, plus a screenshot of a painted robot on the bent floor and in real space |
 | Curing to full color feels like a grind, or goes too fast | `CURE_PER_CARROT`, the starting cure, and carrot prices are config, tunable from the owner panel; watch real play before changing them |
-| The jaw's cut shows a gap or a texture jump when closed | UVs remapped to the full sphere, plus a close-up screenshot of the closed head next to today's |
+| The jaw's cut shows a gap or a texture jump when closed | UVs remapped to the full sphere, plus a close-up screenshot of the closed head next to today's. With solid paint at 100% there's no seam left to hide the cut in: the jaw shares the skull's vertices, so a shut jaw shows no line (checked by eye at 100%) |
 | Kids sit with pale robots before they can buy carrots | `paintCure` stays off until PR 5 ships |
 
 ## Open questions
