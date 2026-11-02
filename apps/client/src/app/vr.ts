@@ -14,10 +14,11 @@ import {
 } from '@saber-side/shared';
 import type { XR, XRFrame, XRInputSource, XRReferenceSpace, XRSession } from 'three';
 import * as THREE from 'three';
-import type { Robot } from '../avatar/robot';
+import type { Robot, RobotArm } from '../avatar/robot';
 import type { DrawTexFn } from '../render/kit';
 import { createScaledViewDraw, keepSpriteSizeInScaledViews } from '../render/xr-view';
 import { offerVr } from '../ui/enter-vr';
+import { createVrHands, type GrabHand, type HeldItem } from './vr-hands';
 
 // Playing on a Meta Quest: the game in WebXR `immersive-vr`, in first person.
 //
@@ -31,8 +32,10 @@ import { offerVr } from '../ui/enter-vr';
 // costs). The left stick drives toward where you're looking, the right stick snap-turns, and the buttons press the
 // same actions the keyboard does, so the legacy game moves the robot as it always has.
 //
-// More is coming: your hands as the robot's arms, a wrist panel, comfort settings. See
-// docs/initiatives/quest-vr.md.
+// Your hands are the robot's arms, and your head turns its head (app/vr-hands.ts): the legacy animation asks
+// `poseArm`, `poseHead`, and `poseGrip` each frame, and grabs from the hand that gripped (`grabHand`).
+//
+// More is coming: a wrist panel, comfort settings. See docs/initiatives/quest-vr.md.
 
 /** What the legacy game lends VR mode. */
 export interface VrGame {
@@ -41,8 +44,11 @@ export interface VrGame {
   camera: THREE.PerspectiveCamera;
   /** The player's robot (the same object when it's rebuilt from new parts). */
   bot: Robot;
-  /** The legacy simulation state: the mode, the robot's heading, how high it's jumped, and the Bot Maker roll-out. */
-  st: { mode: string; yaw: number; y: number; rollout: number };
+  /**
+   * The legacy simulation state: the mode, the robot's heading, how high it's jumped, the Bot Maker roll-out, the spin
+   * attack (-1 when not spinning), and the blaster's recoil (1 just after a shot).
+   */
+  st: { mode: string; yaw: number; y: number; rollout: number; spin: number; recoil: number };
   /** The held actions, and pressing one (which also marks it as just pressed for this frame). */
   keys: Record<string, boolean>;
   press(action: string): void;
@@ -58,15 +64,33 @@ export interface VrMode {
   draw(scene: THREE.Scene, flatCamera: THREE.Camera): void;
   /** Ends the VR session, if there is one, and goes back to the flat page. */
   leave(): void;
+  /** Poses one of the robot's arms from your hand, in VR. Returns false when the legacy animation should pose it. */
+  poseArm(arm: RobotArm): boolean;
+  /** Turns the robot's head the way yours turns, in VR (after the legacy animation has turned it). */
+  poseHead(): void;
+  /** Puts what the robot holds in the hand holding it, and runs the haptics, in VR. */
+  poseGrip(held: HeldItem | null, dt: number): void;
+  /** In VR, the hand that just grabbed: where it reaches from, and whether it holds the item. Null when flat. */
+  grabHand(): GrabHand | null;
   readonly presenting: boolean;
-  /** For tests (`?debug`): the rig, its camera, and the scale. */
-  readonly debug: { rig: THREE.Group; camera: THREE.PerspectiveCamera; scale: number; view: number };
+  /** For tests (`?debug`): the rig, its camera, the scale, the hands, and a point's place in your room. */
+  readonly debug: {
+    rig: THREE.Group;
+    camera: THREE.PerspectiveCamera;
+    scale: number;
+    view: number;
+    hands: ReturnType<typeof createVrHands>['hands'];
+    pulses: string[];
+    /** Where a point in the robot's world (the floor strip, or real space) is in your room, in meters. */
+    toPlay(p: { x: number; y: number; z: number }): { x: number; y: number; z: number };
+  };
 }
 
-/** Controller buttons (the xr-standard gamepad layout) and the game actions they press. */
+/**
+ * Controller buttons (the xr-standard gamepad layout) and the game actions they press. The trigger (use) and grip
+ * (grab) go through the hands (app/vr-hands.ts), since each hand grabs and uses on its own.
+ */
 const BUTTONS: { hand: 'left' | 'right' | 'either'; index: number; action: string }[] = [
-  { hand: 'either', index: 0, action: 'use' }, // trigger
-  { hand: 'either', index: 1, action: 'grab' }, // grip
   { hand: 'either', index: 4, action: 'jump' }, // A or X
   { hand: 'right', index: 5, action: 'spin' }, // B
   { hand: 'left', index: 3, action: 'boost' }, // pressing the left stick in
@@ -81,6 +105,7 @@ const TURN_AROUND = new THREE.Quaternion().setFromAxisAngle(Y_AXIS, Math.PI);
 
 export function createVrMode(game: VrGame): VrMode {
   const { renderer, bot, st } = game;
+  const hands = createVrHands(bot);
   const xr = (navigator as Navigator & { xr?: XR }).xr;
   renderer.xr.enabled = true;
   keepSpriteSizeInScaledViews();
@@ -121,10 +146,15 @@ export function createVrMode(game: VrGame): VrMode {
   const held = new Set<string>();
   let recenterHeld = false;
 
+  /** What the robot held last frame (for eating), and whether the hands posed it this frame. */
+  let holding: HeldItem | null = null;
+  let posed = false;
+
   const v = new THREE.Vector3();
   const v2 = new THREE.Vector3();
   const q = new THREE.Quaternion();
   const m = new THREE.Matrix4();
+  const m2 = new THREE.Matrix4();
 
   /** How high the robot's eye is above its wheel, in scene units. */
   function robotEyeHeight(): number {
@@ -169,6 +199,7 @@ export function createVrMode(game: VrGame): VrMode {
     built?.rig.parent?.remove(built.rig);
     for (const a of held) game.keys[a] = false;
     held.clear();
+    hands.release();
   });
 
   offerVr(document.getElementById('enter-vr') as HTMLButtonElement | null, xr, enter);
@@ -181,7 +212,7 @@ export function createVrMode(game: VrGame): VrMode {
     let recenter = false;
     for (const src of sources) {
       const pad = src.gamepad;
-      if (!pad) continue;
+      if (!pad || src.hand) continue; // a tracked hand has no buttons (app/vr-hands.ts reads its gestures)
       const down = (i: number) => !!pad.buttons[i]?.pressed;
       for (const b of BUTTONS)
         if ((b.hand === 'either' || b.hand === src.handedness) && down(b.index)) now.add(b.action);
@@ -223,6 +254,8 @@ export function createVrMode(game: VrGame): VrMode {
     }
 
     const input = readInput(session.inputSources);
+    const fromHands = hands.input(session.inputSources, { frame, space, head, headQ }, holding);
+    for (const a of fromHands.now) input.now.add(a);
     if (input.recenter && !recenterHeld) calibrate = true;
     recenterHeld = input.recenter;
 
@@ -257,10 +290,64 @@ export function createVrMode(game: VrGame): VrMode {
     }
     lastHead.copy(head);
 
+    // a hand closing on an action the other hand already holds presses it again, as its own
+    for (const a of fromHands.fresh) {
+      game.keys[a] = false;
+      game.press(a);
+    }
     for (const a of input.now) if (!held.has(a)) game.press(a);
     for (const a of held) if (!input.now.has(a)) game.keys[a] = false;
     held.clear();
     for (const a of input.now) held.add(a);
+  }
+
+  /** Whether your hands and head pose the robot this frame (the legacy animation does while it spins, rolls out of
+   * the Bot Maker, or flies a ship). */
+  function driving(): boolean {
+    return session !== null && !calibrate && st.mode !== 'ship' && st.rollout <= 0 && st.spin < 0;
+  }
+
+  /**
+   * Where the play space sits in the robot root's frame, right now (the robot may have turned since the headset was
+   * read): on the floor the robot stands under your head; on a lift or in the hub, under where you stood on boarding.
+   */
+  function rootFrame() {
+    const floor = st.mode === 'floor';
+    const turn = view + Math.PI - (floor ? st.yaw : 0);
+    const base = floor ? head : anchor;
+    hands.turnRoot.setFromAxisAngle(Y_AXIS, turn);
+    hands.toRoot
+      .makeRotationY(turn)
+      .multiply(m.makeScale(scale, scale, scale))
+      .multiply(m2.makeTranslation(-base.x, 0, -base.z));
+  }
+
+  function poseArm(arm: RobotArm): boolean {
+    if (!driving()) return false;
+    if (!posed) {
+      rootFrame();
+      bot.root.updateMatrixWorld(true);
+      posed = true;
+    }
+    return hands.poseArm(arm);
+  }
+
+  function poseHead() {
+    if (!driving()) return;
+    rootFrame();
+    hands.poseHead(headQ);
+  }
+
+  function poseGrip(item: HeldItem | null, dt: number) {
+    posed = false;
+    if (!session) return;
+    holding = item;
+    if (!driving()) {
+      hands.idle(item);
+      return;
+    }
+    rootFrame();
+    hands.poseGrip(item, dt, st.recoil);
   }
 
   /** Puts the rig where the robot's eye is, for this frame. */
@@ -312,6 +399,10 @@ export function createVrMode(game: VrGame): VrMode {
   return {
     beforeUpdate,
     draw,
+    poseArm,
+    poseHead,
+    poseGrip,
+    grabHand: () => (driving() ? hands.grabHand() : null),
     leave() {
       session?.end().catch(() => {});
     },
@@ -330,6 +421,15 @@ export function createVrMode(game: VrGame): VrMode {
       },
       get view() {
         return view;
+      },
+      hands: hands.hands,
+      pulses: hands.pulses,
+      toPlay(p: { x: number; y: number; z: number }) {
+        rootFrame();
+        bot.root.updateMatrixWorld(true);
+        const r = bot.root.worldToLocal(new THREE.Vector3(p.x, p.y, p.z));
+        const out = r.applyMatrix4(m.copy(hands.toRoot).invert());
+        return { x: out.x, y: out.y, z: out.z };
       },
     } as VrMode['debug'],
   };
