@@ -49,6 +49,7 @@ export function ownerApi(server: string, key: string) {
     removePlayer: (playerId: string) => call<void>('DELETE', `/players/${id(playerId)}`),
     renameRobot: (robotId: string, name: string) => call<OwnerRobot>('POST', `/robots/${id(robotId)}/rename`, { name }),
     removeRobot: (robotId: string) => call<void>('DELETE', `/robots/${id(robotId)}`),
+    vacateShop: (shopId: string) => call<void>('DELETE', `/shops/${id(shopId)}`),
     setCure: (robotId: string, cure: number) => call<OwnerRobot>('POST', `/robots/${id(robotId)}/cure`, { cure }),
     settings: () => call<OwnerSettings>('GET', '/settings'),
     setSettings: (changes: Partial<OwnerSettings>) => call<OwnerSettings>('POST', '/settings', changes),

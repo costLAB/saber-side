@@ -13,10 +13,12 @@ import express, { type Application, type RequestHandler, type Response } from 'e
 import { type Ledger, playerAccount } from './ledger.ts';
 import { type Outcome, ownerRobot, type Players } from './players.ts';
 import type { StationControl } from './rooms/station-room.ts';
+import { ownerShop, type Shops } from './shops.ts';
 
 export interface RouteDeps {
   players: Players;
   ledger: Ledger;
+  shops: Shops;
   /** The station's settings: read them, or change and save them (and tell the live room). */
   settings: { get(): StationSettings; set(next: StationSettings): void };
   health(): StationHealth;
@@ -57,7 +59,10 @@ export function addRoutes(app: Application, deps: RouteDeps) {
     res.json(next satisfies OwnerSettings);
   });
   owner.get('/players', (_req, res) => {
-    const players = deps.players.list().map((p) => ({ ...p, shards: deps.ledger.balance(playerAccount(p.id)) }));
+    const players = deps.players.list().map((p) => {
+      const shop = deps.shops.ofPlayer(p.id);
+      return { ...p, shards: deps.ledger.balance(playerAccount(p.id)), ...(shop ? { shop: ownerShop(shop) } : {}) };
+    });
     res.json(players satisfies OwnerPlayer[]);
   });
   owner.post('/players/:id/rename', (req, res) => {
@@ -73,6 +78,8 @@ export function addRoutes(app: Application, deps: RouteDeps) {
     // Their balance leaves the world first, so money in minus money out still equals the sum of balances.
     deps.ledger.close(req.params.id);
     deps.players.removePlayer(req.params.id);
+    // Their shop went with them: its spot is vacant again.
+    deps.station()?.shopsChanged();
     res.status(204).end();
   });
   // The wallet: a player's ledger, grants (positive) and removals (negative), and reversing an entry.
@@ -105,6 +112,15 @@ export function addRoutes(app: Application, deps: RouteDeps) {
       deps.station()?.playerChanged(result.value.playerId);
     }
     send(res, result.ok ? { ok: true, value: ownerRobot(result.value) } : result);
+  });
+  // Gives a shop's spot back (nothing in it is destroyed: shops hold no stock yet).
+  owner.delete('/shops/:id', (req, res) => {
+    if (!deps.shops.vacate(req.params.id)) {
+      res.status(404).json({ error: 'No such shop.' } satisfies ApiError);
+      return;
+    }
+    deps.station()?.shopsChanged();
+    res.status(204).end();
   });
   // How cured a robot's paint is, in percent.
   owner.post('/robots/:id/cure', (req, res) => {

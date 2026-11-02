@@ -14,6 +14,7 @@ import { Ledger } from './ledger.ts';
 import { originChecker } from './origins.ts';
 import { Players } from './players.ts';
 import { defineStationRoom, type StationControl } from './rooms/station-room.ts';
+import { Shops } from './shops.ts';
 
 export interface RunningStation {
   /** The port actually bound (useful when the config asked for 0, "any free port"). */
@@ -31,6 +32,7 @@ export async function startStation(config: ServerConfig): Promise<RunningStation
   const record = loadStation(db);
   const players = new Players(db);
   const ledger = new Ledger(db);
+  const shops = new Shops(db, ledger);
   let aboard = 0;
   let station: StationControl | undefined;
   let current = loadSettings(db);
@@ -74,6 +76,9 @@ export async function startStation(config: ServerConfig): Promise<RunningStation
           name: record.name,
           players,
           ledger,
+          shops,
+          settleSeconds: config.settleSeconds,
+          economySpeed: config.economySpeed,
           settings: settings.get,
           onAboardChange: (n) => {
             aboard = n;
@@ -88,6 +93,7 @@ export async function startStation(config: ServerConfig): Promise<RunningStation
       addRoutes(app, {
         players,
         ledger,
+        shops,
         settings,
         health,
         allowed,

@@ -7,6 +7,7 @@ import {
   hasPaint,
   insideBotMaker,
   insideRegistry,
+  insideSpot,
   JOIN_REFUSED,
   MESSAGE,
   type NewRobot,
@@ -15,8 +16,11 @@ import {
   type RegistryAnswer,
   type Rename,
   type RobotBuild,
+  type ShopAnswer,
   type SignIn,
+  SPOTS,
   type StationView,
+  spotById,
   type WalletNotice,
   walletText,
 } from '@saber-side/shared';
@@ -46,7 +50,8 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
   // Other players' robots, kept in step with the station while this device is aboard.
   const presence = createPresence(legacy.world);
   legacy.frameHooks.push((dt) => presence.frame(dt));
-  if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __presence: presence });
+  const debug = new URLSearchParams(location.search).has('debug');
+  if (debug) Object.assign(window, { __presence: presence });
   let link: { stop(): void } | undefined;
   let room: Room<unknown, StationView> | undefined;
   /** Who this page comes aboard as, once it has picked. */
@@ -120,6 +125,15 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
       const reply = await ask<BotMakerAnswer>(MESSAGE.rename, { name } satisfies Rename, NOTICE.botMaker);
       return reply.ok ? undefined : reply.error;
     },
+    // A shop spot's kiosk: open a shop, or pay the rent to reopen one closed for repairs.
+    onLease: async (spot, name) => {
+      const reply = await ask<ShopAnswer>(MESSAGE.lease, { spot, name }, NOTICE.shop);
+      return reply.ok ? undefined : reply.error;
+    },
+    onPayRent: async () => {
+      const reply = await ask<ShopAnswer>(MESSAGE.payRent, {}, NOTICE.shop);
+      return reply.ok ? undefined : reply.error;
+    },
     onLogin: (name, pin) => board({ login: { name, pin } }),
     preview: () => createRobotPreview(legacy.robotKit),
     onDismiss: () => {
@@ -149,6 +163,24 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
         const note = `${notAboard(said)} Your robot goes aboard as you leave it here.`;
         arrival.show({ kind: 'build', rebuild: { name: me?.name ?? 'your robot', build: guestBuild }, note });
       } else arrival.show(away('Bot Maker'));
+    },
+    isOpen: () => arrival.open,
+  });
+  // Driving into a shop spot: its kiosk, to lease it, see whose it is, or run your own.
+  onDoorway((x, z) => insideSpot(x, z) !== undefined, {
+    open: () => {
+      const at = legacy.drivingOnFloor();
+      const spot = at && insideSpot(at.x, at.z);
+      if (!spot) return;
+      if (!(aboardNow() && room && me)) return arrival.show(away(`Spot ${spot.name}`));
+      const shops = room.state.shops;
+      const player = me.player || undefined;
+      const theirs = player ? [...(shops?.entries() ?? [])].find(([, s]) => s.owner === player) : undefined;
+      const elsewhere =
+        theirs && theirs[0] !== spot.id
+          ? { spotName: spotById(theirs[0])?.name ?? theirs[0], name: theirs[1].name }
+          : undefined;
+      arrival.show({ kind: 'spot', spot, shop: shops?.get(spot.id), you: { guest: !player, player, elsewhere } });
     },
     isOpen: () => arrival.open,
   });
@@ -264,6 +296,21 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
     legacy.setRobotBuild(build);
   }
 
+  /** The shop signs, as the station has them: who leased each spot, and whether it's open. */
+  function showShops() {
+    const shops = room?.state.shops;
+    if (!shops) return;
+    for (const spot of SPOTS) {
+      const shop = shops.get(spot.id);
+      const key = shop ? JSON.stringify([shop.ownerName, shop.name, shop.status, shop.open]) : '';
+      if (signed.get(spot.id) === key) continue;
+      signed.set(spot.id, key);
+      legacy.shopRow.show(spot.id, shop);
+    }
+  }
+  /** What each sign last showed, so they're only redrawn when that changes. */
+  const signed = new Map<string, string>();
+
   function board(join: Credentials) {
     link?.stop();
     arrival.hide();
@@ -276,11 +323,13 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
       (s) => onLink(join, s),
       (joined) => {
         room = joined;
+        if (debug) Object.assign(window, { __room: joined });
         presence.attach(joined);
         joined?.onStateChange(() => {
           presence.sync();
           // The paint readout follows the robot's cure, and the station's setting.
           if (said.kind === 'aboard') showWho(whoEl, who());
+          showShops();
         });
         // A registered player's balance comes to their seat alone. Guests have no wallet, so it stays hidden.
         showWallet(undefined);

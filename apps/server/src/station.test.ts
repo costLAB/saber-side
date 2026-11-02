@@ -12,6 +12,7 @@ import {
   PIN_TRIES,
   POSE,
   PROTOCOL_VERSION,
+  type ShopAnswer,
   STATION_CAPACITY,
   STATION_ROOM,
 } from '@saber-side/shared';
@@ -636,5 +637,80 @@ describe('paint cure for guests', () => {
     expect(await ask(guest, MESSAGE.register, { name: 'Mia', pin: '4321' })).toEqual({ ok: true, name: 'Mia' });
     await until(() => me()?.name === 'Mia', "the seat to be Mia's");
     expect(me()?.cure).toBe(10);
+  });
+});
+
+describe('shops', () => {
+  // A second of real time is an hour of trading, posted every second.
+  const fast = { SETTLE_SECONDS: '1', ECONOMY_SPEED: '3600' };
+  const key = 'test-owner-key';
+  const owner = { Authorization: `Bearer ${key}` };
+  const lease = (room: Awaited<ReturnType<typeof comeAboard>>, spot: string, name: string) =>
+    new Promise<ShopAnswer>((resolve) => {
+      const stop = room.onMessage(NOTICE.shop, (reply: ShopAnswer) => {
+        stop();
+        resolve(reply);
+      });
+      room.send(MESSAGE.lease, { spot, name });
+    });
+
+  it("opens a player's free first shop, which earns while they're aboard", async () => {
+    const server = await boot({ ...fast, ...seeded({ name: 'Mia', pin: '1111' }, { name: 'Zed', pin: '2222' }) });
+    const mia = await logIn(server, 'Mia', '1111');
+    const balances = wallet(mia);
+    await until(() => mia.state.players?.get(mia.sessionId)?.name === 'Mia', 'Mia to be aboard');
+    expect(mia.state.shops.size).toBe(0);
+
+    expect(await lease(mia, 'plaza-1', "Mia's Carrots")).toEqual({ ok: true });
+    await until(() => mia.state.shops.get('plaza-1')?.open === true, 'the shop to open');
+    expect(mia.state.shops.get('plaza-1')).toMatchObject({ ownerName: 'Mia', name: "Mia's Carrots", status: 'open' });
+    // The trickle beats the rent: the balance climbs.
+    await until(() => (balances.at(-1) ?? 0) > 0, 'the first takings');
+    const first = balances.at(-1) ?? 0;
+    await until(() => (balances.at(-1) ?? 0) > first, 'more takings');
+
+    // One shop each, one shop a spot.
+    expect(await lease(mia, 'plaza-2', 'More')).toMatchObject({ ok: false });
+    const zed = await logIn(server, 'Zed', '2222');
+    await until(() => zed.state.shops?.get('plaza-1') !== undefined, 'Zed to see the shop');
+    expect(await lease(zed, 'plaza-1', 'Mine')).toMatchObject({ ok: false });
+    expect(await lease(zed, 'nowhere', 'Mine')).toMatchObject({ ok: false });
+
+    // Mia leaves: her shop closes, and stops earning.
+    await mia.leave();
+    await until(() => zed.state.shops.get('plaza-1')?.open === false, 'the shop to close');
+  });
+
+  it("doesn't let guests open shops", async () => {
+    const server = await boot(fast);
+    const guest = await comeAboard(server);
+    await until(() => guest.state.players?.get(guest.sessionId) !== undefined, 'the guest to be aboard');
+    expect(await lease(guest, 'plaza-1', 'Guest Shop')).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/Register/),
+    });
+    expect(guest.state.shops.size).toBe(0);
+  });
+
+  it('keeps shops across a restart, and the owner panel can give a spot back', async () => {
+    const env = { ...fast, ADMIN_KEY: key, ...seeded({ name: 'Mia', pin: '1111' }) };
+    const first = await boot(env);
+    const mia = await logIn(first, 'Mia', '1111');
+    await until(() => mia.state.players?.get(mia.sessionId) !== undefined, 'Mia to be aboard');
+    expect(await lease(mia, 'plaza-3', 'Carrots')).toEqual({ ok: true });
+    // A moment of trading (a few minutes at this speed), less than a settlement: it's posted as the station shuts down.
+    await new Promise((r) => setTimeout(r, 300));
+    await first.stop();
+
+    const second = await boot(env);
+    const back = await logIn(second, 'Mia', '1111');
+    await until(() => back.state.shops?.get('plaza-3')?.open === true, 'the shop to be back, and open');
+    const players = (await api<OwnerPlayer[]>(second, 'GET', '/owner/players', undefined, owner)).body;
+    const shop = players[0]?.shop;
+    expect(shop).toMatchObject({ spot: 'plaza-3', name: 'Carrots', status: 'open', owed: 0 });
+    expect(players[0]?.shards).toBeGreaterThan(0); // it earned before the restart (posted as the station shut down)
+    expect((await api(second, 'DELETE', `/owner/shops/${shop?.id}`, undefined, owner)).status).toBe(204);
+    await until(() => back.state.shops.size === 0, 'the spot to be vacant');
+    expect((await api(second, 'DELETE', `/owner/shops/${shop?.id}`, undefined, owner)).status).toBe(404);
   });
 });
