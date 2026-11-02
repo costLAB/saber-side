@@ -171,7 +171,7 @@ Changes to the paint cure after it shipped, from the owner's decisions.
 
 | # | Status | Branch | PR title | What it changes | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
-| 2a | In review (#PRNUM) | `feature/solid-cured-paint` | Make fully cured paint the exact color you picked | The coat blends from the bare skin to the flat paint (`mix(skin, paint, cure)`) instead of multiplying the skin, so at 100% a painted part is exactly the color picked: the hex converted to linear, one satin non-metallic finish on every part, and the skin's bump flattened. The `boost` for dark skins is gone. With `paintCure` off, every coat is drawn at 100%, so every painted robot changes look. An e2e check reads back a painted panel's pixels. | none |
+| 2a | In review (#33) | `feature/solid-cured-paint` | Make fully cured paint the exact color you picked | The coat blends from the bare skin to the flat paint (`mix(skin, paint, cure)`) instead of multiplying the skin, so at 100% a painted part is exactly the color picked: the hex converted to linear, one satin non-metallic finish on every part, and the skin's bump flattened. The `boost` for dark skins is gone. With `paintCure` off, every coat is drawn at 100%, so every painted robot changes look. An e2e check reads back a painted panel's pixels. | none |
 
 ## Tests
 
