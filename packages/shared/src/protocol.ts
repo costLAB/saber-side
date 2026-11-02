@@ -9,13 +9,14 @@ import type { PoseField } from './pose.ts';
 
 import type { RobotBuild } from './content/robot-parts.ts';
 import type { StationSettings } from './sim/paint-cure.ts';
+import type { ShopStatus } from './sim/shops.ts';
 
 // History: 1 = the station server; 2 = joining as a robot from the roster; 3 = robots see each other (pose.ts);
 // 4 = robots built from parts; 5 = guests and logins (players own robots); 6 = the Robot Registry;
 // 7 = the Cyber Crystal wallet; 8 = several robots per player; 9 = renaming your robot at the Bot Maker;
 // 10 = robots open their mouths to eat (the `jaw` pose field); 11 = paint that cures (each robot's `cure`, and the
-// station's `paintCure` setting).
-export const PROTOCOL_VERSION = 11;
+// station's `paintCure` setting); 12 = shops (leasing a spot, the station's `shops`).
+export const PROTOCOL_VERSION = 12;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';
@@ -86,6 +87,19 @@ export interface OwnerPlayer {
   /** Their Cyber Crystal balance, in shards. */
   shards: number;
   robots: OwnerRobot[];
+  /** The shop they run, if any. */
+  shop?: OwnerShop;
+}
+
+/** A player's shop, as the owner panel sees it. */
+export interface OwnerShop {
+  id: string;
+  /** Its spot's id (content/spots.ts). */
+  spot: string;
+  name: string;
+  status: ShopStatus;
+  /** Rent owed while closed for repairs, in shards. */
+  owed: number;
 }
 
 /** The body of an error from the owner endpoints. */
@@ -107,6 +121,20 @@ export type AboardView = {
   cure: number;
 } & { [K in PoseField]: K extends 'shown' ? boolean : number };
 
+/** A leased spot, as everyone aboard sees it (keyed by spot id in StationView.shops). Vacant spots aren't listed. */
+export interface ShopView {
+  /** The registered player who runs it. */
+  owner: string;
+  /** Their username, for the sign. */
+  ownerName: string;
+  name: string;
+  status: ShopStatus;
+  /** Open right now: its owner is aboard, and it isn't closed for repairs. */
+  open: boolean;
+  /** Rent owed while closed for repairs, in shards. */
+  owed: number;
+}
+
 /** The synced station state, as the client sees it. */
 export interface StationView {
   name: string;
@@ -114,6 +142,8 @@ export interface StationView {
   /** The station setting: paint cures by eating carrots. Off, every coat is drawn fully cured. */
   paintCure: boolean;
   players: Map<string, AboardView>;
+  /** The leased spots, by spot id. */
+  shops: Map<string, ShopView>;
 }
 
 /** Messages a client sends. */
@@ -132,7 +162,20 @@ export const MESSAGE = {
   pilot: 'pilot',
   /** At the Bot Maker, a registered player renames the robot this seat pilots (a Rename), keeping the seat. */
   rename: 'rename',
+  /** At a vacant spot's kiosk, a registered player opens their shop there (a Lease). */
+  lease: 'lease',
+  /** At their shop's kiosk, pay the rent owed to reopen a shop closed for repairs. */
+  payRent: 'payRent',
 } as const;
+
+/** What `lease` carries: the spot, and the shop's name. */
+export interface Lease {
+  spot: string;
+  name: string;
+}
+
+/** The server's answer to `lease` or `payRent`, sent to that seat alone (NOTICE.shop). */
+export type ShopAnswer = { ok: true } | { ok: false; error: string };
 
 /** What `build` carries: the new robot's name and parts. */
 export interface NewRobot {
@@ -188,6 +231,8 @@ export const NOTICE = {
   garage: 'garage',
   /** To one seat: how its `build`, `pilot`, or `rename` went (a BotMakerAnswer). */
   botMaker: 'botMaker',
+  /** To one seat: how its `lease` or `payRent` went (a ShopAnswer). */
+  shop: 'shop',
 } as const;
 
 /** A registered player's Cyber Crystal balance, in shards. It's theirs alone: other players never see it. */

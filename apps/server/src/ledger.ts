@@ -18,6 +18,10 @@ export const SYSTEM = {
   removed: 'removed',
   /** What players pay the Bot Maker for extra robots. */
   botMaker: 'bot_maker',
+  /** Window-shoppers: the small, steady trickle an open shop earns. */
+  windowShoppers: 'window_shoppers',
+  /** Shop rent. */
+  rent: 'rent',
 } as const;
 
 export interface Transfer {
