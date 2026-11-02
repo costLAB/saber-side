@@ -7,6 +7,9 @@ import {
   POSE,
   PROTOCOL_VERSION,
   ROBOT_REGISTRY,
+  SHOP_ROW,
+  SPOTS,
+  type Spot,
   STATION_ROOM,
   type StationView,
 } from '@saber-side/shared';
@@ -478,5 +481,77 @@ test('paints a guest robot with a fresh coat once the owner turns paint cure on'
   // Back to full color, eased over about a second.
   await advance(page, 2000);
   expect(await saber<number>(page, 's.bot.coat.value')).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+/** Puts the robot on the walkway in front of a shop spot's door and drives in through it (they face the other way). */
+async function driveIntoShop(page: Page, spot: Spot) {
+  await page.evaluate(
+    ({ x, z }) => {
+      // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+      const s = (window as any).__saber;
+      s.bot.root.position.x = x;
+      s.bot.root.position.z = z;
+      s.st.yaw = Math.PI / 2;
+    },
+    { x: SHOP_ROW.front - 6, z: spot.z },
+  );
+  await advance(page, 100);
+  await hold(page, 'ArrowUp', 2000);
+}
+
+test('opens a free first shop at a spot on the plaza, which earns while its owner is aboard', async ({
+  page,
+  errors,
+}, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  const sheet = page.locator('.arrival');
+  await online(page);
+  await page.goto('/?debug');
+  await playAsGuest(page);
+  await advance(page, 6000);
+
+  // A spot nobody has leased yet (earlier tests, or runs, may have taken some).
+  const free = await page.evaluate(() => {
+    const room = (window as unknown as { __room?: { state: { shops: Map<string, unknown> } } }).__room;
+    return room ? [...room.state.shops.keys()] : [];
+  });
+  const spot = SPOTS.find((s) => !free.includes(s.id)) ?? SPOTS[0];
+  if (!spot) throw new Error('no spots');
+
+  // A guest is pointed to the Registry.
+  await driveIntoShop(page, spot);
+  await expect(page.getByRole('heading', { name: `Spot ${spot.name} · for lease` })).toBeVisible();
+  await expect(sheet).toContainText('Register at the Robot Registry');
+  await page.getByRole('button', { name: 'Leave' }).click();
+
+  // Register, then come back and open a shop.
+  await driveInto(page, ROBOT_REGISTRY);
+  const name = fresh('Shop');
+  await page.getByLabel('Pick a username').fill(name);
+  await page.getByLabel('Pick a 4-digit PIN').fill('2468');
+  await page.getByLabel('PIN again').fill('2468');
+  await page.getByRole('button', { name: 'Register' }).click();
+  await eventually(page, () => page.locator('#wallet').textContent()).toBe('0 ◆ 00');
+
+  await driveIntoShop(page, spot);
+  await expect(page.getByRole('heading', { name: `Spot ${spot.name} · for lease` })).toBeVisible();
+  await expect(sheet).toContainText('Your first shop is free');
+  await page.getByLabel('Shop name').fill('Carrot Corner');
+  await page.getByRole('button', { name: 'Open my shop · free' }).click();
+  await expect(sheet).toBeHidden();
+
+  // Window-shoppers pay more than the rent: the wallet climbs (this station trades an hour a second).
+  await eventually(page, () => page.locator('#wallet').textContent()).not.toBe('0 ◆ 00');
+
+  // Back in through the door: it's theirs now.
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    (window as any).__saber.bot.root.position.x = 10;
+  });
+  await advance(page, 300);
+  await driveIntoShop(page, spot);
+  await expect(page.getByRole('heading', { name: 'Carrot Corner' })).toBeVisible();
+  await expect(sheet).toContainText('Your shop.');
   expect(errors).toEqual([]);
 });

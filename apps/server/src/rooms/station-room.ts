@@ -10,6 +10,7 @@ import {
   guestName,
   JOIN_REFUSED,
   type JoinRequest,
+  type Lease,
   MESSAGE,
   type NewRobot,
   NOTICE,
@@ -26,6 +27,7 @@ import {
   repainted,
   robotPrice,
   SHARDS_PER_CC,
+  type ShopAnswer,
   type SignIn,
   STATION_CAPACITY,
   type StationSettings,
@@ -33,6 +35,7 @@ import {
 } from '@saber-side/shared';
 import { type Ledger, playerAccount, SYSTEM } from '../ledger.ts';
 import { ownerRobot, type Players, type RobotRecord } from '../players.ts';
+import type { Shops } from '../shops.ts';
 
 // Synced to every client. They decode it by reflection, so the client has no copy of these (see StationView).
 
@@ -62,8 +65,22 @@ export const Aboard = schema(
   'Aboard',
 );
 export type Aboard = SchemaType<typeof Aboard>;
+/** A leased spot, for everyone aboard to see (ShopView). */
+export const ShopEntry = schema(
+  {
+    owner: t.string(),
+    ownerName: t.string(),
+    name: t.string(),
+    status: t.string(),
+    open: t.boolean(),
+    owed: t.number(),
+  },
+  'ShopEntry',
+);
+export type ShopEntry = SchemaType<typeof ShopEntry>;
+
 export const StationState = schema(
-  { name: t.string(), aboard: t.number(), paintCure: t.boolean(), players: t.map(Aboard) },
+  { name: t.string(), aboard: t.number(), paintCure: t.boolean(), players: t.map(Aboard), shops: t.map(ShopEntry) },
   'StationState',
 );
 export type StationState = SchemaType<typeof StationState>;
@@ -86,12 +103,19 @@ export interface StationControl {
   playerChanged(playerId: string): void;
   /** The owner panel changed the station's settings. */
   settingsChanged(settings: StationSettings): void;
+  /** The owner panel changed a shop (or removed a player, and their shop with them). */
+  shopsChanged(): void;
 }
 
 export interface StationRoomDeps {
   name: string;
   players: Players;
   ledger: Ledger;
+  shops: Shops;
+  /** How often shops' takings and rent are posted to the ledger, in seconds. */
+  settleSeconds: number;
+  /** How much faster than real time shops earn and pay (1 outside tests). */
+  economySpeed: number;
   /** The station's settings as they are now. */
   settings(): StationSettings;
   /** Told whenever the number of players aboard changes (the health check reports it). */
@@ -171,6 +195,12 @@ export function defineStationRoom(deps: StationRoomDeps) {
       live = this;
       this.state.name = deps.name;
       this.state.paintCure = deps.settings().paintCure;
+      this.#showShops();
+      // Shops earn and pay while open: count the time each second, and post it every settlement.
+      this.clock.setInterval(() => {
+        this.#sinceSettled += this.#countOpenTime();
+        if (this.#sinceSettled >= deps.settleSeconds) this.#settle();
+      }, 1000);
       // Each device reports its own robot's pose; anything malformed is ignored. Colyseus passes on only what changed.
       this.onMessage(MESSAGE.pose, (client, msg: unknown) => {
         const pose = readPose(msg);
@@ -270,6 +300,31 @@ export function defineStationRoom(deps: StationRoomDeps) {
         sendPlayer(client, aboard.player);
         built(client, { ok: true });
       });
+      // A vacant spot's kiosk: a registered player opens their (free) first shop there.
+      this.onMessage(MESSAGE.lease, (client, msg: unknown) => {
+        const aboard = this.state.players.get(client.sessionId);
+        if (!aboard) return;
+        if (!aboard.player)
+          return shopAnswer(client, { ok: false, error: 'Register at the Robot Registry to open a shop.' });
+        const m = (msg && typeof msg === 'object' ? msg : {}) as Partial<Record<keyof Lease, unknown>>;
+        // Time up to now goes to the shops that were open; a new shop starts counting from here.
+        this.#sinceSettled += this.#countOpenTime();
+        const result = deps.shops.lease(aboard.player, String(m.spot ?? ''), m.name);
+        if (!result.ok) return shopAnswer(client, { ok: false, error: result.error });
+        this.#showShops();
+        shopAnswer(client, { ok: true });
+      });
+      // A shop closed for repairs: pay what's owed to reopen it.
+      this.onMessage(MESSAGE.payRent, (client) => {
+        const aboard = this.state.players.get(client.sessionId);
+        if (!aboard?.player) return;
+        this.#sinceSettled += this.#countOpenTime();
+        const result = deps.shops.payRent(aboard.player);
+        if (!result.ok) return shopAnswer(client, { ok: false, error: result.error });
+        this.#showShops();
+        sendPlayer(client, aboard.player);
+        shopAnswer(client, { ok: true });
+      });
       this.onMessage(MESSAGE.login, (client, msg: unknown) => {
         const aboard = this.state.players.get(client.sessionId);
         if (!aboard) return;
@@ -304,6 +359,7 @@ export function defineStationRoom(deps: StationRoomDeps) {
             if (aboard.player && client) sendPlayer(client, aboard.player);
           });
         },
+        shopsChanged: () => this.#showShops(),
         refreshRobot: (robot) => {
           this.state.players.forEach((aboard) => {
             if (aboard.player && aboard.robot === robot.id) show(aboard, robot);
@@ -335,8 +391,10 @@ export function defineStationRoom(deps: StationRoomDeps) {
         this.#release((a) => a.player === auth.player, CLOSED.replaced, client.sessionId);
         this.#seat(client, aboard, auth.player, robot);
       }
+      this.#sinceSettled += this.#countOpenTime();
       this.state.players.set(client.sessionId, aboard);
       this.#countAboard();
+      this.#showShops();
     }
 
     override onDrop(client: Client, code?: number) {
@@ -350,12 +408,17 @@ export function defineStationRoom(deps: StationRoomDeps) {
     }
 
     override onLeave(client: Client) {
+      // The time up to now counts for their shop; from now on it's closed.
+      this.#sinceSettled += this.#countOpenTime();
       this.state.players.delete(client.sessionId);
       this.#countAboard();
+      this.#showShops();
     }
 
     /** A deploy or restart: say so, so clients show "restarting" and rejoin the new process instead of erroring. */
     override onBeforeShutdown() {
+      // Post what shops earned since the last settlement, rather than lose it.
+      this.#settle();
       this.broadcast(NOTICE.restarting);
       this.disconnect(CloseCode.SERVER_SHUTDOWN).catch(() => {});
     }
@@ -403,6 +466,62 @@ export function defineStationRoom(deps: StationRoomDeps) {
       show(aboard, robot);
       deps.players.piloted(robot.id);
       sendPlayer(client, playerId);
+      this.#showShops();
+    }
+
+    /** The shops open right now: their owners have a seat, and they aren't closed for repairs. */
+    #openShops(): string[] {
+      const aboard = new Set([...this.state.players.values()].map((a) => a.player).filter(Boolean));
+      return deps.shops
+        .list()
+        .filter((s) => s.status === 'open' && aboard.has(s.ownerId))
+        .map((s) => s.id);
+    }
+
+    /** When open time was last counted (ms), and how long it's been since the last settlement (s). */
+    #counted = Date.now();
+    #sinceSettled = 0;
+
+    /** Counts the time since it was last counted towards every open shop. Returns how long that was, in seconds. */
+    #countOpenTime(): number {
+      const now = Date.now();
+      const seconds = (now - this.#counted) / 1000;
+      this.#counted = now;
+      deps.shops.accrue(this.#openShops(), seconds * deps.economySpeed);
+      return seconds;
+    }
+
+    /** Posts what shops built up, and tells their owners aboard their new balance. */
+    #settle() {
+      this.#countOpenTime();
+      this.#sinceSettled = 0;
+      const { paid, changed } = deps.shops.settle();
+      this.state.players.forEach((aboard, sessionId) => {
+        const client = this.clients.find((c) => c.sessionId === sessionId);
+        if (aboard.player && paid.has(aboard.player) && client) sendPlayer(client, aboard.player);
+      });
+      if (changed) this.#showShops();
+    }
+
+    /** Puts every leased spot on the synced state, for the signs. */
+    #showShops() {
+      const aboard = new Set([...this.state.players.values()].map((a) => a.player).filter(Boolean));
+      const shops = deps.shops.list();
+      const leased = new Set(shops.map((s) => s.spotId));
+      for (const spot of [...this.state.shops.keys()]) if (!leased.has(spot)) this.state.shops.delete(spot);
+      for (const shop of shops) {
+        let entry = this.state.shops.get(shop.spotId);
+        if (!entry) {
+          entry = new ShopEntry();
+          this.state.shops.set(shop.spotId, entry);
+        }
+        entry.owner = shop.ownerId;
+        entry.ownerName = deps.players.player(shop.ownerId)?.name ?? '';
+        entry.name = shop.name;
+        entry.status = shop.status;
+        entry.open = shop.status === 'open' && aboard.has(shop.ownerId);
+        entry.owed = shop.owed;
+      }
     }
 
     /** Ends every seat that matches (except `keep`): connected ones are closed, held ones let go. */
@@ -436,6 +555,10 @@ function answer(client: Client, reply: RegistryAnswer) {
 
 function built(client: Client, reply: BotMakerAnswer) {
   client.send(NOTICE.botMaker, reply);
+}
+
+function shopAnswer(client: Client, reply: ShopAnswer) {
+  client.send(NOTICE.shop, reply);
 }
 
 const refused = (status: number, error: string) => ({ ok: false, status, error }) as const;

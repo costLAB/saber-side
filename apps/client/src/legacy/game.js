@@ -34,6 +34,7 @@ import { createVrMode } from '../app/vr';
 import { buildBotMaker } from '../world/bot-maker';
 import { buildCarrotBeds, looseCarrot } from '../world/carrot-beds';
 import { buildRobotRegistry } from '../world/robot-registry';
+import { buildShopRow } from '../world/shop-row';
 import { buildRobot, disposeRobot } from '../avatar/robot';
 import { createRenderer } from '../render/renderer';
 import { bendMaterial } from '../render/ring/bend';
@@ -41,7 +42,7 @@ import { makeCanvas, textureKit, wrapX } from '../render/textures';
 import { dot } from '../render/kit';
 
 /** Hooks the new modules call into (see app/aboard.ts). Filled in below, once the scene exists. */
-export const legacy = { robotKit: null, setRobotBuild(_build) {}, rollOutOfBotMaker() {}, drivingOnFloor() { return null; }, releaseKeys() {}, leaveVr() {}, world: null, frameHooks: [] };
+export const legacy = { robotKit: null, setRobotBuild(_build) {}, rollOutOfBotMaker() {}, drivingOnFloor() { return null; }, releaseKeys() {}, leaveVr() {}, world: null, shopRow: null, frameHooks: [] };
 
 (() => {
 const V3 = THREE.Vector3;
@@ -658,6 +659,11 @@ const TABLE = { x: -4, z: -3, w: 3.0, d: 1.2, top: 0.95 };
   const registry = buildRobotRegistry({ makeSign, glow, steel: W.steel, glass: W.glass, lamp: W.glowWarm, hazard });
   scene.add(registry.root);
   colliders.push(...registry.colliders);
+  // and across the plaza, the row of shop spots to lease (world/shop-row.ts; their signs follow the station)
+  const shopRow = buildShopRow({ glow, glass: W.glass, lamp: W.glowWarm });
+  scene.add(shopRow.root);
+  colliders.push(...shopRow.colliders);
+  legacy.shopRow = shopRow;
 }
 
 // height of whatever is under (x, z) for something falling from height y

@@ -77,6 +77,33 @@ export const MIGRATIONS: readonly string[] = [
   // 6: paint that cures (docs/initiatives/carrot-economy.md): how cured a robot's coat is, in percent. Robots made
   // before it start a fresh coat at 10%, like everyone else (an owner decision).
   `ALTER TABLE robots ADD COLUMN paint_cure INTEGER NOT NULL DEFAULT 10 CHECK (paint_cure BETWEEN 0 AND 100);`,
+
+  // 7: shops (plan section 3, "Shops"). Spots are seeded from shared content/spots.ts at boot, so their size and
+  // traffic can be tuned there. A spot holds at most one shop. Sign, upgrades, and clerks come later; their columns
+  // are here so the plan's data model doesn't need another migration for them. The carries hold the fractions of a
+  // shard left over from each settlement, so rounding never loses money.
+  `CREATE TABLE spots (
+     spot_id TEXT PRIMARY KEY,
+     size TEXT NOT NULL CHECK (size IN ('S', 'M', 'L')),
+     traffic REAL NOT NULL CHECK (traffic > 0)
+   );
+   CREATE TABLE shops (
+     id TEXT PRIMARY KEY,
+     spot_id TEXT NOT NULL UNIQUE REFERENCES spots (spot_id),
+     owner_id TEXT NOT NULL REFERENCES players (id) ON DELETE CASCADE,
+     name TEXT NOT NULL,
+     sign_json TEXT NOT NULL DEFAULT '{}',
+     status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'repairs')),
+     upgrades_json TEXT NOT NULL DEFAULT '{}',
+     clerk_robot_id TEXT REFERENCES robots (id) ON DELETE SET NULL,
+     clerk_until TEXT,
+     opened_at TEXT NOT NULL,
+     closed_at TEXT,
+     rent_owed INTEGER NOT NULL DEFAULT 0 CHECK (rent_owed >= 0),
+     trickle_carry REAL NOT NULL DEFAULT 0,
+     rent_carry REAL NOT NULL DEFAULT 0
+   );
+   CREATE INDEX shops_owner ON shops (owner_id);`,
 ];
 
 /** Opens (creating if needed) the station database and brings its schema up to date. */
