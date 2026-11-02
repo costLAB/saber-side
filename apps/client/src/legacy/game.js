@@ -1581,7 +1581,7 @@ const vr = createVrMode({ renderer, camera, bot, st, keys, press, prompt: () => 
 legacy.leaveVr = vr.leave;
 
 // Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
-if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships, eating, items, vr, legacy, harvest };
+if (new URLSearchParams(location.search).has('debug')) window.__saber = { THREE, st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships, eating, items, vr, legacy, harvest };
 
 frame();
 renderer.setAnimationLoop(frame);
