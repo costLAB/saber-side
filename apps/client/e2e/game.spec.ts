@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { classicBuild, type Flight, PLANETS, type Planet, RING_DOCKS } from '@saber-side/shared';
+import { CARROT_BEDS, classicBuild, type Flight, PLANETS, type Planet, RING_DOCKS } from '@saber-side/shared';
 import { advance, boot, expect, hold, snap, test } from './fixtures';
 
 /** The part of the `?debug` hook these tests use. */
@@ -148,6 +148,64 @@ test('paint cures from a sheer coat to full color, on the bent floor and in real
   await advance(page, 3000);
   await snap(page, 'coat-hub.png');
   expect(await saber.evaluate((s) => s.bot.coat.value)).toBe(0.1);
+  expect(errors).toEqual([]);
+});
+
+test('spinning in a carrot bed kicks carrots up, to grab and eat', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'keyboard actions are covered on the MacBook profile');
+  const bed = CARROT_BEDS[0];
+  if (!bed) throw new Error('no carrot beds');
+  await page.goto('/?debug');
+  await page.evaluate(() => document.fonts.ready);
+  await advance(page, 300);
+  // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+  const saber = await page.evaluateHandle(() => (window as any).__saber);
+  type Item = { harvested?: boolean; state: string; group: { position: { x: number; z: number } } };
+  const harvested = (): Promise<{ state: string; x: number; z: number }[]> =>
+    saber.evaluate((s) =>
+      s.items
+        .filter((it: Item) => it.harvested)
+        .map((it: Item) => ({ state: it.state, x: it.group.position.x, z: it.group.position.z })),
+    );
+  // Into the middle of the first bed, out on the farms level with the plaza.
+  await saber.evaluate(
+    (s, at) => {
+      s.bot.root.position.set(at.x, 0, at.z);
+      s.st.yaw = -Math.PI / 2;
+    },
+    { x: bed.x, z: bed.z },
+  );
+  await advance(page, 1000);
+  await expect(page.locator('#prompt')).toContainText('Spin to kick up carrots');
+
+  // A spin kicks a few carrots up into the air, and the plants they came from start growing back.
+  await hold(page, 'x', 70);
+  await advance(page, 200);
+  const flying = await harvested();
+  expect(flying.length).toBeGreaterThanOrEqual(1);
+  expect(flying.length).toBeLessThanOrEqual(3);
+  expect(await saber.evaluate((s) => s.harvest.growing)).toBe(flying.length);
+  await snap(page, 'harvest.png');
+
+  // They land as loose carrots. Roll onto one, grab it (swapping the saber for it), and eat it in three bites.
+  await advance(page, 1500);
+  const landed = (await harvested())[0];
+  if (!landed) throw new Error('no carrot landed');
+  await saber.evaluate((s, at) => s.bot.root.position.set(at.x, 0, at.z + 0.8), landed);
+  await advance(page, 100);
+  await hold(page, 'g', 70);
+  expect((await harvested()).filter((c) => c.state === 'held')).toHaveLength(1);
+  for (let i = 0; i < 3; i++) {
+    await hold(page, 'f', 70);
+    await advance(page, 1100);
+  }
+  // Eaten: it's gone for good (it doesn't respawn on the table), and the rest still lie there.
+  expect(await harvested()).toHaveLength(flying.length - 1);
+  expect((await harvested()).every((c) => c.state === 'loose')).toBe(true);
+
+  // The beds grow back.
+  await advance(page, 41_000);
+  expect(await saber.evaluate((s) => s.harvest.growing)).toBe(0);
   expect(errors).toEqual([]);
 });
 

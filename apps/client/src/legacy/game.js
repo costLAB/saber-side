@@ -10,6 +10,7 @@ import {
   damp,
   FT,
   HALF_L,
+  LOOSE_MAX,
   HUB_L,
   HUB_R,
   LEN,
@@ -28,8 +29,10 @@ import {
 import * as THREE from 'three';
 import { createEating } from '../app/eating';
 import { createFlightMode } from '../app/flight';
+import { createHarvest } from '../app/harvest';
 import { createVrMode } from '../app/vr';
 import { buildBotMaker } from '../world/bot-maker';
+import { buildCarrotBeds, looseCarrot } from '../world/carrot-beds';
 import { buildRobotRegistry } from '../world/robot-registry';
 import { buildRobot, disposeRobot } from '../avatar/robot';
 import { createRenderer } from '../render/renderer';
@@ -523,6 +526,9 @@ const landmarkZones = [];  // keep trees out: [x, z, radius]
   }
 }
 flushParts();
+// carrot beds on the farms, planted in rows: spin in one to kick carrots up (world/carrot-beds.ts, app/harvest.ts)
+const carrotBeds = buildCarrotBeds({ carrot: M.carrot, leaf: M.leaf });
+scene.add(carrotBeds.root);
 
 // ---- end caps (real space, not bent): steel discs with window bands looking out at the stars ----
 const capTex = drawTex(1024, 1024, (g, w) => {
@@ -741,6 +747,18 @@ function dropHeld() {
   it.av.set((fx() - 0.5) * 8, (fx() - 0.5) * 6, (fx() - 0.5) * 8);
   if (it.kind === 'saber') it.target = 0;
 }
+// carrots kicked out of the beds by a spin (app/harvest.ts): loose carrots like the table's, gone once eaten
+const harvest = createHarvest(carrotBeds, k => {
+  const loose = items.filter(it => it.harvested && it.state === 'loose');
+  if (loose.length >= LOOSE_MAX) forget(loose[0]);   // the oldest one nobody holds
+  const it = Object.assign(looseCarrot({ carrot: M.carrot, leaf: M.leaf }), { home: null, harvested: true, state: 'loose', respawn: 0, settled: false,
+    vel: new V3(k.vel.x, k.vel.y, k.vel.z), av: new V3(k.spin.x, k.spin.y, k.spin.z) });
+  it.group.position.set(k.x, 0.2, k.z); it.group.scale.setScalar(1.2);
+  scene.add(it.group); items.push(it);
+}, fx);
+function forget(it) { scene.remove(it.group); items.splice(items.indexOf(it), 1); }
+legacy.frameHooks.push(dt => harvest.update(dt));   // picked carrots grow back
+
 // lays the items out on the table at the start, with the red saber lit in the robot's hand
 function setOutItems() {
   if (held) { scene.attach(held.group); held = null; }
@@ -883,7 +901,7 @@ function biteCarrot(it) {
   it.group.localToWorld(tmp.set(0, 0.45 * it.body.scale.y, 0));
   for (const c of eating.crumbs()) spawn(dustPool, tmp, tmp2.set(c.vx, c.vy, c.vz),
     { life: c.life, size: 0.07, grow: 0.6, grav: 12, drag: 0.5, color: 0xe0701e, alpha: 1 });
-  if (it.bites >= 3) { scene.attach(it.group); it.group.visible = false; it.state = 'gone'; it.respawn = 3; held = null; }
+  if (it.bites >= 3) { scene.attach(it.group); it.group.visible = false; it.state = 'gone'; it.respawn = 3; held = null; if (it.harvested) forget(it); }
 }
 function updateItems(dt) {
   for (const it of items) {
@@ -946,15 +964,18 @@ const promptEl = document.getElementById('prompt');
 let promptText = '', promptHint = false;
 function updatePrompt(p, override, hintOnly) {
   const lift = override === undefined ? nearLift(p) : null, near = override === undefined && !lift ? nearestItem(p) : null;
-  const txt = override !== undefined ? override : lift ? `Ride lift ${lift.k + 1} up to the hub` : near ? `${held ? 'Swap for' : 'Pick up'} the ${near.name}` : '';
+  const spinHere = override === undefined && !lift && !near && st.mode === 'floor' && harvest.ripeNear(p);
+  const txt = override !== undefined ? override : lift ? `Ride lift ${lift.k + 1} up to the hub` : near ? `${held ? 'Swap for' : 'Pick up'} the ${near.name}` : spinHere ? 'Spin to kick up carrots' : '';
   if (txt === promptText) return;
   promptText = txt; promptHint = !!hintOnly;
-  if (txt) promptEl.innerHTML = hintOnly ? txt : `<span class="cap">${isTouch ? 'GRAB' : 'G'}</span> ${txt}`;
+  const cap = spinHere ? (isTouch ? 'SPIN' : 'X') : isTouch ? 'GRAB' : 'G';
+  if (txt) promptEl.innerHTML = hintOnly ? txt : `<span class="cap">${cap}</span> ${txt}`;
   promptEl.classList.toggle('gone', !txt);
 }
 
 function startSpin() {
   st.spin = 0;
+  if (st.mode === 'floor' && st.grounded) harvest.spin(bot.root.position);   // in a carrot bed, kick some up
   if (!st.grounded) st.vy = Math.max(st.vy, 4);
 }
 
@@ -1560,7 +1581,7 @@ const vr = createVrMode({ renderer, camera, bot, st, keys, press, prompt: () => 
 legacy.leaveVr = vr.leave;
 
 // Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
-if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships, eating, items, vr, legacy };
+if (new URLSearchParams(location.search).has('debug')) window.__saber = { st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships, eating, items, vr, legacy, harvest };
 
 frame();
 renderer.setAnimationLoop(frame);
