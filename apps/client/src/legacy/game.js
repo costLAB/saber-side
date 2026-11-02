@@ -892,12 +892,13 @@ function sparkBurst(pos, n, color) {
   for (let i = 0; i < n; i++) spawn(sparkPool, pos, tmp2.set((fx() - 0.5) * 7, fx() * 5, (fx() - 0.5) * 7),
     { life: 0.25 + fx() * 0.25, size: 0.2, grow: 0.3, grav: 16, drag: 1.5, color, alpha: 1 });
 }
-function nearestItem(p) {
-  let best = null, bd = 2.0;
+// near the robot, or (in VR) near the hand that grabbed: `hand` is { at, reach } from vr.grabHand()
+function nearestItem(p, hand) {
+  let best = null, bd = hand ? hand.reach : 2.0;
   for (const it of items) {
     if (it.state !== 'loose') continue;
-    const ip = it.group.position, d = Math.hypot(ip.x - p.x, ip.z - p.z);
-    if (d < bd && ip.y < st.y + 2.4) { best = it; bd = d; }
+    const ip = it.group.position, d = hand ? ip.distanceTo(hand.at) : Math.hypot(ip.x - p.x, ip.z - p.z);
+    if (d < bd && (hand || ip.y < st.y + 2.4)) { best = it; bd = d; }
   }
   return best;
 }
@@ -1091,6 +1092,7 @@ function update(dt, t) {
   st.phase += st.vel * dt * 1.5;
   const isSpin = st.spin >= 0;
   for (const A of bot.arms) {
+    if (vr.poseArm(A)) continue;   // in VR, your hands pose the arms (app/vr-hands.ts)
     const s = A.s;
     let ab = 0.36 + 0.035 * Math.sin(t * 1.7 + s), sw = 0.06 * Math.sin(t * 1.3 + s * 1.1), el = 0.45 + 0.05 * Math.sin(t * 1.7), ez = 0, wr = 0.1, wz = 0, curl = 0.3;
     // rolling: pump the arms opposite each other
@@ -1136,9 +1138,10 @@ function update(dt, t) {
   st.recoil = damp(st.recoil, 0, 12, dt);
   if (pressed.grab && nearLift(p)) st.boardNext = nearLift(p);
   else if (pressed.grab) {
-    const near = nearestItem(p);
+    const hand = vr.grabHand();   // in VR: the hand that gripped picks up what's near it, and only lets go of its own
+    const near = nearestItem(p, hand);
     if (near) { dropHeld(); hold(near); st.reach = 0.35; }
-    else dropHeld();
+    else if (!hand || hand.holding) dropHeld();
   }
   if (held) {
     if (held.kind === 'saber' && pressed.use) held.target = held.target ? 0 : 1;
@@ -1165,6 +1168,7 @@ function update(dt, t) {
   if (gunAim) sa = Math.PI - (c0.sw - c0.el + c0.wr);
   st.saberA = gunAim ? sa : damp(st.saberA, sa, isSpin ? 30 : 10, dt);
   bot.grip.rotation.x = st.saberA;
+  vr.poseGrip(held, dt);   // in VR, it sits in the hand that holds it
   updateItems(dt);
   updateBolts(dt);
   updatePrompt(p);
@@ -1198,6 +1202,7 @@ function update(dt, t) {
   st.hPitch = damp(st.hPitch, -st.leanX * 0.9 + st.glancePitch + (st.grounded ? 0 : clamp(st.vy * 0.015, -0.15, 0.15)), 7, dt);
   st.hRoll = damp(st.hRoll, -st.leanZ * 0.7 + waving * 0.16 * Math.sin(st.wave * 3), 7, dt);
   bot.head.rotation.set(st.hPitch + eating.frame.nod, st.hYaw, st.hRoll, 'YXZ');
+  vr.poseHead();   // in VR, it turns the way your head does
   bot.head.position.y = 0.1 + 0.015 * Math.sin(t * 2.3) + 0.035 * sn * Math.abs(Math.sin(st.phase));
 
 
@@ -1457,6 +1462,7 @@ function updateReal(dt, t) {
   // arms drift up and out as gravity fades
   const isSpin = st.spin >= 0, float = 1 - g;
   for (const A of bot.arms) {
+    if (vr.poseArm(A)) continue;
     const s = A.s, c = A.cur;
     let ab = lerp(0.36, 1.25 + 0.25 * Math.sin(t * 2.2 + s), float), sw = lerp(0.05, 0.35 * Math.sin(t * 1.6 + s * 1.3), float);
     let el = lerp(0.45, 0.7 + 0.2 * Math.sin(t * 1.9 + s), float), curl = 0.25;
@@ -1475,7 +1481,9 @@ function updateReal(dt, t) {
   st.sy = damp(st.sy, 1, 8, dt); st.syV = 0; bot.squash.scale.set(1, 1, 1);
   st.hYaw = damp(st.hYaw, 0.35 * Math.sin(t * 0.7), 3, dt); st.hPitch = damp(st.hPitch, 0.12 * Math.sin(t * 0.9), 3, dt);
   bot.head.rotation.set(st.hPitch, st.hYaw, 0.1 * Math.sin(t * 0.6) * float, 'YXZ');
+  vr.poseHead();
   st.saberA = damp(st.saberA, isSpin ? Math.PI : 1.25, isSpin ? 30 : 8, dt); bot.grip.rotation.x = st.saberA;
+  vr.poseGrip(held, dt);
 
   // F still works on whatever it holds
   const hum = 1 + 0.06 * Math.sin(t * 57) + 0.04 * Math.sin(t * 23);
