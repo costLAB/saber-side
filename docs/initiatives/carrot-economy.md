@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: step 0 (#13), the robot mouth (#27), and paint cure (#28) done; next is `feature/first-shop`. [Players, their robots, and seats](players-and-robots.md) is done and built the wallet |
+| **Status** | In progress: step 0 (#13), the robot mouth (#27), paint cure (#28), and the first shop (#32) done; next is `feature/carrot-farmers`. [Players, their robots, and seats](players-and-robots.md) is done and built the wallet |
 | **Phase** | The first slice of P5, Economy v1 ([plan, section 8](../REFACTOR_PLAN.md#p5-economy-v1-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid starting with nothing opens a free carrot stand, earns its trickle, buys carrots from the Farmers, eats them and watches the paint cure, sells carrots to friends, saves 25 CC, buys a farm, and turns the stand into a money-maker. |
@@ -121,6 +121,10 @@ All are in config and tunable from the owner panel.
 | Farm growth | 1 carrot every 2 minutes, bin of 60 | A full bin lasts 2 hours of being away. |
 | Seed fee | 1 shard per carrot grown | A farm-fed stand earns about 9 shards a carrot, 4.5 times as much. |
 | Paint cure | starts at 10%, +1 point per carrot | A full coat takes 90 carrots, about 9 CC at a friend's stand. |
+| Window-shoppers (first shop) | 240 shards an hour × the spot's traffic | Always more than a first shop's rent. |
+| Rent | 60 shards an hour × size (S 1, M 1.5, L 2) × traffic | A first shop nets 1.1 to 2.3 CC an hour while its owner is aboard. |
+| Spots | P1 S ×1.3, P2 M ×1.15, P3 M ×1.0, P4 L ×0.9 | On the plaza across from the Bot Maker (`content/spots.ts`). |
+| Settlement | every 5 minutes; closed for repairs, unpaid, for 6 hours frees the spot | |
 
 The plot pays for itself after about 280 carrots sold, roughly 9 hours of growing.
 
@@ -147,7 +151,7 @@ merges.
 | 1 | **Done** (#27) | `feature/robot-mouth` | Let robots open their mouths to eat carrots | The jaw on every head (the dome's seam, the visor's chin, the stalk's new seam, and a body hatch on a robot with no head). The eating timeline in `shared/sim/eating.ts`: three chomps and a gulp, with crumbs. Friends see it through the new `jaw` pose field. Eating is still just a snack: no rules change. | `PROTOCOL_VERSION` 10 |
 | 2 | **Done** (#28) | `feature/paint-cure` | Let robot paint cure from a sheer coat to full color | The `coat` material with `uCure`, which has to work alongside the ring bend's `onBeforeCompile` patch. `shared/sim/paint-cure.ts`. Each robot's cure is stored on `robots` (a guest's is held by the room and saved when they register), starts at 10%, is sent with the roster card and the aboard view, and is shown in the HUD, roster, and builder (with a 100% preview). The owner panel can set a robot's cure. The server credits a gulp only for a carrot from your pocket, and pocket carrots arrive with PR 5. Until then, a station setting (`paintCure`, in `settings_json`) leaves every coat drawn at 100%, so robots don't sit pale before carrots can be bought. | migration 6 (`robots.paint_cure`), `PROTOCOL_VERSION` 11 |
 | 3 | Moved | `feature/cyber-crystal-wallet` | Give every registered player a Cyber Crystal wallet | Moved to [Players, their robots, and seats](players-and-robots.md) (its PR 3, #21), because buying a second robot needs the wallet. It lands before this initiative's PR 1. | — |
-| 4 | | `feature/first-shop` | Let players open their first shop | Spots as data, the "FOR LEASE" kiosk, and the free first shop, open while its owner is aboard. The window-shopper trickle against rent, 5-minute settlement, and "Closed for repairs". For now, shelves hold carrots only. | migration 7 (`spots`, `shops`), `PROTOCOL_VERSION` 12 |
+| 4 | **Done** (#32) | `feature/first-shop` | Let players open their first shop | Spots as data, the "FOR LEASE" kiosk, and the free first shop, open while its owner is aboard. The window-shopper trickle against rent, 5-minute settlement, and "Closed for repairs". For now, shelves hold carrots only. | migration 7 (`spots`, `shops`), `PROTOCOL_VERSION` 12 |
 | 5 | | `feature/carrot-farmers` | Sell carrots at the Farmers' stand | The Farm Stand on the ring farms (a `world/` builder), the pocket inventory (`items`), buying carrots wholesale, and eating pocket carrots to cure. The owner turns on `paintCure` once this ships. From here the whole loop runs: trickle → buy → eat → cure. | migration 8 (`items`), `PROTOCOL_VERSION` 13 |
 | 6 | | `feature/carrot-stand` | Let players sell carrots from their shops | Stocking shelves from your pocket, and price tags. Friends buy by tapping or clicking (VR waits for P4). Robot shoppers buy carrots by the demand curve, posted at settlement. A simple shift report. | `PROTOCOL_VERSION` 14 |
 | 7 | | `feature/carrot-farms` | Let players buy a farm and grow their own carrots | Farm plots as data (`shared/content/farms.ts`) on the farm strips, and the plot kiosk. Capex in CC that rises with each plot. Growth worked out from time, up to the bin cap, with the seed fee. Pulling a bin into your pocket, and rows that visibly fill (`world/farm-plot.ts`). | migration 9 (`plots`, `farms`), `PROTOCOL_VERSION` 15 |
