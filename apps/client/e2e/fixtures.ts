@@ -76,6 +76,8 @@ export async function hold(page: Page, key: string, ms: number) {
   await page.keyboard.up(key);
 }
 
+type Clip = { x: number; y: number; width: number; height: number };
+
 /**
  * Renders one real frame and compares a screenshot of it with the stored baseline. This uses a single
  * `page.screenshot` rather than `toHaveScreenshot`, because the latter waits for animation frames to settle,
@@ -88,17 +90,22 @@ export async function hold(page: Page, key: string, ms: number) {
  * `clip` compares just part of the frame, for a close-up where a small change matters (the 1% tolerance applies to
  * the clipped area).
  */
-export async function snap(page: Page, name: string, clip?: { x: number; y: number; width: number; height: number }) {
+export async function snap(page: Page, name: string, clip?: Clip) {
+  const mask = ['.hud', '#hint', '#prompt', '#touch .tb'].map((selector) => page.locator(selector));
+  expect(await frame(page, { mask, maskColor: '#ff00ff', clip })).toMatchSnapshot(name);
+}
+
+/** Renders one real frame (one 33 ms step) and returns a screenshot of it. */
+export async function frame(page: Page, options: Parameters<Page['screenshot']>[0] = {}) {
   await page.evaluate(() => {
     window.__draw = true;
   });
   await page.clock.fastForward(33);
-  const mask = ['.hud', '#hint', '#prompt', '#touch .tb'].map((selector) => page.locator(selector));
-  const image = await page.screenshot({ timeout: 60_000, mask, maskColor: '#ff00ff', clip });
+  const image = await page.screenshot({ timeout: 60_000, ...options });
   await page.evaluate(() => {
     window.__draw = false;
   });
-  expect(image).toMatchSnapshot(name);
+  return image;
 }
 
 export { expect };

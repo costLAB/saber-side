@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { type Flight, PLANETS, type Planet, RING_DOCKS } from '@saber-side/shared';
-import { advance, boot, expect, hold, snap, test } from './fixtures';
+import { advance, boot, expect, frame, hold, snap, test } from './fixtures';
 
 /** The part of the `?debug` hook these tests use. */
 interface SaberDebug {
@@ -12,6 +12,28 @@ interface SaberDebug {
 
 /** Just the robot's head, in the close-up. */
 const HEAD = { x: 470, y: 80, width: 340, height: 260 };
+
+/** The robot and the floor round it, after a jump and mid-spin: where the floor-effects test looks for its sprites. */
+const FLOOR_EFFECTS = { x: 360, y: 200, width: 560, height: 580 };
+
+/** Counts the green-tinged pixels in a PNG screenshot (decoded in the page, which can read PNGs). */
+async function greenPixels(page: Page, png: Buffer) {
+  return page.evaluate(async (b64) => {
+    const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+    const ctx = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d');
+    if (!ctx) throw new Error('no 2D canvas');
+    ctx.drawImage(bitmap, 0, 0);
+    const d = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i] ?? 0;
+      const g = d[i + 1] ?? 0;
+      const b = d[i + 2] ?? 0;
+      if (g > r + 10 && g > b + 10) n++;
+    }
+    return n;
+  }, png.toString('base64'));
+}
 
 /** Stands the robot by the table with the carrot on it, and brings the camera in close on its face. */
 async function closeUp(page: Page) {
@@ -124,6 +146,45 @@ test('rolling and turning', async ({ page, errors }, info) => {
   await hold(page, 'ArrowLeft', 700);
   await advance(page, 1500);
   await snap(page, 'rolled.png');
+  expect(errors).toEqual([]);
+});
+
+test('dust, sparks and glows on the floor', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await page.goto('/?debug');
+  await page.evaluate(() => document.fonts.ready);
+  await advance(page, 1000);
+  await page.locator('#stage canvas').click();
+  // Boost along the promenade (rolling dust), jump and land (a burst of dust), then spin (sparks off the fists).
+  await page.keyboard.down('ArrowUp');
+  await hold(page, 'Shift', 1200);
+  await page.keyboard.press('Space');
+  await advance(page, 900);
+  await page.keyboard.up('ArrowUp');
+  await page.keyboard.press('x');
+  await advance(page, 250);
+  // The eye glow, the sparks, and the dust round the robot are all sprites bent onto the ring.
+  await snap(page, 'floor-effects.png');
+
+  // They're faint enough that losing them all stays inside the screenshot tolerance, so check they draw at all: turn
+  // every bent sprite pure green and count green pixels round the robot. (three.js r128 never gives sprite shaders
+  // `viewMatrix`, so a bend that leans on it collapses every one of them.)
+  const tinted = await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    let scene = (window as any).__saber.bot.root;
+    while (scene.parent) scene = scene.parent;
+    let n = 0;
+    // biome-ignore lint/suspicious/noExplicitAny: walking the three.js scene
+    scene.traverseVisible((o: any) => {
+      if (!o.isSprite || !o.material.userData.bent) return;
+      o.material.color.set(0x00ff00);
+      n++;
+    });
+    return n;
+  });
+  expect(tinted).toBeGreaterThan(10);
+  const image = await frame(page, { clip: FLOOR_EFFECTS });
+  expect(await greenPixels(page, image)).toBeGreaterThan(2000);
   expect(errors).toEqual([]);
 });
 

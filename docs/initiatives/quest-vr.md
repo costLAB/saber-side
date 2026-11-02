@@ -137,7 +137,9 @@ Floor content is simulated on a flat strip (x across, z around, y up) and bent o
   `render/xr-view.ts` puts them back: sprite sizes (a patch to three's sprite shader, a no-op for the flat view), fog
   distances, and the reach of point and spot lights (both scaled for each VR frame, then restored). Bump maps come
   out a little stronger in VR; that's left as it is.
-- The shader bend happens in world space before `viewMatrix`, so it works per eye with no change. That has to be
+- The shader bend happens in world space before `viewMatrix`, so it works per eye with no change. (Sprites get no
+  `viewMatrix` from three.js r128, so their bend goes through `modelViewMatrix` instead, which is also per eye; see
+  `render/ring/bend.ts`.) That has to be
   checked once three.js renders both eyes in one pass (multiview), which the performance PR turns on.
 
 ### Your robot, in first person

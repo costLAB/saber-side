@@ -25,9 +25,21 @@ export function bendMaterial(m: THREE.Material) {
   m.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>\n${BEND_GLSL}`);
     if ((m as THREE.SpriteMaterial).isSpriteMaterial) {
+      // three never uploads `viewMatrix` for sprite materials (it stays all zeros), so this can't do what the mesh
+      // patch does. Instead it carries the bent centre back into the sprite's own space (the inverse of modelMatrix,
+      // via the adjugate, which also works in WebGL1) and lets modelViewMatrix (view * model) take it to view space.
+      // That is the per-object, per-eye view matrix three already sets, so it is right in VR too.
       sh.vertexShader = sh.vertexShader.replace(
         'vec4 mvPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );',
-        'vec4 mvPosition = viewMatrix * bendPos( modelMatrix * vec4( 0.0, 0.0, 0.0, 1.0 ) );',
+        `
+        vec4 mvPosition;
+        {
+          vec3 o = modelMatrix[ 3 ].xyz;
+          vec3 d = bendPos( vec4( o, 1.0 ) ).xyz - o;
+          vec3 a = modelMatrix[ 0 ].xyz, b = modelMatrix[ 1 ].xyz, c = modelMatrix[ 2 ].xyz;
+          vec3 ia = cross( b, c ), ib = cross( c, a ), ic = cross( a, b );
+          mvPosition = modelViewMatrix * vec4( vec3( dot( ia, d ), dot( ib, d ), dot( ic, d ) ) / dot( a, ia ), 1.0 );
+        }`,
       );
       return;
     }
