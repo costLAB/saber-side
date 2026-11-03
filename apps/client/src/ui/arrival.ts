@@ -18,7 +18,15 @@ import {
   ROBOT_NAME_MAX,
   ROBOT_PARTS,
   type RobotBuild,
+  rentPerHour,
+  SETTLE_SECONDS,
   SHARDS_PER_CC,
+  SHOP_NAME_MAX,
+  type ShopView,
+  SPOT_SIZES,
+  type Spot,
+  spotById,
+  tricklePerHour,
   walletText,
 } from '@saber-side/shared';
 import { ApiFailure, type OwnerApi } from '../net/owner-api';
@@ -55,7 +63,19 @@ export type ArrivalView =
   | { kind: 'owner-key'; error?: string }
   | { kind: 'owner'; key: string; error?: string }
   /** One player's ledger, with a Reverse button on each entry. */
-  | { kind: 'ledger'; key: string; player: OwnerPlayer; error?: string };
+  | { kind: 'ledger'; key: string; player: OwnerPlayer; error?: string }
+  /** A shop spot's kiosk: lease it (vacant), see whose it is, or run your own. */
+  | { kind: 'spot'; spot: Spot; shop?: ShopView; you: SpotVisitor; error?: string };
+
+/** Who's at a spot's kiosk. */
+export interface SpotVisitor {
+  /** A guest can't open a shop until they register. */
+  guest: boolean;
+  /** A registered player's id. */
+  player?: string;
+  /** The shop they run elsewhere, if any. */
+  elsewhere?: { spotName: string; name: string };
+}
 
 /** A notice's button: what to do about it. */
 export interface NoticeAction {
@@ -82,6 +102,10 @@ export interface ArrivalHandlers {
   onRename(name: string): Promise<string | undefined>;
   /** At the Bot Maker: pilot another of this player's robots. Resolves with an error, or nothing once it worked. */
   onPilot(robotId: string): Promise<string | undefined>;
+  /** At a vacant spot: open a shop there. Resolves with an error, or nothing once it worked. */
+  onLease(spotId: string, name: string): Promise<string | undefined>;
+  /** At their own shop, closed for repairs: pay the rent owed. Resolves with an error, or nothing once it worked. */
+  onPayRent(): Promise<string | undefined>;
   /** "Just look around": play without coming aboard (or, from the builder, keep the robot as it is). */
   onDismiss(): void;
   /** A turntable for the robot builder, if this device can draw one. */
@@ -132,6 +156,9 @@ const cureRing = (hex: string, cure: number) =>
     paint(hex),
   );
 
+/** A spot's name from its id ("P2"). */
+const spotName = (id: string) => spotById(id)?.name ?? id;
+
 const SLOT_NAMES: Record<PartSlot, string> = { mobility: 'Mobility', body: 'Body', head: 'Head', arms: 'Arms' };
 
 const message = (e: unknown) => (e instanceof ApiFailure ? e.message : 'Something went wrong. Try again.');
@@ -162,7 +189,7 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
   let preview: RobotPreview | undefined;
 
   function back() {
-    if (['welcome', 'registry', 'garage', 'notice'].includes(current.kind)) dismiss();
+    if (['welcome', 'registry', 'garage', 'notice', 'spot'].includes(current.kind)) dismiss();
     else if (current.kind === 'rename' && garageView) show(garageView);
     else if (current.kind === 'build' && (current.rebuild || current.newRobot) && garageView) show(garageView);
     else if (current.kind === 'build' && current.rebuild) dismiss();
@@ -225,6 +252,8 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
         return renderOwner(view.key, view.error);
       case 'ledger':
         return renderLedger(view.key, view.player, view.error);
+      case 'spot':
+        return renderSpot(view);
     }
   }
 
@@ -435,6 +464,86 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
     }
     out.push(form);
     return out;
+  }
+
+  /** A shop spot's kiosk. */
+  function renderSpot(view: Extract<ArrivalView, { kind: 'spot' }>): Node[] {
+    const { spot, shop, you } = view;
+    const err$ = error(view.error);
+    const busy = spot.traffic >= 1.2 ? 'busy' : spot.traffic >= 1 ? 'steady' : 'quiet';
+    const about = h('p', { class: 'notice' }, `${SPOT_SIZES[spot.size]} spot ${spot.name}, with ${busy} foot traffic.`);
+    const rates = h(
+      'p',
+      { class: 'rates' },
+      `Window-shoppers pay about ${walletText(Math.round(tricklePerHour(spot)))} an hour here, and rent is ` +
+        `${walletText(Math.round(rentPerHour(spot)))} an hour. Both build up only while you're aboard, and are ` +
+        `settled every ${SETTLE_SECONDS / 60} minutes.`,
+    );
+    const leave = h('div', { class: 'foot' }, button('Leave', 'link', dismiss));
+    const mine = shop && you.player && shop.owner === you.player;
+
+    if (shop && mine && shop.status === 'repairs') {
+      const pay = button(`Pay ${walletText(shop.owed)} to reopen`, 'primary', async () => {
+        pay.disabled = true;
+        const failed = await handlers.onPayRent();
+        pay.disabled = false;
+        if (failed) err$.textContent = failed;
+        else hide();
+      });
+      const text = "Closed for repairs: the rent came to more than you had. Pay what's owed to open again.";
+      return [title(shop.name), h('p', { class: 'notice' }, text), err$, h('div', { class: 'actions' }, pay), leave];
+    }
+    if (shop && mine) {
+      const text = "Your shop. It's open whenever you're aboard, and window-shoppers keep coming by.";
+      const later = 'Its shelves will hold carrots once you can buy them from the Farmers.';
+      return [title(shop.name), about, h('p', {}, text), rates, h('p', { class: 'notice' }, later), leave];
+    }
+    if (shop) {
+      const now = shop.open
+        ? 'Open now.'
+        : shop.status === 'repairs'
+          ? 'Closed for repairs.'
+          : "Closed until they're back aboard.";
+      return [title(shop.name), h('p', {}, `${shop.ownerName}'s shop. ${now}`), leave];
+    }
+    const heading = `Spot ${spot.name} · for lease`;
+    if (you.guest) {
+      const text =
+        'Register at the Robot Registry, next to the Bot Maker, to open a shop here. Your first shop is free.';
+      return [title(heading), about, h('p', {}, text), rates, leave];
+    }
+    if (you.elsewhere) {
+      const text = `You run ${you.elsewhere.name} at spot ${you.elsewhere.spotName}. One shop each, for now.`;
+      return [title(heading), about, h('p', {}, text), leave];
+    }
+    const name = h('input', {
+      type: 'text',
+      name: 'shop-name',
+      maxlength: String(SHOP_NAME_MAX),
+      autocomplete: 'off',
+      autocapitalize: 'words',
+      spellcheck: 'false',
+    });
+    const go = button('Open my shop · free', 'primary', () => {}, 'submit');
+    const form = h(
+      'form',
+      {},
+      about,
+      h('p', {}, 'Your first shop is free to open, and its window-shoppers always pay more than its rent.'),
+      rates,
+      h('label', {}, 'Shop name', name),
+      err$,
+      h('div', { class: 'actions' }, go),
+    );
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      go.disabled = true;
+      const failed = await handlers.onLease(spot.id, name.value);
+      go.disabled = false;
+      if (failed) err$.textContent = failed;
+      else hide();
+    });
+    return [title(heading), form, leave];
   }
 
   function renderGarage(garage: Garage, piloting: string, err?: string): Node[] {
@@ -675,6 +784,29 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
           if (confirm(`Remove ${player.name} and all their robots?`)) act(() => owner.removePlayer(player.id));
         }),
       ),
+      ...(player.shop
+        ? [
+            h(
+              'div',
+              { class: 'owner-row robot-row', 'data-shop': player.shop.id },
+              h(
+                'span',
+                { class: 'name' },
+                `Shop: ${player.shop.name}`,
+                h(
+                  'span',
+                  { class: 'cure' },
+                  ` · spot ${spotName(player.shop.spot)}${player.shop.status === 'repairs' ? ` · closed for repairs, owes ${walletText(player.shop.owed)}` : ''}`,
+                ),
+              ),
+              button('Vacate', '', () => {
+                const shop = player.shop;
+                if (shop && confirm(`Give spot ${spotName(shop.spot)} back, closing ${shop.name}?`))
+                  act(() => owner.vacateShop(shop.id));
+              }),
+            ),
+          ]
+        : []),
       ...player.robots.map((robot) =>
         h(
           'div',

@@ -32,7 +32,14 @@ export default defineConfig({
       // A throwaway station server (nothing saved) for the online tests in station.spec.ts. The build itself has no
       // server URL, so every other test stays single-player.
       command: 'pnpm --filter @saber-side/server start',
-      env: { PORT: String(STATION_PORT), DATABASE_PATH: ':memory:', ADMIN_KEY: OWNER_KEY },
+      // Shops trade an hour a second, settled every second, so a test sees takings straight away.
+      env: {
+        PORT: String(STATION_PORT),
+        DATABASE_PATH: ':memory:',
+        ADMIN_KEY: OWNER_KEY,
+        SETTLE_SECONDS: '1',
+        ECONOMY_SPEED: '3600',
+      },
       url: `http://localhost:${STATION_PORT}/healthz`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

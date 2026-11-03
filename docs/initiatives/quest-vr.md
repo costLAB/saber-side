@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: PR 1 (`feature/enter-vr`, #29) lets Quest players step into VR and drive. Next is `feature/vr-hands`. |
+| **Status** | In progress: PR 1 (`feature/enter-vr`, #29) lets Quest players step into VR and drive, and PR 2 (`feature/vr-hands`, #34) makes their hands the robot's arms. Next is `feature/vr-wrist-panel`. |
 | **Phase** | P4, Meta Quest VR ([plan, section 8](../REFACTOR_PLAN.md#p4-meta-quest-vr-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid puts on a Quest, opens the bookmarked game in Quest Browser, picks their robot, taps **Enter VR**, and rolls around the ring in first person with friends on iPads, picking up sabers and blasters, riding a lift, and floating in the hub, at a steady frame rate and without feeling sick. |
@@ -18,8 +18,8 @@ developers.
 
 ## How to play on a Quest
 
-PR 1 makes these steps work with the controllers. Hands, the wrist panel, and the comfort settings come in later
-PRs, as the table below says.
+PR 1 makes these steps work with the controllers, and PR 2 with your hands too. The wrist panel and the comfort
+settings come in later PRs, as the table below says.
 
 1. **Open the game.** In Quest Browser, go to `https://saber-side.onrender.com`. Bookmark it, so next time it's one
    tap from the browser's start page.
@@ -29,24 +29,27 @@ PRs, as the table below says.
 3. **Enter VR.** Tap **Enter VR** at the bottom right of the page. Quest asks the usual question about entering VR,
    once. Stand in a clear space, or sit down: the game measures your eye height when you enter and puts your eyes at
    your robot's either way. Press **Y** to measure again (after standing up, say).
-4. **Play.** You're the robot, in first person. Walking around your room moves it too. (From PR 2, your hands are its
-   arms, and your friends see them move.)
+4. **Play.** You're the robot, in first person. Walking around your room moves it too. Your hands are its arms, and
+   your head turns its head, so your friends see you wave, point, and look around. Reach for a saber and squeeze to
+   pick it up.
 5. **Leave.** Press the Meta button and choose to exit (or, from PR 3, pick **Exit VR** on the wrist panel). You're
    back on the flat page, still aboard. Driving into the Bot Maker or the Robot Registry leaves VR too, since their
    sheets are on the flat page.
 
 ### Controls
 
-| Action | Touch controllers (PR 1) | Hand tracking (later) |
+| Action | Touch controllers (PR 1, PR 2) | Hand tracking (PR 2, and later) |
 | --- | --- | --- |
 | Drive | Left stick: the robot turns to the way you push, measured from where you're looking, and rolls | Push off the floor with your arms (PR 5) |
 | Turn | Right stick: a 45° snap turn per push (smooth turning comes with the comfort settings, PR 5) | Turn your body |
-| Look | Your head | Your head |
+| Look | Your head (and the robot's head turns with it) | Your head |
+| The robot's arms | Your hands: its hands go where yours are, as near as its arms reach. Squeezing grip and trigger curls its fingers | Your hands, and your fingers curl its fingers |
 | Step or lean | Walk around your room: the robot comes with you | The same |
 | Jump | A or X | Push down hard and let go (PR 5) |
 | Spin attack | B | (none) |
-| Pick up, swap, drop; ride a lift; board a ship | Grip, as G does on a keyboard | Make a fist near the item (PR 2) |
-| Use: ignite a saber, fire a blaster, bite a carrot | Trigger, as F does (from PR 2, bring a carrot up to your mouth) | Pinch (PR 2) |
+| Pick up, swap, drop; ride a lift; board a ship | Grip, as G does on a keyboard, but with the hand that grips: it picks up what's near that hand, and gripping again with that hand drops it (thrown, if your hand is swinging). The other hand's grip doesn't drop it | Make a fist near the item |
+| Use: switch a saber off and on, fire a blaster, bite a carrot | Trigger, as F does. Bring a carrot up to your mouth to bite it | Pinch. The carrot works the same way |
+| Feel it | A buzz on picking up and dropping, a hum while a saber is lit, a kick for each blaster shot | (no haptics) |
 | Boost | Press the left stick in | (none) |
 | Recenter | Y: measures your eye height again and turns you to face the way your robot faces | The Meta button's own recenter |
 | In the hub, on a lift, or in a ship | The left stick works like the arrow keys | (later) |
@@ -82,7 +85,8 @@ moves exactly like everyone else's.
 
 ### Proposed here, for the owner to confirm
 
-PR 1 builds all of these but the arm IK, so they can be tried on a headset before they're settled.
+PR 1 builds all of these but the arm IK, and PR 2 builds that, so they can be tried on a headset before they're
+settled.
 
 - **First person.** The camera is the robot's eye, and your own robot's head is hidden so it doesn't fill your view.
   Third person in VR moves the world without your head moving, which makes people sick.
@@ -146,10 +150,27 @@ Floor content is simulated on a flat strip (x across, z around, y up) and bent o
   the headset draws (and shown again straight after), so you see your arms, your body when you look down, and your
   wheel.
 - **Arms:** the robot's arms have shoulder, elbow, and wrist angles plus a grip curl (`RobotArm.cur`, the `arm0*` and
-  `arm1*` pose fields). A small two-bone IK solves those angles from each controller's (or hand's) position and
-  turn, clamped to what the robot's arm can reach. Grip and trigger drive `curl`.
-- **Head:** the headset's turn relative to the body fills `headX`, `headY`, and `headZ`.
-- The IK lives in `shared/sim/arm-ik.ts` (pure math, unit-tested), and the glue in `app/vr.ts`.
+  `arm1*` pose fields). A small two-bone IK solves those angles from each controller's (or hand's) grip pose, so the
+  robot's grip lands on yours and its hand points the way your hand does (PR 2):
+  - Your left hand drives the robot's left arm, and your right its right, measured from the robot's shoulders in its
+    own frame, at the rig's scale.
+  - Out of reach, the arm stretches straight toward your hand, so its hand goes as near as it can. The elbow points
+    down, out, and a little back; if the wrist can't bend far enough for the way your hand points, the elbow swings
+    round, and failing that the hand points the nearest way it can, so the grip still lands on yours.
+  - Grip and trigger (or how far a tracked hand's fingers are curled) drive `curl`. The hand holding something
+    keeps a firm grip.
+  - The arms aren't eased: they follow your hands frame by frame. While the robot spins, rolls out of the Bot Maker,
+    or flies a ship, the legacy animation poses the arms as before.
+- **Head:** the headset's turn relative to the body fills `headX`, `headY`, and `headZ` (clamped to how far a head
+  turns), so friends see where you look. Your own copy stays hidden.
+- **Held items** sit in the robot's grip on the hand that picked them up, turned with your hand: a saber's blade
+  and a carrot's tip point straight out of your fist, and the blaster's barrel points ahead with its body on top.
+- The IK lives in `shared/sim/arm-ik.ts` (pure math, unit-tested). The hand rules (gestures, curl, the mouth,
+  haptics) are in `shared/sim/vr-hands.ts`, and the glue in `app/vr-hands.ts`, which `app/vr.ts` drives. The legacy
+  `update()` asks `vr.poseArm`, `vr.poseHead`, and `vr.poseGrip` each frame (they do nothing when flat), and grabs
+  from `vr.grabHand()`.
+- **Friends see it with no protocol change:** presence (`app/presence.ts`) sends the arm and head angles as drawn,
+  and VR writes them where the animation does. What a robot holds isn't sent yet (P3's server-authoritative pickup).
 
 ### Input
 
@@ -157,7 +178,17 @@ Floor content is simulated on a flat strip (x across, z around, y up) and bent o
   actions in the `keys` / `pressed` map that the keyboard and touch pad press, so the legacy `update()` drives the
   robot as usual. It only lets go of actions it pressed itself. On the floor, the left stick also steers the robot's
   heading directly. When P2's action map lands, this moves onto it.
-- **Haptics:** a short pulse on picking up and dropping, a hum while a saber is lit, and a kick when a blaster fires.
+- **Grabbing and using are per hand** (PR 2). A hand's grip (or fist) presses `grab` on its own, and the legacy grab
+  picks up what's nearest that hand's grip on the robot (within about 0.45 m on a grown-up), instead of nearest the
+  robot. Gripping with the hand that holds the item, away from anything, drops it, with the hand's speed (capped);
+  the other hand gripping thin air leaves it be. The trigger (or a pinch) presses `use`.
+- **Hand tracking** has no buttons, so `app/vr-hands.ts` reads the joint poses: the four fingertips curled in to the
+  wrist make a fist, and thumb and index tips together make a pinch, each with a little slack so it doesn't flicker
+  (`shared/sim/vr-hands.ts`).
+- **Eating:** a carrot held up to your mouth (a little below and in front of your eyes) takes a bite, and another as
+  soon as each one's done, while it stays there.
+- **Haptics:** a short pulse on picking up and dropping, a hum while a saber is lit, and a kick when a blaster fires
+  (`gamepad.hapticActuators`, where the controller has them).
 
 ### UI in VR
 
@@ -208,7 +239,7 @@ as each one merges.
 | --- | --- | --- | --- | --- | --- |
 | 0 | No longer first: PR 1 is built on r128 | `foundation/three-upgrade` | Upgrade three.js | The P1 item: three.js from r128 to a current release, re-checking the bend shader patches, color management, and light intensities. Changes the picture, so CI re-records the baselines. | none |
 | 1 | **Done** (#29) | `feature/enter-vr` | Let Quest players step into the station in VR | The Enter VR button, `setAnimationLoop`, the rig in the bend frame and real space (and at the chase camera in a ship), the rig scale measured from your height, Y to recenter, first person with your own head hidden, head-relative stick driving, snap turn, and the buttons pressing the keyboard's actions. Room-scale steps move the robot. The prompt line floats in view. Sprites, fog, and lights keep their size and reach under the scaled view. Fixed foveation. Driving into the Bot Maker or the Robot Registry leaves VR to show its sheet. Rig rules in `shared/sim/vr-rig.ts`; IWER in Playwright (`e2e/vr.spec.ts`). | none |
-| 2 | | `feature/vr-hands` | Let Quest players use their hands | Controllers and hand tracking drive the robot's arms through IK (`shared/sim/arm-ik.ts`), so friends see them. Grip to pick up, swap, and drop; trigger or pinch to use; carrots eaten by bringing them to your mouth. Haptics. | none |
+| 2 | **Done** (#34) | `feature/vr-hands` | Let Quest players use their hands | Controllers and hand tracking drive the robot's arms through IK (`shared/sim/arm-ik.ts`), and the headset turns its head, so friends see both. Per-hand grabbing: grip (or a fist) picks up what's near that hand, the item sits in that hand turned with yours, and letting go throws it with your swing. Trigger or pinch to use; carrots eaten by bringing them to your mouth. Fist and pinch read from the hand joints (`shared/sim/vr-hands.ts`). Haptics on pick-up, drop, a lit saber, and blaster shots. | none |
 | 3 | | `feature/vr-wrist-panel` | Put the HUD on your wrist in VR | The wrist panel (place, station status, holding, comfort settings, Exit VR), world-space prompts beside what they're about, touching a sign to act, and the `?perf` readout. | none |
 | 4 | | `feature/vr-lifts-and-hub` | Ride the lifts and float in the hub in VR | The rig in the lift cab with the comfort vignette, and stick floating in the zero-g hub. | none |
 | 5 | | `feature/arm-locomotion` | Let Quest players move by pushing off with their arms | Gorilla Tag style movement on the floor and in the hub: hands as sphere colliders, push to move, let go to fling (capped). Rules in `shared/sim/arm-locomotion.ts`. The rest of the comfort options: smooth turning, vignette strength, seated mode. | none |
@@ -224,8 +255,10 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
 ## Tests
 
 - **Unit:** the rig's rules (`shared/sim/vr-rig.ts`, from PR 1): head yaw, stick heading, turning the short way,
-  head-to-strip steps, the rig scale, and snap turns. Later: arm IK (reaching, out of reach, elbow direction) and arm
-  locomotion (push, fling cap, zero-g).
+  head-to-strip steps, the rig scale, and snap turns. The arm IK (`shared/sim/arm-ik.ts`, from PR 2): reaching,
+  pointing the hand, out of reach, too close, the elbow's direction, the two arms mirrored, the wrist's limits, and
+  no flips while the hand moves smoothly. The hand rules (`shared/sim/vr-hands.ts`, PR 2): curl, fist, pinch, and the
+  mouth. Later: arm locomotion (push, fling cap, zero-g).
 - **E2E with IWER** (Meta's WebXR emulation runtime, an emulated Quest 3 injected into the page in Playwright,
   `e2e/vr.spec.ts`):
   - The Enter VR button stays hidden without a headset, and shows and starts a session with one. (PR 1)
@@ -235,7 +268,15 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
     cleanly. (PR 1)
   - Ending the session goes back to the flat game. (PR 1)
   - The flat screenshots and the determinism test stay unchanged. (PR 1)
-  - Later: the rig on a lift and in the hub, a grip near a saber picks it up, and the trigger ignites it.
+  - Moving a controller moves the robot's arm, its hand lands on yours, out of reach it stretches toward it, and the
+    left hand drives the left arm. Turning the headset turns the robot's head. (PR 2)
+  - A grip near the saber on the weapon table picks it up in that hand (lit, with a buzz and a hum), the trigger
+    switches it off and on, the other hand's grip doesn't drop it, and gripping again away from the table does.
+    (PR 2)
+  - A blaster kicks when it fires, and a carrot held up to your mouth gets bitten. (PR 2)
+  - Hand tracking (IWER's hands, with a fist pose added): hands pose the arms, a fist picks up the saber, and a
+    pinch switches it off. (PR 2)
+  - Later: the rig on a lift and in the hub.
 - **Manual checklist** on a Quest before each VR PR merges:
   - Enter VR from a production-like build (the PR preview), on Quest 2 and Quest 3.
   - Recenter, standing and seated.
