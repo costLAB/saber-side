@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { CARROT_BEDS, classicBuild, type Flight, PLANETS, type Planet, RING_DOCKS } from '@saber-side/shared';
+import { REAL_OFF } from '../src/render/ring/bend';
 import { advance, boot, expect, hold, snap, test } from './fixtures';
 
 /** The part of the `?debug` hook these tests use. */
@@ -135,6 +136,8 @@ test('paint cures from a sheer coat to full color, on the bent floor and in real
   await coat(0.1);
   await advance(page, 300);
   await snap(page, 'coat-10.png', ROBOT);
+  await coat(0.5);
+  await snap(page, 'coat-50.png', ROBOT);
   await coat(1);
   await snap(page, 'coat-100.png', ROBOT);
 
@@ -148,6 +151,91 @@ test('paint cures from a sheer coat to full color, on the bent floor and in real
   await advance(page, 3000);
   await snap(page, 'coat-hub.png');
   expect(await saber.evaluate((s) => s.bot.coat.value)).toBe(0.1);
+  expect(errors).toEqual([]);
+});
+
+test('fully cured paint is exactly the color picked, with none of the skin showing', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await page.goto('/?debug');
+  await advance(page, 300);
+  // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+  const saber = await page.evaluateHandle(() => (window as any).__saber);
+  await saber.evaluate((s, build) => s.legacy.setRobotBuild(build), classicBuild('#5d97d8'));
+  await advance(page, 100);
+
+  /**
+   * Draws a flat panel of the robot's painted shell, face on, filling a small canvas of its own, and reads its pixels
+   * back. The light is neutral: white ambient light alone (`flat`), or with a white light from straight ahead too,
+   * which picks out any bump (`lit`). sRGB output with no tone mapping, so under the flat light a pixel is the albedo.
+   */
+  type Panel = { mean: number[]; range: number; pixels: number[] };
+  const panel = (cure: number, light: 'flat' | 'lit', bare = false): Promise<Panel> =>
+    saber.evaluate(
+      (s, o) => {
+        const THREE = s.THREE;
+        let painted: { userData: { coat?: string }; clone(): unknown } | undefined;
+        s.bot.root.traverse((m: { material?: { userData: { coat?: string }; clone(): unknown } }) => {
+          if (!painted && m.material?.userData.coat === '#5d97d8') painted = m.material;
+        });
+        if (!painted) throw new Error('no painted part');
+        const N = 64;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = N;
+        const renderer = new THREE.WebGLRenderer({ canvas, preserveDrawingBuffer: true });
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        const scene = new THREE.Scene();
+        scene.add(new THREE.AmbientLight(0xffffff, o.light === 'flat' ? 1 : 0.4));
+        if (o.light === 'lit') {
+          const sun = new THREE.DirectionalLight(0xffffff, 0.6);
+          sun.position.set(0, 0, 1);
+          scene.add(sun);
+        }
+        // A copy of a coat has no patches: it's the bare skin. The coat itself is bent like the rest of the robot, so
+        // that panel is parked in real space (REAL_OFF up), which the bend draws as-is, back down at the camera.
+        const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), o.bare ? painted.clone() : painted);
+        if (!o.bare) quad.position.y = o.real;
+        quad.frustumCulled = false;
+        scene.add(quad);
+        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+        camera.position.z = 2;
+        const before = s.bot.coat.value;
+        s.bot.coat.value = o.cure;
+        window.__draw = true;
+        renderer.render(scene, camera);
+        window.__draw = false;
+        s.bot.coat.value = before;
+        const gl = renderer.getContext();
+        const px = new Uint8Array(N * N * 4);
+        gl.readPixels(0, 0, N, N, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        renderer.dispose();
+        const pixels = [...px].filter((_, i) => i % 4 !== 3);
+        const mean = [0, 1, 2].map((c) => pixels.filter((_, i) => i % 3 === c).reduce((a, b) => a + b, 0) / (N * N));
+        let range = 0;
+        for (let c = 0; c < 3; c++) {
+          const ch = pixels.filter((_, i) => i % 3 === c);
+          range = Math.max(range, Math.max(...ch) - Math.min(...ch));
+        }
+        return { mean, range, pixels };
+      },
+      { cure, light, bare, real: REAL_OFF },
+    );
+
+  // Fully cured: every pixel is the paint (0x5d, 0x97, 0xd8), with no texture, bump, or finish variation across it.
+  const flat = await panel(1, 'flat');
+  for (const [i, want] of [0x5d, 0x97, 0xd8].entries()) expect(Math.abs((flat.mean[i] ?? 0) - want)).toBeLessThan(2);
+  expect(flat.range).toBeLessThanOrEqual(2);
+  expect((await panel(1, 'lit')).range).toBeLessThanOrEqual(2);
+
+  // Halfway: in between, with the skin still showing.
+  const half = await panel(0.5, 'lit');
+  expect(half.range).toBeGreaterThan(4);
+
+  // Bare (cure 0): exactly the skin, seams and grime and bump and all.
+  const skin = await panel(0, 'lit', true);
+  const bare = await panel(0, 'lit');
+  expect(skin.range).toBeGreaterThan(20);
+  expect(Math.max(...bare.pixels.map((p, i) => Math.abs(p - (skin.pixels[i] ?? 0))))).toBeLessThanOrEqual(1);
+  expect(half.range).toBeLessThan(skin.range);
   expect(errors).toEqual([]);
 });
 

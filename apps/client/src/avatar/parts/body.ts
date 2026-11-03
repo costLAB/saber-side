@@ -34,10 +34,10 @@ function onDrumSpot(r: number, y: number, lon: number): BodyMounts['mouth'] {
 export function buildMobility(kit: PartKit, core: THREE.Group, pick: PartPick<'mobility'>): THREE.Mesh {
   const { materials: M, mesh, tint } = kit;
   // rolling drive ball
-  const drive = mesh(new THREE.SphereGeometry(0.95, 40, 28), tint(M.drive, pick.paint, 2.2));
+  const drive = mesh(new THREE.SphereGeometry(0.95, 40, 28), tint(M.drive, pick.paint));
   core.add(drive);
   // the fixed band it rolls in
-  core.add(mesh(new THREE.SphereGeometry(0.985, 64, 12, 0, TAU, 2.12, 0.5), tint(M.band, pick.paint, 1.6)));
+  core.add(mesh(new THREE.SphereGeometry(0.985, 64, 12, 0, TAU, 2.12, 0.5), tint(M.band, pick.paint)));
   return drive;
 }
 

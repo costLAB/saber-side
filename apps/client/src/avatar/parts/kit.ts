@@ -6,9 +6,10 @@ import { patchShader } from '../../render/shader-patch';
 // glows the same way), plus the paint for this robot.
 //
 // Paint is a coat over the part's original skin (docs/initiatives/carrot-economy.md): each painted part draws
-// `mix(skin, skin × paint, cure)`, so the skin's seams, rivets, grime, and bump read through it. One `cure` uniform per
-// robot sets how opaque every coat on it is, from 0 (bare skin) to 1 (fully cured, exactly the old flat tint). A coat
-// still curing looks a little glossy, like wet paint.
+// `mix(skin, paint, cure)`. One `cure` uniform per robot sets how opaque every coat on it is, from 0 (the bare skin,
+// texture, bump, and finish exactly as unpainted) to 1 (fully cured: a flat coat of exactly the color picked, with
+// one painted finish, and none of the skin's seams, rivets, grime, or bump showing). Light, shadow, and the part's
+// shape still shade it. A coat still curing looks a little glossy, like wet paint.
 
 export const TAU = Math.PI * 2;
 
@@ -40,17 +41,16 @@ export type CoatCure = { value: number };
 
 /** A kit for building one robot: the shared kit, plus `tint` for its painted parts. */
 export interface PartKit extends RobotKit {
-  /**
-   * The material for a part in `paint`: the shared one for the original skin, otherwise a coat copy. `boost`
-   * brightens the coat for dark skins, which would otherwise swallow the color.
-   */
-  tint(base: THREE.Material, paint: string, boost?: number): THREE.Material;
+  /** The material for a part in `paint`: the shared one for the original skin, otherwise a coat copy. */
+  tint(base: THREE.Material, paint: string): THREE.Material;
   /** The robot's coat cure (starts fully cured). */
   cure: CoatCure;
 }
 
-/** A coat that's just been painted is this much glossier than the skin (its roughness, times this). */
+/** A coat that's just been painted is this much glossier (its roughness, times this). It dries as it cures. */
 const WET = 0.6;
+/** The finish of fully cured paint, the same on every part: satin, and not metallic, whatever the skin was. */
+const PAINT_FINISH = { roughness: 0.6, metalness: 0 } as const;
 
 export function partKit(kit: RobotKit): PartKit {
   const copies = new Map<string, THREE.Material>();
@@ -58,14 +58,14 @@ export function partKit(kit: RobotKit): PartKit {
   return {
     ...kit,
     cure,
-    tint(base, paint, boost = 1) {
+    tint(base, paint) {
       if (paint === ORIGINAL_PAINT) return base;
-      const key = `${base.uuid}|${paint}|${boost}`;
+      const key = `${base.uuid}|${paint}`;
       let m = copies.get(key);
       if (!m) {
         // A copy doesn't carry its original's shader patches (the ring bend): whoever bends the robot bends it too.
         m = base.clone();
-        coat(m, new THREE.Color(paint).multiplyScalar(boost), cure);
+        coat(m, paint, cure);
         copies.set(key, m);
       }
       return m;
@@ -73,21 +73,47 @@ export function partKit(kit: RobotKit): PartKit {
   };
 }
 
-/** Makes a material a paint coat: its skin (color and map) times `paint`, as opaque as `cure` says. */
-function coat(m: THREE.Material, paint: THREE.Color, cure: CoatCure) {
-  const uCoat = { value: paint };
+/**
+ * Makes a material a paint coat, as opaque as `cure` says. At 0 it's the skin untouched; at 1 its albedo is `paint`,
+ * its finish is `PAINT_FINISH`, and its normal is the bare geometry's, so no texture, bump or normal map, or roughness
+ * or metalness map shows. In between, everything blends.
+ *
+ * The hex is an sRGB color (as the swatches show it), taken to linear with three's own conversion (what newer three
+ * does to every `material.color`; this one leaves colors as given). The renderer's sRGB output takes it back, so under
+ * plain white light the part is that hex on screen.
+ */
+function coat(m: THREE.Material, paint: string, cure: CoatCure) {
+  const uCoat = { value: new THREE.Color(paint).convertSRGBToLinear() };
+  m.userData.coat = paint;
+  const f = (x: number) => x.toFixed(3);
   patchShader(m, 'coat', (sh) => {
     sh.uniforms.uCure = cure;
     sh.uniforms.uCoat = uCoat;
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', '#include <common>\nuniform float uCure;\nuniform vec3 uCoat;')
+      // The albedo: the skin's (its color and texture) to the flat paint.
       .replace(
         '#include <map_fragment>',
-        '#include <map_fragment>\n  diffuseColor.rgb *= mix( vec3( 1.0 ), uCoat, uCure );',
+        '#include <map_fragment>\n  diffuseColor.rgb = mix( diffuseColor.rgb, uCoat, uCure );',
       )
+      // The finish: the skin's (and its maps') to the paint's. Wet paint is glossier; it's wettest on a fresh coat
+      // and dries as it cures, and there's none on bare skin.
       .replace(
         '#include <roughnessmap_fragment>',
-        `#include <roughnessmap_fragment>\n  roughnessFactor *= mix( ${WET.toFixed(2)}, 1.0, uCure );`,
+        `#include <roughnessmap_fragment>
+  float coatWet = clamp( uCure * 10.0, 0.0, 1.0 ) * ( 1.0 - uCure );
+  roughnessFactor = mix( roughnessFactor, ${f(PAINT_FINISH.roughness)}, uCure ) * mix( 1.0, ${f(WET)}, coatWet );`,
+      )
+      .replace(
+        '#include <metalnessmap_fragment>',
+        `#include <metalnessmap_fragment>\n  metalnessFactor = mix( metalnessFactor, ${f(PAINT_FINISH.metalness)}, uCure );`,
+      )
+      // The surface: the skin's bump (or normal map) flattens out under the coat.
+      .replace(
+        '#include <normal_fragment_maps>',
+        `vec3 coatNormal = normal;
+#include <normal_fragment_maps>
+  normal = normalize( mix( normal, coatNormal, uCure ) );`,
       );
   });
 }
