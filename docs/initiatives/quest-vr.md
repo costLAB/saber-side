@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: PR 1 (`feature/enter-vr`, #29) lets Quest players step into VR and drive, and PR 2 (`feature/vr-hands`, #34) makes their hands the robot's arms, PR 8 (#36) shows only your own robot's hands and arms, PR 9 (#37) adds the Selfie, and PR 5 (#38) lets you push off the floor with your arms. Next is `feature/vr-wrist-panel`, then `feature/vr-lifts-and-hub`. |
+| **Status** | In progress: Quest players can step into VR (#29), use their hands (#34), see only their own hands and arms (#36), take a Selfie (#37), push off the floor with their arms (#38), and read the HUD on their wrist (#PRNUM). Next is `feature/vr-lifts-and-hub`, then `feature/vr-ships`. |
 | **Phase** | P4, Meta Quest VR ([plan, section 8](../REFACTOR_PLAN.md#p4-meta-quest-vr-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid puts on a Quest, opens the bookmarked game in Quest Browser, picks their robot, taps **Enter VR**, and rolls around the ring in first person with friends on iPads, picking up sabers and blasters, riding a lift, and floating in the hub, at a steady frame rate and without feeling sick. |
