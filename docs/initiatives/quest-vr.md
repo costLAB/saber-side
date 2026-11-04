@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: Quest players can step into VR (#29), use their hands (#34), see only their own hands and arms (#36), take a Selfie (#37), push off the floor with their arms (#38), read the HUD on their wrist (#40), ride the lifts to float in the hub (#41), fly ships from the cockpit (#42), and the headset draws only what's in view (#43). Next is `foundation/three-upgrade`. |
+| **Status** | **Done**: all ten PRs are in (#29, #34, #36, #37, #38, #40, #41, #42, #43, #PRTHREE). A Quest player can step into VR, move with the sticks or by pushing off the floor, use their hands, read the HUD on their wrist, ride the lifts, fly ships from the cockpit, and take a Selfie. Left open: the frame budget's next cuts, and the manual checks on a real Quest (open questions below). |
 | **Phase** | P4, Meta Quest VR ([plan, section 8](../REFACTOR_PLAN.md#p4-meta-quest-vr-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid puts on a Quest, opens the bookmarked game in Quest Browser, picks their robot, taps **Enter VR**, and rolls around the ring in first person with friends on iPads, picking up sabers and blasters, riding a lift, and floating in the hub, at a steady frame rate and without feeling sick. |
