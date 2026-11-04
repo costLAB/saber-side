@@ -483,7 +483,15 @@ describe('owner panel', () => {
       ['Abe', false, ['Abe']],
       ['zoe', false, ['zoe']],
     ]);
-    expect(JSON.stringify(players)).not.toMatch(/9999|scrypt/);
+    // no field holds a PIN or its hash (checked field by field: a random id can contain "9999" by chance)
+    const fields: [string, unknown][] = [];
+    JSON.stringify(players, (k, v) => {
+      if (k) fields.push([k, v]);
+      return v;
+    });
+    expect(fields.map(([k]) => k).filter((k) => /^pin(hash)?$|salt|hash/i.test(k))).toEqual([]);
+    expect(fields.filter(([, v]) => v === '9999' || v === 9999).map(([k]) => k)).toEqual([]);
+    expect(JSON.stringify(players)).not.toMatch(/scrypt/);
   });
 
   it('renames a robot, and everyone aboard sees the new name', async () => {
