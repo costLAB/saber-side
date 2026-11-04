@@ -18,6 +18,7 @@ export * from './sim/eating.ts';
 export * from './sim/flight.ts';
 export * from './sim/harvest.ts';
 export * from './sim/lasers.ts';
+export * from './sim/light-pool.ts';
 export * from './sim/paint-cure.ts';
 export * from './sim/selfie.ts';
 export * from './sim/ship.ts';
