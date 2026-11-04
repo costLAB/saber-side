@@ -1170,3 +1170,56 @@ test('a Quest player flies a ship from the cockpit with the joystick and throttl
   expect(fast.speed).toBeGreaterThan(seated.speed * 1.8);
   expect(errors).toEqual([]);
 });
+
+/** What the headset drew last frame: draw calls and triangles, both eyes together. */
+function readDrawn(page: Page) {
+  return page.evaluate(
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    () => (window as any).__saber.vr.debug.drawn as { calls: number; triangles: number },
+  );
+}
+
+test('the headset only draws what’s in view, and sabers share a fixed pool of lights', async ({
+  page,
+  errors,
+}, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await withQuest(page);
+  await bootDebug(page);
+  // the sabers have no light of their own: the scene holds the same point lights however many sabers there are
+  const lights = await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { bot, items } = (window as any).__saber;
+    let scene = bot.root;
+    while (scene.parent) scene = scene.parent;
+    let n = 0;
+    // biome-ignore lint/suspicious/noExplicitAny: three.js objects from the page
+    scene.traverse((o: any) => {
+      if (o.isPointLight) n++;
+    });
+    // biome-ignore lint/suspicious/noExplicitAny: legacy item
+    const onSabers = items.filter((i: any) => i.kind === 'saber' && i.blade.children.some((c: any) => c.isPointLight));
+    // biome-ignore lint/suspicious/noExplicitAny: legacy item
+    return { n, sabers: items.filter((i: any) => i.kind === 'saber').length, onSabers: onSabers.length };
+  });
+  expect(lights.onSabers).toBeLessThanOrEqual(2);
+
+  await enterVr(page);
+  await advance(page, 200);
+  // at the spawn, looking down the promenade: well under the 1,430 draw calls it took when the whole ring was drawn
+  // (the budget is about 150 an eye; the docs list the big meshes still to cut)
+  const spawn = await readDrawn(page);
+  expect(spawn.calls).toBeLessThan(700);
+  expect(spawn.triangles).toBeLessThan(1_250_000);
+  // turned round to face the other way, a different half of the ring is culled, and about as much is drawn
+  await stick(page, 'right', 1, 0);
+  await advance(page, 100);
+  await stick(page, 'right', 0, 0);
+  await advance(page, 100);
+  await stick(page, 'right', 1, 0);
+  await advance(page, 100);
+  await stick(page, 'right', 0, 0);
+  await advance(page, 200);
+  expect((await readDrawn(page)).calls).toBeLessThan(700);
+  expect(errors).toEqual([]);
+});
