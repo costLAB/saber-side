@@ -23,7 +23,6 @@ import {
   vignetteAmount,
   wrapAngle,
 } from '@saber-side/shared';
-import type { XR, XRFrame, XRInputSource, XRReferenceSpace, XRSession } from 'three';
 import * as THREE from 'three';
 import { firstPersonHidden, type Robot, type RobotArm, type RobotKit } from '../avatar/robot';
 import type { DrawTexFn } from '../render/kit';
@@ -161,7 +160,7 @@ export function createVrMode(game: VrGame): VrMode {
   /** Whether each hand gripped last frame, and whether the Selfie button was down. */
   const wasGrab = [false, false];
   let selfieHeld = false;
-  const xr = (navigator as Navigator & { xr?: XR }).xr;
+  const xr = (navigator as Navigator & { xr?: XRSystem }).xr;
   renderer.xr.enabled = true;
   keepSpriteSizeInScaledViews();
   const drawScaled = createScaledViewDraw(renderer);
@@ -329,7 +328,7 @@ export function createVrMode(game: VrGame): VrMode {
   const lastAt = new THREE.Vector3();
   let measured = false;
 
-  function readInput(sources: readonly XRInputSource[]) {
+  function readInput(sources: Iterable<XRInputSource>) {
     const now = new Set<string>();
     let lx = 0;
     let ly = 0;
@@ -688,7 +687,7 @@ export function createVrMode(game: VrGame): VrMode {
     const shown = hidden.map((o) => o.visible);
     for (const o of hidden) o.visible = false;
     // only what's in view of the headset is drawn: bent things are culled by their bent bounds (render/ring/bent-cull.ts)
-    const showCulled = cullBent(scene, renderer.xr.getCamera(camera));
+    const showCulled = cullBent(scene, renderer.xr.getCamera());
     try {
       drawScaled(scene, camera, 1 / rig.scale.x);
     } finally {

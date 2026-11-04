@@ -110,7 +110,7 @@ export function buildShopRow(kit: ShopRowKit): ShopRowScene {
     // the sign over the door, redrawn whenever the spot changes hands or opens and closes
     const canvas = makeCanvas(512, 128);
     const tex = new THREE.CanvasTexture(canvas);
-    tex.encoding = THREE.sRGBEncoding;
+    tex.colorSpace = THREE.SRGBColorSpace;
     const signMat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, roughness: 0.6 });
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(width - 2, 9), 1.4), signMat);
     sign.position.set(front - 0.06, height - 1.4, z);

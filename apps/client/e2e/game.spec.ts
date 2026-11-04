@@ -237,11 +237,13 @@ test('fully cured paint is exactly the color picked, with none of the skin showi
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = N;
         const renderer = new THREE.WebGLRenderer({ canvas, preserveDrawingBuffer: true });
-        renderer.outputEncoding = THREE.sRGBEncoding;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        // light intensities are physical (three r155+): π times the old units, so white ambient light at π shows a
+        // pixel's albedo exactly (render/legacy-look.ts)
         const scene = new THREE.Scene();
-        scene.add(new THREE.AmbientLight(0xffffff, o.light === 'flat' ? 1 : 0.4));
+        scene.add(new THREE.AmbientLight(0xffffff, (o.light === 'flat' ? 1 : 0.4) * Math.PI));
         if (o.light === 'lit') {
-          const sun = new THREE.DirectionalLight(0xffffff, 0.6);
+          const sun = new THREE.DirectionalLight(0xffffff, 0.6 * Math.PI);
           sun.position.set(0, 0, 1);
           scene.add(sun);
         }

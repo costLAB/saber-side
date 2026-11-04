@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: Quest players can step into VR (#29), use their hands (#34), see only their own hands and arms (#36), take a Selfie (#37), push off the floor with their arms (#38), read the HUD on their wrist (#40), ride the lifts to float in the hub (#41), fly ships from the cockpit (#42), and the headset draws only what's in view (#43). Next is `foundation/three-upgrade`. |
+| **Status** | **Done**: all ten PRs are in (#29, #34, #36, #37, #38, #40, #41, #42, #43, #44). A Quest player can step into VR, move with the sticks or by pushing off the floor, use their hands, read the HUD on their wrist, ride the lifts, fly ships from the cockpit, and take a Selfie. Left open: the frame budget's next cuts, and the manual checks on a real Quest (open questions below). |
 | **Phase** | P4, Meta Quest VR ([plan, section 8](../REFACTOR_PLAN.md#p4-meta-quest-vr-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid puts on a Quest, opens the bookmarked game in Quest Browser, picks their robot, taps **Enter VR**, and rolls around the ring in first person with friends on iPads, picking up sabers and blasters, riding a lift, and floating in the hub, at a steady frame rate and without feeling sick. |
@@ -313,8 +313,8 @@ What PR 6 did, measured through IWER at the spawn (both eyes together; `vr.debug
   where their own lights used to be, so the flat picture and its screenshots are unchanged.
 - **Fixed foveation** was already on (PR 1).
 - **Not done:**
-  - **Multiview** isn't in three.js r128, so it waits for the upgrade (PR 0), along with re-checking the bend per
-    eye.
+  - **Multiview** wasn't in three.js r128. PR 0 moves to r170, whose WebXR multiview needs the XR layers path and
+    a check on a real Quest (the bend per eye too), so it's left for a Quest session.
   - **Framebuffer scale** stays at the headset's default until it's tried on a real Quest.
   - **The budget isn't met yet.** About 1.1M triangles are drawn (both eyes), against about 500k, and 200 to 290
     draw calls an eye, against about 150. Most of the triangles are in a few ring-sized meshes that are always in
@@ -322,6 +322,19 @@ What PR 6 did, measured through IWER at the spawn (both eyes together; `vr.debug
     sky sphere (52k). Lower-detail versions of those, and merging the small static meshes per material, are the
     next cuts. Both change the flat picture, so they're their own PR, to be checked on a real Quest.
 - An e2e test keeps the VR draw calls under 700 and the triangles under 1.25M at the spawn, so they don't creep back.
+
+### three.js r170 (PR 0)
+
+- `three` and `@types/three` 0.170.0. The XR types are WebXR's own globals now (`XRSession`, `XRSystem`), and
+  `renderer.xr.getCamera()` takes no camera.
+- **The look is kept** (`render/legacy-look.ts`, imported first by `main.ts`): color management is off, so hex colors
+  are used as they are, as r128 did, and every light's intensity goes through `lux` (×π), since lights are physical
+  now. The distance falloff of point lights changed shape (inverse-square now), so a light right next to a surface,
+  like the robot's red eye on its chrome ring, glows hotter than before. The close-ups' baselines are re-recorded.
+- **Shader patches:** the bend's position patch and the sprite size patch apply as before. The bend's normal patch
+  looks for a line that's inside `#include <defaultnormal_vertex>`, so it has never applied, on r128 either: bent
+  surfaces are lit with unbent normals. Fixing it changes the lighting on the whole ring, so it's an open question.
+- The paint test's own little renderer is ported too (sRGB output, π-scaled lights).
 
 ## Trying it on a headset (developers)
 
@@ -350,7 +363,7 @@ as each one merges.
 
 | # | Status | Branch | PR title | What it adds | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
-| 0 | No longer first: PR 1 is built on r128 | `foundation/three-upgrade` | Upgrade three.js | The P1 item: three.js from r128 to a current release, re-checking the bend shader patches, color management, and light intensities. Changes the picture, so CI re-records the baselines. | none |
+| 0 | **Done** (#44) | `foundation/three-upgrade` | Upgrade three.js | The P1 item: three.js from r128 to a current release, re-checking the bend shader patches, color management, and light intensities. Changes the picture, so CI re-records the baselines. | none |
 | 1 | **Done** (#29) | `feature/enter-vr` | Let Quest players step into the station in VR | The Enter VR button, `setAnimationLoop`, the rig in the bend frame and real space (and at the chase camera in a ship), the rig scale measured from your height, Y to recenter, first person with your own head hidden, head-relative stick driving, snap turn, and the buttons pressing the keyboard's actions. Room-scale steps move the robot. The prompt line floats in view. Sprites, fog, and lights keep their size and reach under the scaled view. Fixed foveation. Driving into the Bot Maker or the Robot Registry leaves VR to show its sheet. Rig rules in `shared/sim/vr-rig.ts`; IWER in Playwright (`e2e/vr.spec.ts`). | none |
 | 2 | **Done** (#34) | `feature/vr-hands` | Let Quest players use their hands | Controllers and hand tracking drive the robot's arms through IK (`shared/sim/arm-ik.ts`), and the headset turns its head, so friends see both. Per-hand grabbing: grip (or a fist) picks up what's near that hand, the item sits in that hand turned with yours, and letting go throws it with your swing. Trigger or pinch to use; carrots eaten by bringing them to your mouth. Fist and pinch read from the hand joints (`shared/sim/vr-hands.ts`). Haptics on pick-up, drop, a lit saber, and blaster shots. | none |
 | 3 | **Done** (#40) | `feature/vr-wrist-panel` | Put the HUD on your wrist in VR | The wrist panel (place, station status, holding, comfort settings, Exit VR), world-space prompts beside what they're about, touching a sign to act, and the `?perf` readout. | none |
@@ -463,5 +476,6 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
 7. **The cockpit, as built in PR 7:** the stick's sideways tilt turns the ship (it can't roll on its own), the
    throttle's middle is the keyboard's cruise, and the rig scale is 1.4 in the cockpit. Does it feel the right size?
 8. **Performance, after PR 6:** the frame budget isn't met yet (see Performance above). Should the next cuts
-   (lower-detail ring meshes, merged static meshes) be a PR of their own before the three.js upgrade, after a frame
-   rate check on a real Quest 2?
+   (lower-detail ring meshes, merged static meshes) be a PR of their own, after a frame rate check on a real Quest 2?
+9. **Bent normals:** the bend shader never bent normals (see three.js r170 above), so the ring is lit as if it were
+   flat. Should it be fixed? It changes the lighting everywhere on the ring.

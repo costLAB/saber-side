@@ -1,6 +1,7 @@
 import { ALIEN_COUNT, type Alien, mulberry, type Planet, SURFACE_SIZE, TAU, terrainHeight } from '@saber-side/shared';
 import * as THREE from 'three';
 import { type DrawTexFn, dot } from '../render/kit';
+import { lux } from '../render/legacy-look';
 import type { PlanetLook } from './planet-looks';
 
 /** A planet's surface: rolling ground under its own sky, scattered scenery, and a crowd of little aliens. */
@@ -18,8 +19,8 @@ export function buildSurface(planet: Planet, look: PlanetLook, drawTex: DrawTexF
   const R = mulberry(look.globe.seed * 7);
   scene.background = new THREE.Color(look.sky);
   scene.fog = new THREE.Fog(look.sky, 260, 1700);
-  scene.add(new THREE.HemisphereLight(0xffffff, new THREE.Color(look.ground[3]), 0.75));
-  const sun = new THREE.DirectionalLight(0xfff4e0, 1.1);
+  scene.add(new THREE.HemisphereLight(0xffffff, new THREE.Color(look.ground[3]), lux(0.75)));
+  const sun = new THREE.DirectionalLight(0xfff4e0, lux(1.1));
   sun.position.set(300, 600, 200);
   scene.add(sun);
 
