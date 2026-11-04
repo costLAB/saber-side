@@ -64,41 +64,40 @@ merges, mark it done in its initiative's table and drop its line here if it isn'
 planned branch is missing from this list.
 
 1. `fix/ring-sprites` (#31): Draw dust, sparks and glows on the ring floor again
-2. `feature/vr-hide-own-body`
-3. `feature/selfie-view`
+2. `feature/selfie-view`
+3. `feature/arm-locomotion`
 4. `feature/vr-wrist-panel`
 5. `feature/vr-lifts-and-hub`
-6. `feature/arm-locomotion`
-7. `feature/vr-ships`
-8. `foundation/quest-performance`
-9. `foundation/three-upgrade`
-10. `feature/carrot-farmers`
-11. `feature/carrot-stand`
-12. `feature/carrot-farms`
-13. `feature/economy-tuning`
-14. `feature/jack-o-lantern-head`
-15. `feature/inventory`
-16. `feature/give-crystals`
-17. `foundation/server-held-items`
-18. `feature/give-items`
-19. `feature/zero-g-swim-stroke`
-20. `feature/vr-swimming`
-21. `feature/spacewalks`
-22. `feature/more-paint-colors`
-23. `foundation/seven-part-slots`
-24. `feature/more-robot-parts`
-25. `feature/parts-catalog`
-26. `feature/robot-thrusters`
-27. `feature/robot-tires`
-28. `feature/ore-planet`
-29. `feature/refinery-ring`
-30. `feature/ore-hauler`
-31. `feature/ore-mining`
-32. `feature/ore-refining`
-33. `feature/refinery-ring-interior`
-34. `feature/refinery-ring-swimming`
-35. `feature/ore-economy-tuning`
-36. `feature/talking-robots`
+6. `feature/vr-ships`
+7. `foundation/quest-performance`
+8. `foundation/three-upgrade`
+9. `feature/carrot-farmers`
+10. `feature/carrot-stand`
+11. `feature/carrot-farms`
+12. `feature/economy-tuning`
+13. `feature/jack-o-lantern-head`
+14. `feature/inventory`
+15. `feature/give-crystals`
+16. `foundation/server-held-items`
+17. `feature/give-items`
+18. `feature/zero-g-swim-stroke`
+19. `feature/vr-swimming`
+20. `feature/spacewalks`
+21. `feature/more-paint-colors`
+22. `foundation/seven-part-slots`
+23. `feature/more-robot-parts`
+24. `feature/parts-catalog`
+25. `feature/robot-thrusters`
+26. `feature/robot-tires`
+27. `feature/ore-planet`
+28. `feature/refinery-ring`
+29. `feature/ore-hauler`
+30. `feature/ore-mining`
+31. `feature/ore-refining`
+32. `feature/refinery-ring-interior`
+33. `feature/refinery-ring-swimming`
+34. `feature/ore-economy-tuning`
+35. `feature/talking-robots`
 
 ### Not split into PRs yet
 
