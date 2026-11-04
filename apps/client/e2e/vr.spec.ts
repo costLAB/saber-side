@@ -682,3 +682,137 @@ test('tracked hands pose the arms, a fist grabs, and a pinch uses', async ({ pag
   expect((await readItem(page, 'blue saber')).target).toBe(0);
   expect(errors).toEqual([]);
 });
+
+/** Where the robot is on the floor strip, how high it's jumped, the view, and how far it is along where you look. */
+function readWalk(page: Page) {
+  return page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { st, bot, vr } = (window as any).__saber;
+    const p = bot.root.position;
+    const view = vr.debug.view as number;
+    return {
+      x: p.x as number,
+      z: p.z as number,
+      y: st.y as number,
+      view,
+      /** How far along the way the play space faces (the view's heading on the strip). */
+      ahead: (p.x * Math.sin(view) + p.z * Math.cos(view)) as number,
+      scale: vr.debug.scale as number,
+      vignette: vr.debug.vignette as number,
+      pulses: [...vr.debug.pulses] as string[],
+    };
+  });
+}
+
+/** Moves both controllers together from one place to another in the room, a frame at a time. */
+async function sweep(page: Page, from: XYZ, to: XYZ, frames: number, ms = 14) {
+  for (let i = 0; i <= frames; i++) {
+    const t = i / frames;
+    const at = (dx: number) => ({
+      x: from.x + (to.x - from.x) * t + dx,
+      y: from.y + (to.y - from.y) * t,
+      z: from.z + (to.z - from.z) * t,
+    });
+    await place(page, 'left', at(-0.2));
+    await place(page, 'right', at(0.2));
+    await advance(page, ms);
+  }
+}
+
+test('pushing off the floor with your hands moves the robot, flings it, and jumps', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await withQuest(page);
+  await bootDebug(page);
+  await enterVr(page);
+  // hands up at your sides: nothing moves
+  await sweep(page, { x: 0, y: 1.1, z: -0.3 }, { x: 0, y: 1.1, z: 0.2 }, 10);
+  const start = await readWalk(page);
+  await advance(page, 300);
+  expect((await readWalk(page)).ahead).toBeCloseTo(start.ahead, 3);
+
+  // both hands down on the floor in front, pulled slowly back toward you: the robot goes forward by as much
+  await sweep(page, { x: 0, y: 0.25, z: -0.4 }, { x: 0, y: 0.25, z: -0.4 }, 2);
+  expect((await readWalk(page)).pulses).toContain('left:floorTouch');
+  const down = await readWalk(page);
+  await sweep(page, { x: 0, y: 0.25, z: -0.4 }, { x: 0, y: 0.25, z: 0.1 }, 25, 40);
+  const pushed = await readWalk(page);
+  expect(pushed.ahead - down.ahead).toBeCloseTo(0.5 * pushed.scale, 1);
+  // lifting the hands slowly leaves the robot where it is
+  await sweep(page, { x: 0, y: 0.25, z: 0.1 }, { x: 0, y: 1.1, z: 0.1 }, 1, 200);
+  const still = await readWalk(page);
+  await advance(page, 500);
+  expect((await readWalk(page)).ahead - still.ahead).toBeLessThan(0.05);
+
+  // a quick push and letting go flings it: it keeps going, then slows to a stop, and the vignette closes in meanwhile
+  await sweep(page, { x: 0, y: 0.25, z: -0.4 }, { x: 0, y: 0.25, z: -0.4 }, 2);
+  await sweep(page, { x: 0, y: 0.25, z: -0.4 }, { x: 0, y: 0.25, z: 0.1 }, 6);
+  await sweep(page, { x: 0, y: 1.1, z: 0.1 }, { x: 0, y: 1.1, z: 0.1 }, 1);
+  const letGo = await readWalk(page);
+  await advance(page, 100);
+  expect((await readWalk(page)).vignette).toBeGreaterThan(0);
+  await advance(page, 200);
+  const gliding = await readWalk(page);
+  expect(gliding.ahead - letGo.ahead).toBeGreaterThan(0.5);
+  await advance(page, 5000);
+  const stopped = await readWalk(page);
+  await advance(page, 500);
+  expect((await readWalk(page)).ahead).toBeCloseTo(stopped.ahead, 2);
+  expect((await readWalk(page)).vignette).toBe(0);
+
+  // pushing down hard and letting go jumps
+  await sweep(page, { x: 0, y: 0.45, z: -0.3 }, { x: 0, y: 0.45, z: -0.3 }, 2);
+  await sweep(page, { x: 0, y: 0.45, z: -0.3 }, { x: 0, y: 0.15, z: -0.3 }, 6);
+  await sweep(page, { x: 0, y: 1.1, z: -0.3 }, { x: 0, y: 1.1, z: -0.3 }, 1);
+  await advance(page, 150);
+  expect((await readWalk(page)).y).toBeGreaterThan(0.3);
+  expect(errors).toEqual([]);
+});
+
+test('comfort settings: seated, smooth turning, and turning arm walking off', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await withQuest(page);
+  await bootDebug(page);
+  // the settings show on the flat page of a device that can run VR, and are kept in the browser
+  const panel = page.locator('#vr-comfort');
+  await expect(panel).toBeVisible();
+  await panel.locator('summary').click();
+  await panel.locator('input[name="vr-turning"][value="smooth"]').check();
+  await panel.locator('input[name="vr-seated"]').check();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('saber-side.vr-comfort') ?? '{}'))).toMatchObject({
+    turning: 'smooth',
+    seated: true,
+  });
+  await enterVr(page);
+
+  // seated: leaning to the side moves your view, not the robot
+  const before = await readWalk(page);
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: IWER test hook
+    (window as any).__quest.position.x += 0.3;
+  });
+  await advance(page, 300);
+  const leaned = await readWalk(page);
+  expect(Math.hypot(leaned.x - before.x, leaned.z - before.z)).toBeLessThan(0.01);
+
+  // smooth turning: the right stick turns the view a little every frame, not in one snap
+  await stick(page, 'right', 1, 0);
+  await advance(page, 100);
+  const turning = await readWalk(page);
+  expect(Math.abs(turning.view - before.view)).toBeGreaterThan(0.05);
+  expect(Math.abs(turning.view - before.view)).toBeLessThan(Math.PI / 4);
+  expect(turning.vignette).toBeGreaterThan(0);
+  await advance(page, 400);
+  expect(Math.abs((await readWalk(page)).view - before.view)).toBeGreaterThan(0.6);
+  await stick(page, 'right', 0, 0);
+
+  // with arm walking off, hands on the floor push nothing
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    (window as any).__saber.vr.debug.comfort.armWalking = false;
+  });
+  const off = await readWalk(page);
+  await sweep(page, { x: 0.3, y: 0.3, z: -0.4 }, { x: 0.3, y: 0.3, z: 0.1 }, 20, 30);
+  const after = await readWalk(page);
+  expect(Math.hypot(after.x - off.x, after.z - off.z)).toBeLessThan(0.01);
+  expect(errors).toEqual([]);
+});
