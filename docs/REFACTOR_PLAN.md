@@ -64,37 +64,36 @@ merges, mark it done in its initiative's table and drop its line here if it isn'
 planned branch is missing from this list.
 
 1. `fix/ring-sprites` (#31): Draw dust, sparks and glows on the ring floor again
-2. `feature/vr-wrist-panel`
-3. `feature/vr-ships`
-4. `foundation/quest-performance`
-5. `foundation/three-upgrade`
-6. `feature/carrot-farmers`
-7. `feature/carrot-stand`
-8. `feature/carrot-farms`
-9. `feature/economy-tuning`
-10. `feature/jack-o-lantern-head`
-11. `feature/inventory`
-12. `feature/give-crystals`
-13. `foundation/server-held-items`
-14. `feature/give-items`
-15. `feature/zero-g-swim-stroke`
-16. `feature/vr-swimming`
-17. `feature/spacewalks`
-18. `feature/more-paint-colors`
-19. `foundation/seven-part-slots`
-20. `feature/more-robot-parts`
-21. `feature/parts-catalog`
-22. `feature/robot-thrusters`
-23. `feature/robot-tires`
-24. `feature/ore-planet`
-25. `feature/refinery-ring`
-26. `feature/ore-hauler`
-27. `feature/ore-mining`
-28. `feature/ore-refining`
-29. `feature/refinery-ring-interior`
-30. `feature/refinery-ring-swimming`
-31. `feature/ore-economy-tuning`
-32. `feature/talking-robots`
+2. `feature/vr-ships`
+3. `foundation/quest-performance`
+4. `foundation/three-upgrade`
+5. `feature/carrot-farmers`
+6. `feature/carrot-stand`
+7. `feature/carrot-farms`
+8. `feature/economy-tuning`
+9. `feature/jack-o-lantern-head`
+10. `feature/inventory`
+11. `feature/give-crystals`
+12. `foundation/server-held-items`
+13. `feature/give-items`
+14. `feature/zero-g-swim-stroke`
+15. `feature/vr-swimming`
+16. `feature/spacewalks`
+17. `feature/more-paint-colors`
+18. `foundation/seven-part-slots`
+19. `feature/more-robot-parts`
+20. `feature/parts-catalog`
+21. `feature/robot-thrusters`
+22. `feature/robot-tires`
+23. `feature/ore-planet`
+24. `feature/refinery-ring`
+25. `feature/ore-hauler`
+26. `feature/ore-mining`
+27. `feature/ore-refining`
+28. `feature/refinery-ring-interior`
+29. `feature/refinery-ring-swimming`
+30. `feature/ore-economy-tuning`
+31. `feature/talking-robots`
 
 ### Not split into PRs yet
 
