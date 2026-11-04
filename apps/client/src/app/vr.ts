@@ -1,16 +1,24 @@
+import type { Comfort } from '@saber-side/shared';
 import {
+  ARM_LOCO,
+  armLocoStep,
   bendPoint,
+  floorContact,
+  glide,
   headYaw,
   MIN_HEAD_HEIGHT,
+  newArmLoco,
   R_IN,
   rigScale,
   rigToStrip,
   SELFIE,
   STICK_DEADZONE,
+  smoothTurn,
   snapTurn,
   stickHeading,
   turnToward,
   VR_STEER_RATE,
+  vignetteAmount,
   wrapAngle,
 } from '@saber-side/shared';
 import type { XR, XRFrame, XRInputSource, XRReferenceSpace, XRSession } from 'three';
@@ -19,6 +27,7 @@ import { firstPersonHidden, type Robot, type RobotArm, type RobotKit } from '../
 import type { DrawTexFn } from '../render/kit';
 import { createScaledViewDraw, keepSpriteSizeInScaledViews } from '../render/xr-view';
 import { offerVr } from '../ui/enter-vr';
+import { comfortPanel, loadComfort } from '../ui/vr-comfort';
 import { createVrHands, type GrabHand, type HeldItem } from './vr-hands';
 import { createMiniMe } from './vr-selfie';
 
@@ -50,7 +59,16 @@ export interface VrGame {
    * The legacy simulation state: the mode, the robot's heading, how high it's jumped, the Bot Maker roll-out, the spin
    * attack (-1 when not spinning), and the blaster's recoil (1 just after a shot).
    */
-  st: { mode: string; yaw: number; y: number; rollout: number; spin: number; recoil: number };
+  st: {
+    mode: string;
+    yaw: number;
+    y: number;
+    vy: number;
+    grounded: boolean;
+    rollout: number;
+    spin: number;
+    recoil: number;
+  };
   /** The held actions, and pressing one (which also marks it as just pressed for this frame). */
   keys: Record<string, boolean>;
   press(action: string): void;
@@ -89,6 +107,8 @@ export interface VrMode {
     hands: ReturnType<typeof createVrHands>['hands'];
     pulses: string[];
     mini: ReturnType<typeof createMiniMe>;
+    comfort: Comfort;
+    vignette: number;
     /** Where a point in the robot's world (the floor strip, or real space) is in your room, in meters. */
     toPlay(p: { x: number; y: number; z: number }): { x: number; y: number; z: number };
   };
@@ -127,8 +147,12 @@ export function createVrMode(game: VrGame): VrMode {
 
   // The rig is built on the first trip into VR, not at boot: three.js draws every new object's id from Math.random,
   // and the flat game's frames (and its tests) mustn't shift just because VR exists.
-  let built: { rig: THREE.Group; camera: THREE.PerspectiveCamera; prompt: ReturnType<typeof promptPanel> } | null =
-    null;
+  let built: {
+    rig: THREE.Group;
+    camera: THREE.PerspectiveCamera;
+    prompt: ReturnType<typeof promptPanel>;
+    vignette: ReturnType<typeof vignettePanel>;
+  } | null = null;
   function parts() {
     if (!built) {
       const rig = new THREE.Group();
@@ -137,7 +161,9 @@ export function createVrMode(game: VrGame): VrMode {
       rig.add(camera);
       const prompt = promptPanel(game.drawTex);
       camera.add(prompt.mesh);
-      built = { rig, camera, prompt };
+      const vignette = vignettePanel(game.drawTex);
+      camera.add(vignette.mesh);
+      built = { rig, camera, prompt, vignette };
     }
     return built;
   }
@@ -218,6 +244,22 @@ export function createVrMode(game: VrGame): VrMode {
   });
 
   offerVr(document.getElementById('enter-vr') as HTMLButtonElement | null, xr, enter);
+  // the comfort settings, set on the flat page until the wrist panel has them (ui/vr-comfort.ts)
+  const comfort = loadComfort();
+  const settings = comfortPanel(comfort);
+  xr?.isSessionSupported('immersive-vr').then(
+    (ok) => ok && settings.show(),
+    () => {},
+  );
+  /** Arm locomotion: the hands on the floor, the glide after a fling (strip units per second), and your eye height. */
+  let loco = newArmLoco();
+  let glideV = { x: 0, z: 0 };
+  let eyeMeters = 1.5;
+  /** For the vignette: how fast the view turned and the robot moved last frame (radians, scene units per second). */
+  let turnRate = 0;
+  let speed = 0;
+  const lastAt = new THREE.Vector3();
+  let measured = false;
 
   function readInput(sources: readonly XRInputSource[]) {
     const now = new Set<string>();
@@ -246,6 +288,40 @@ export function createVrMode(game: VrGame): VrMode {
     return { now, lx, ly, rx, ry, recenter, selfie };
   }
 
+  /**
+   * Arm locomotion on the floor (shared/sim/arm-locomotion.ts): hands on the floor push the robot the other way,
+   * letting go flings it, and pushing down hard and letting go jumps.
+   */
+  function armWalk(dt: number) {
+    if (!comfort.armWalking) {
+      loco = newArmLoco();
+      glideV = { x: 0, z: 0 };
+      return;
+    }
+    const pts = hands.hands.map((h) => (h.tracked ? h.pos : null));
+    const step = armLocoStep(loco, pts, floorContact(eyeMeters, comfort.seated), dt);
+    loco = step.state;
+    step.touched.forEach((t, i) => {
+      if (t) hands.pulse(i, 'floorTouch');
+    });
+    const p = bot.root.position;
+    if (step.holding) {
+      glideV = { x: 0, z: 0 };
+      const move = rigToStrip(view, step.move.x * scale, step.move.z * scale);
+      p.x += move.x;
+      p.z += move.z;
+      return;
+    }
+    if (step.fling) glideV = rigToStrip(view, step.fling.x * scale, step.fling.z * scale);
+    if (step.jump && st.grounded) {
+      st.vy = step.jump * scale * ARM_LOCO.jumpGain;
+      st.grounded = false;
+    }
+    p.x += glideV.x * dt;
+    p.z += glideV.z * dt;
+    glideV = glide(glideV, dt, ARM_LOCO.stopBelow * scale);
+  }
+
   function beforeUpdate(dt: number, frame?: XRFrame) {
     if (!session || !space || !frame) return;
     const pose = frame.getViewerPose(space);
@@ -263,6 +339,7 @@ export function createVrMode(game: VrGame): VrMode {
       anchor.copy(head);
       if (head.y < MIN_HEAD_HEIGHT) return;
       scale = rigScale(robotEyeHeight(), head.y);
+      eyeMeters = head.y;
       calibrate = false;
       faceRobot();
     }
@@ -273,6 +350,13 @@ export function createVrMode(game: VrGame): VrMode {
       lastHead.copy(head);
       anchor.copy(head);
     }
+
+    // how fast the robot went last frame, for the vignette (a lap of the ring or a ride up a lift isn't speed)
+    const at = bot.root.position;
+    const moved = measured ? Math.hypot(at.x - lastAt.x, at.z - lastAt.z) : 0;
+    speed = dt > 0 && moved < 5 && st.mode === 'floor' ? moved / dt : 0;
+    lastAt.copy(at);
+    measured = true;
 
     const input = readInput(session.inputSources);
     const fromHands = hands.input(session.inputSources, { frame, space, head, headQ }, holding);
@@ -297,10 +381,13 @@ export function createVrMode(game: VrGame): VrMode {
     if (input.recenter && !recenterHeld) calibrate = true;
     recenterHeld = input.recenter;
 
-    // snap turns: the view turns on the floor and in a ship; in the hub the robot turns, since it flies where it faces
-    // (not while the right stick turns the mini-me)
-    const snap = snapTurn(0, mini.open ? 0 : input.rx, snapArmed);
+    // turning: the view turns on the floor and in a ship; in the hub the robot turns, since it flies where it faces
+    // (not while the right stick turns the mini-me). Snap turns by default, smooth with the comfort setting.
+    const rx = mini.open ? 0 : input.rx;
+    const snap =
+      comfort.turning === 'smooth' ? { view: smoothTurn(0, rx, dt), armed: true } : snapTurn(0, rx, snapArmed);
     snapArmed = snap.armed;
+    turnRate = comfort.turning === 'smooth' && dt > 0 ? snap.view / dt : 0;
     if (snap.view !== 0) {
       if (st.mode === 'hub') {
         bot.root.quaternion.multiply(q.setFromAxisAngle(Y_AXIS, snap.view));
@@ -310,10 +397,14 @@ export function createVrMode(game: VrGame): VrMode {
 
     const rolling = st.rollout > 0;
     if (st.mode === 'floor' && !rolling) {
-      // stepping around the room moves the robot (bumping into things stops it, and the world holds you back)
-      const step = rigToStrip(view, (head.x - lastHead.x) * scale, (head.z - lastHead.z) * scale);
-      bot.root.position.x += step.x;
-      bot.root.position.z += step.z;
+      // stepping around the room moves the robot (bumping into things stops it, and the world holds you back), unless
+      // you're seated, when leaning just moves your view
+      if (!comfort.seated) {
+        const step = rigToStrip(view, (head.x - lastHead.x) * scale, (head.z - lastHead.z) * scale);
+        bot.root.position.x += step.x;
+        bot.root.position.z += step.z;
+      }
+      armWalk(dt);
       // the left stick drives toward where you're looking: the robot turns to face the stick, then rolls
       const to = stickHeading(view + yaw, input.lx, input.ly);
       if (to !== undefined) {
@@ -321,6 +412,8 @@ export function createVrMode(game: VrGame): VrMode {
         if (Math.abs(wrapAngle(to - st.yaw)) < Math.PI / 2) input.now.add('up');
       }
     } else if (st.mode !== 'floor') {
+      loco = newArmLoco();
+      glideV = { x: 0, z: 0 };
       // on a lift, in the hub, or flying: the left stick works like the arrow keys
       if (input.ly < -STICK_DEADZONE) input.now.add('up');
       if (input.ly > STICK_DEADZONE) input.now.add('down');
@@ -420,8 +513,10 @@ export function createVrMode(game: VrGame): VrMode {
       renderer.render(scene, flatCamera);
       return;
     }
-    const { rig, camera, prompt } = parts();
+    const { rig, camera, prompt, vignette } = parts();
     placeRig(rig);
+    // the comfort vignette closes in while you move fast or turn smoothly
+    vignette.show(vignetteAmount(comfort.vignette, speed, turnRate));
     const { text, hint } = game.prompt();
     prompt.show(text, hint);
     if (rig.parent !== scene) scene.add(rig);
@@ -475,6 +570,10 @@ export function createVrMode(game: VrGame): VrMode {
       hands: hands.hands,
       pulses: hands.pulses,
       mini,
+      comfort,
+      get vignette() {
+        return parts().vignette.amount;
+      },
       toPlay(p: { x: number; y: number; z: number }) {
         rootFrame();
         bot.root.updateMatrixWorld(true);
@@ -530,6 +629,44 @@ function promptPanel(drawTex: DrawTexFn) {
       if (g) paint(g, c.width, c.height);
       tex.needsUpdate = true;
       mesh.visible = !!next;
+    },
+  };
+}
+
+/** The comfort vignette: a dark ring round the edge of your view, see-through in the middle. */
+function vignettePanel(drawTex: DrawTexFn) {
+  const tex = drawTex(256, 256, (g, w, h) => {
+    const r = g.createRadialGradient(w / 2, h / 2, w * 0.18, w / 2, h / 2, w * 0.5);
+    r.addColorStop(0, 'rgba(0,0,0,0)');
+    r.addColorStop(1, 'rgba(0,0,0,1)');
+    g.fillStyle = r;
+    g.fillRect(0, 0, w, h);
+  });
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex,
+    transparent: true,
+    opacity: 0,
+    depthTest: false,
+    depthWrite: false,
+    fog: false,
+    toneMapped: false,
+  });
+  // in camera space (meters), close in front of your eyes and wide enough to cover both lenses' view
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+  mesh.position.set(0, 0, -0.2);
+  mesh.renderOrder = 30;
+  mesh.frustumCulled = false;
+  mesh.visible = false;
+  let amount = 0;
+  return {
+    mesh,
+    get amount() {
+      return amount;
+    },
+    show(a: number) {
+      amount = a;
+      mat.opacity = a;
+      mesh.visible = a > 0.01;
     },
   };
 }

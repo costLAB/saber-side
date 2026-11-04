@@ -100,4 +100,6 @@ export const HAPTICS = {
   /** Repeated while a saber is lit, scaled by how lit it is. */
   saberHum: { intensity: 0.08, ms: 120, every: 0.1 },
   blasterKick: { intensity: 0.8, ms: 50 },
+  /** A hand touching down on the floor to push off (arm locomotion). */
+  floorTouch: { intensity: 0.25, ms: 20 },
 } as const;
