@@ -242,6 +242,7 @@ export function createVrHands(bot: Robot) {
   return {
     hands,
     pulses,
+    pulse,
     toRoot,
     turnRoot,
 
