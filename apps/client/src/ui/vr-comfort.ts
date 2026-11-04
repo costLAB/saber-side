@@ -14,7 +14,7 @@ export function loadComfort(): Comfort {
   }
 }
 
-function save(c: Comfort) {
+export function saveComfort(c: Comfort) {
   try {
     localStorage.setItem(KEY, JSON.stringify(c));
   } catch {
@@ -48,7 +48,7 @@ export function comfortPanel(comfort: Comfort) {
     else if (t.name === 'vr-vignette') comfort.vignette = Number(t.value);
     else if (t.name === 'vr-seated') comfort.seated = t.checked;
     else if (t.name === 'vr-arms') comfort.armWalking = t.checked;
-    save(comfort);
+    saveComfort(comfort);
   });
   document.body.appendChild(box);
   return {

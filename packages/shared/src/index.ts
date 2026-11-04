@@ -25,5 +25,6 @@ export * from './sim/shops.ts';
 export * from './sim/vr-comfort.ts';
 export * from './sim/vr-hands.ts';
 export * from './sim/vr-rig.ts';
+export * from './sim/vr-wrist.ts';
 export * from './sim/wallet.ts';
 export * from './vec3.ts';
