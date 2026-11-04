@@ -476,7 +476,6 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
 7. **The cockpit, as built in PR 7:** the stick's sideways tilt turns the ship (it can't roll on its own), the
    throttle's middle is the keyboard's cruise, and the rig scale is 1.4 in the cockpit. Does it feel the right size?
 8. **Performance, after PR 6:** the frame budget isn't met yet (see Performance above). Should the next cuts
-   (lower-detail ring meshes, merged static meshes) be a PR of their own before the three.js upgrade, after a frame
-   rate check on a real Quest 2?
+   (lower-detail ring meshes, merged static meshes) be a PR of their own, after a frame rate check on a real Quest 2?
 9. **Bent normals:** the bend shader never bent normals (see three.js r170 above), so the ring is lit as if it were
    flat. Should it be fixed? It changes the lighting everywhere on the ring.
