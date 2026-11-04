@@ -32,6 +32,7 @@ import { createEating } from '../app/eating';
 import { createFlightMode } from '../app/flight';
 import { createHarvest } from '../app/harvest';
 import { createSelfie } from '../app/selfie';
+import { createSaberLights } from '../render/saber-lights';
 import { createVrMode } from '../app/vr';
 import { buildBotMaker } from '../world/bot-maker';
 import { buildCarrotBeds, looseCarrot } from '../world/carrot-beds';
@@ -681,6 +682,9 @@ function surfaceY(x, z, y) {
 }
 
 // every item is built pointing along +y with the grip point at its origin
+// D9: sabers glow by their emissive core and glow shells, and a fixed pool of lights follows the nearest lit ones
+// (render/saber-lights.ts), so a shop full of sabers costs no more to draw than two
+const saberLights = createSaberLights(1.3);
 function makeSaber(color, name) {
   const g = new THREE.Group();
   g.add(mesh(Cyl(0.034, 0.034, 0.3, 16), M.metal));
@@ -701,8 +705,8 @@ function makeSaber(color, name) {
     blade.add(new THREE.Mesh(bladeGeo(r), m));
     return { m, op };
   });
-  const light = new THREE.PointLight(color, 1.6, 4.5, 2); light.position.y = BL / 2; blade.add(light);
-  return { kind: 'saber', name, group: g, blade, glow, light, color, lit: 0, target: 0, rest: 0.05 };
+  saberLights.make(blade, color);
+  return { kind: 'saber', name, group: g, blade, glow, color, lit: 0, level: 0, target: 0, rest: 0.05 };
 }
 function makeBlaster() {
   // grip along the hand; held with the grip flipped, so the body sits at -y and the barrel points -z
@@ -738,6 +742,7 @@ const items = [
   Object.assign(makeCarrot(), { home: [TABLE.x + 0.95, TABLE.top + 0.075, TABLE.z - 0.1, 0.3] }),
 ];
 for (const it of items) { it.vel = new V3(); it.av = new V3(); it.state = 'loose'; it.respawn = 0; }
+const sabers = items.filter(it => it.kind === 'saber');
 let held = null;
 function placeOnTable(it) {
   scene.add(it.group);
@@ -1173,8 +1178,9 @@ function update(dt, t) {
     it.blade.scale.y = Math.max(0.001, it.lit);
     it.blade.visible = it.lit > 0.01;
     for (const g of it.glow) g.m.opacity = g.op * hum * (1 + (it === held ? spinAmt * 0.4 : 0));
-    it.light.intensity = 1.6 * it.lit * hum;
+    it.level = 1.6 * it.lit * hum;
   }
+  saberLights.update(sabers, bot.root.position);
   // grip angle: forward-up at rest, raised on the jump, extended like a sword arm in the spin; a blaster stays level
   const c0 = bot.arms[0] ? bot.arms[0].cur : { sw: 0, el: 0.45, wr: 0 }, gunAim = held && held.kind === 'gun' && !isSpin;
   let sa = 1.25 - 0.3 * sn;
@@ -1511,8 +1517,9 @@ function updateReal(dt, t, selfieOn) {
   for (const it of items) if (it.kind === 'saber') {
     it.lit = damp(it.lit, it.target, it.target ? 9 : 12, dt);
     it.blade.scale.y = Math.max(0.001, it.lit); it.blade.visible = it.lit > 0.01;
-    for (const gl of it.glow) gl.m.opacity = gl.op * hum; it.light.intensity = 1.6 * it.lit * hum;
+    for (const gl of it.glow) gl.m.opacity = gl.op * hum; it.level = 1.6 * it.lit * hum;
   }
+  saberLights.update(sabers, bot.root.position);
 
   updateItems(dt); updateBolts(dt);
   updatePool(dustPool, dt); updatePool(sparkPool, dt);

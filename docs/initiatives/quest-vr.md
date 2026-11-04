@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: Quest players can step into VR (#29), use their hands (#34), see only their own hands and arms (#36), take a Selfie (#37), push off the floor with their arms (#38), read the HUD on their wrist (#40), ride the lifts to float in the hub (#41), and fly ships from the cockpit (#42). Next is `foundation/quest-performance`, then `foundation/three-upgrade`. |
+| **Status** | In progress: Quest players can step into VR (#29), use their hands (#34), see only their own hands and arms (#36), take a Selfie (#37), push off the floor with their arms (#38), read the HUD on their wrist (#40), ride the lifts to float in the hub (#41), fly ships from the cockpit (#42), and the headset draws only what's in view (#43). Next is `foundation/three-upgrade`. |
 | **Phase** | P4, Meta Quest VR ([plan, section 8](../REFACTOR_PLAN.md#p4-meta-quest-vr-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid puts on a Quest, opens the bookmarked game in Quest Browser, picks their robot, taps **Enter VR**, and rolls around the ring in first person with friends on iPads, picking up sabers and blasters, riding a lift, and floating in the hub, at a steady frame rate and without feeling sick. |
@@ -296,6 +296,33 @@ The DOM HUD can't be seen in a headset, so VR draws its own:
     keyboard does, and all the way forward boosts. While neither control is held, the left stick still flies like the
     arrow keys. There are no snap turns in the cockpit: you look round with your head.
 
+### Performance (PR 6)
+
+What PR 6 did, measured through IWER at the spawn (both eyes together; `vr.debug.drawn`, and the wrist panel's
+`?perf` line on a headset):
+
+- **Bent things are culled in VR** (`render/ring/bent-cull.ts`). The bend happens in the vertex shader, so three.js
+  can't cull bent things by their unbent bounds, and the legacy game turns culling off for them all: every frame drew
+  the whole ring, 1,430 draw calls. Now each bent mesh's and sprite's bounding sphere goes through the same bend and
+  is tested against the headset's view (padded a little), and what's out of view isn't drawn: about 400 to 580 draw
+  calls, depending on where you look. The flat view isn't changed (its screenshots are pinned); it could use the same
+  culling later.
+- **Emissive sabers (D9)** (`render/saber-lights.ts`, `shared/sim/light-pool.ts`): no light per saber. Sabers glow by
+  their own core and glow shells, and a fixed pool of two point lights goes to the nearest lit sabers, staying put
+  while they can. A shop full of sabers costs no more lights than two. The first two sabers make the pool's lights
+  where their own lights used to be, so the flat picture and its screenshots are unchanged.
+- **Fixed foveation** was already on (PR 1).
+- **Not done:**
+  - **Multiview** isn't in three.js r128, so it waits for the upgrade (PR 0), along with re-checking the bend per
+    eye.
+  - **Framebuffer scale** stays at the headset's default until it's tried on a real Quest.
+  - **The budget isn't met yet.** About 1.1M triangles are drawn (both eyes), against about 500k, and 200 to 290
+    draw calls an eye, against about 150. Most of the triangles are in a few ring-sized meshes that are always in
+    view: the floor (about 110k triangles), the hull cylinder (77k), the park's hill (74k), the trees (59k), and the
+    sky sphere (52k). Lower-detail versions of those, and merging the small static meshes per material, are the
+    next cuts. Both change the flat picture, so they're their own PR, to be checked on a real Quest.
+- An e2e test keeps the VR draw calls under 700 and the triangles under 1.25M at the spawn, so they don't creep back.
+
 ## Trying it on a headset (developers)
 
 - **A PR:** every PR's preview (`https://saber-side-pr-<n>.onrender.com`) works in Quest Browser and joins the
@@ -329,7 +356,7 @@ as each one merges.
 | 3 | **Done** (#40) | `feature/vr-wrist-panel` | Put the HUD on your wrist in VR | The wrist panel (place, station status, holding, comfort settings, Exit VR), world-space prompts beside what they're about, touching a sign to act, and the `?perf` readout. | none |
 | 4 | **Done** (#41) | `feature/vr-lifts-and-hub` | Ride the lifts and float in the hub in VR | The rig in the lift cab with the comfort vignette, and stick floating in the zero-g hub. | none |
 | 5 | **Done** (#38) | `feature/arm-locomotion` | Let Quest players move by pushing off with their arms | The owner's "VR walking": Gorilla Tag style movement on the ring floor: hands as sphere colliders, push to move and jump, let go to fling (capped). Rules in `shared/sim/arm-locomotion.ts`. The rest of the comfort options: smooth turning, vignette strength, seated mode. Moving in the hub is the [zero-g swimming initiative](zero-g-swimming.md)'s PR 2. | none |
-| 6 | | `foundation/quest-performance` | Hold a steady frame rate on Quest | A pass on a real Quest 2 and 3 against the budget: fixed foveation, framebuffer scale, multiview (re-checking the bend per eye), emissive sabers instead of a light each (D9, if P1 hasn't done it), and draw-call cuts. | none |
+| 6 | **Done** (#43) | `foundation/quest-performance` | Hold a steady frame rate on Quest | A pass on a real Quest 2 and 3 against the budget: fixed foveation, framebuffer scale, multiview (re-checking the bend per eye), emissive sabers instead of a light each (D9, if P1 hasn't done it), and draw-call cuts. | none |
 | 7 | **Done** (#42) | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and sit in its cockpit in first person. Fly by grabbing the joystick and throttle with your hands (`shared/sim/vr-cockpit.ts`), fire with the joystick's trigger, a vignette on fast turns, and haptics. | none |
 | 8 | **Done** (#36) | `feature/vr-hide-own-body` | Show only your robot's hands and arms in VR | Hides your own robot's body and wheel (its head is already hidden) while the headset draws, leaving the hands, arms, and held items. Friends still see all of it. | none |
 | 9 | **Done** (#37) | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
@@ -435,3 +462,6 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
    - Touching a sign does what the prompt says (like gripping), with no button to press.
 7. **The cockpit, as built in PR 7:** the stick's sideways tilt turns the ship (it can't roll on its own), the
    throttle's middle is the keyboard's cruise, and the rig scale is 1.4 in the cockpit. Does it feel the right size?
+8. **Performance, after PR 6:** the frame budget isn't met yet (see Performance above). Should the next cuts
+   (lower-detail ring meshes, merged static meshes) be a PR of their own before the three.js upgrade, after a frame
+   rate check on a real Quest 2?

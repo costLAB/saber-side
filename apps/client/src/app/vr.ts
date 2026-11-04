@@ -27,6 +27,7 @@ import type { XR, XRFrame, XRInputSource, XRReferenceSpace, XRSession } from 'th
 import * as THREE from 'three';
 import { firstPersonHidden, type Robot, type RobotArm, type RobotKit } from '../avatar/robot';
 import type { DrawTexFn } from '../render/kit';
+import { cullBent } from '../render/ring/bent-cull';
 import { createScaledViewDraw, keepSpriteSizeInScaledViews } from '../render/xr-view';
 import { offerVr } from '../ui/enter-vr';
 import { comfortPanel, loadComfort, saveComfort } from '../ui/vr-comfort';
@@ -126,6 +127,7 @@ export interface VrMode {
     wrist: ReturnType<typeof createWristPanel>;
     sign: ReturnType<typeof signPanel>;
     cockpit: ReturnType<typeof createCockpit>;
+    drawn: { calls: number; triangles: number };
     /** Where a point in the robot's world (the floor strip, or real space) is in your room, in meters. */
     toPlay(p: { x: number; y: number; z: number }): { x: number; y: number; z: number };
   };
@@ -685,9 +687,12 @@ export function createVrMode(game: VrGame): VrMode {
     if (st.mode === 'ship') hidden.push(...(game.ships.cockpit()?.model.pilot ?? []));
     const shown = hidden.map((o) => o.visible);
     for (const o of hidden) o.visible = false;
+    // only what's in view of the headset is drawn: bent things are culled by their bent bounds (render/ring/bent-cull.ts)
+    const showCulled = cullBent(scene, renderer.xr.getCamera(camera));
     try {
       drawScaled(scene, camera, 1 / rig.scale.x);
     } finally {
+      showCulled();
       hidden.forEach((o, i) => {
         o.visible = shown[i] as boolean;
       });
@@ -741,6 +746,11 @@ export function createVrMode(game: VrGame): VrMode {
       },
       get cockpit() {
         return parts().cockpit;
+      },
+      /** What the last frame drew: draw calls and triangles (both eyes). */
+      get drawn() {
+        const r = renderer.info.render;
+        return { calls: r.calls, triangles: r.triangles };
       },
       toPlay(p: { x: number; y: number; z: number }) {
         rootFrame();

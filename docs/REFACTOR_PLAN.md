@@ -48,7 +48,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 (#13), the robot mouth (#27), paint cure (#28), and the first shop (#32) done, next `feature/carrot-farmers` |
 | [Robot parts catalogs](initiatives/robot-parts-catalog.md) | P3 (parts), P5 (prices) | Planned: next `feature/jack-o-lantern-head` (also Inventory v1's first step) |
 | [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md) | P5 | Planned: next `feature/ore-planet` |
-| [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | In progress: entering VR (#29), hands (#34), hiding your own body (#36), the Selfie (#37), arm locomotion (#38), the wrist panel (#40), lifts and the hub (#41), and flying ships from the cockpit (#42) done, next `foundation/quest-performance` |
+| [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | In progress: entering VR (#29), hands (#34), hiding your own body (#36), the Selfie (#37), arm locomotion (#38), the wrist panel (#40), lifts and the hub (#41), flying ships from the cockpit (#42), and the first performance pass (#43) done, next `foundation/three-upgrade` |
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
 
@@ -64,39 +64,38 @@ merges, mark it done in its initiative's table and drop its line here if it isn'
 planned branch is missing from this list.
 
 1. `fix/ring-sprites` (#31): Draw dust, sparks and glows on the ring floor again
-2. `foundation/quest-performance`
-3. `foundation/three-upgrade`
-4. `feature/carrot-farmers`
-5. `feature/carrot-stand`
-6. `feature/carrot-farms`
-7. `feature/economy-tuning`
-8. `feature/jack-o-lantern-head`
-9. `feature/inventory`
-10. `feature/give-crystals`
-11. `foundation/server-held-items`
-12. `feature/give-items`
-13. `feature/zero-g-swim-stroke`
-14. `feature/vr-swimming`
-15. `feature/spacewalks`
-16. `feature/more-paint-colors`
-17. `foundation/seven-part-slots`
-18. `feature/more-robot-parts`
-19. `feature/parts-catalog`
-20. `feature/robot-thrusters`
-21. `feature/robot-tires`
-22. `feature/ore-planet`
-23. `feature/refinery-ring`
-24. `feature/ore-hauler`
-25. `feature/ore-mining`
-26. `feature/ore-refining`
-27. `feature/refinery-ring-interior`
-28. `feature/refinery-ring-swimming`
-29. `feature/ore-economy-tuning`
-30. `feature/talking-robots`
+2. `foundation/three-upgrade`
+3. `feature/carrot-farmers`
+4. `feature/carrot-stand`
+5. `feature/carrot-farms`
+6. `feature/economy-tuning`
+7. `feature/jack-o-lantern-head`
+8. `feature/inventory`
+9. `feature/give-crystals`
+10. `foundation/server-held-items`
+11. `feature/give-items`
+12. `feature/zero-g-swim-stroke`
+13. `feature/vr-swimming`
+14. `feature/spacewalks`
+15. `feature/more-paint-colors`
+16. `foundation/seven-part-slots`
+17. `feature/more-robot-parts`
+18. `feature/parts-catalog`
+19. `feature/robot-thrusters`
+20. `feature/robot-tires`
+21. `feature/ore-planet`
+22. `feature/refinery-ring`
+23. `feature/ore-hauler`
+24. `feature/ore-mining`
+25. `feature/ore-refining`
+26. `feature/refinery-ring-interior`
+27. `feature/refinery-ring-swimming`
+28. `feature/ore-economy-tuning`
+29. `feature/talking-robots`
 
 ### Not split into PRs yet
 
-- **Tidy up the code (P1):** meters instead of feet, the entity and world model, a fixed tick, glowing sabers without a light each, and the rest of `game.js` split into modules.
+- **Tidy up the code (P1):** meters instead of feet, the entity and world model, a fixed tick, and the rest of `game.js` split into modules.
 - **Better controls and avatars (P2):** the input layer, one avatar for every device, and an iPad touch rework (with the keyboard legend kept off the d-pad).
 - **Station backups (P3):** off-site backups of the station's save file.
 - **The rest of Economy v1 (P5):** buying extra shops, sabers, blasters, hats, and pet bots to sell, the Depot, and tuning for every item.
@@ -480,7 +479,7 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 | Phase | Status | Done | Still to do |
 | --- | --- | --- | --- |
 | P0 Groundwork | **Done** | Everything | |
-| P1 Decompose | **Partly done** | `packages/shared` and its tests, ships and planets on the new layout, render modules, the robot factory, seeded cosmetic RNG | Meters (units are still feet-scaled, `FT`), the entity/world model (the player, items, and lifts still live on meshes), a fixed tick, emissive sabers (each saber still has a point light), the three.js upgrade (still r128), and most of `game.js` (1,661 lines, `update()` included) |
+| P1 Decompose | **Partly done** | `packages/shared` and its tests, ships and planets on the new layout, render modules, the robot factory, seeded cosmetic RNG, emissive sabers sharing a pool of two lights (#43) | Meters (units are still feet-scaled, `FT`), the entity/world model (the player, items, and lifts still live on meshes), a fixed tick, the three.js upgrade (still r128), and most of `game.js` (1,661 lines, `update()` included) |
 | P2 Input + avatar | Not started | | Action map and device adapters, `PilotedController`, the embodied avatar, the iPad touch rework (including the legend/d-pad overlap) |
 | P3 Online free roam | **Partly done** | The station server on Render, the owner panel, robots built from parts, the Bot Maker spawn, seeing friends' robots, and [players, their robots, and seats](initiatives/players-and-robots.md): guests, the Robot Registry, logins with PINs, one seat per player, up to 5 robots each | Server-authoritative item pickup/drop and lifts (sabers and blasters as shared toys); off-site backups (Litestream) |
 | P4 Quest VR | **Started** | Entering VR on a Quest, first person on the ring, stick driving and snap turn, and hands as the robot's arms (IK, grabbing, using, eating, haptics, hand tracking) (the [Quest VR initiative](initiatives/quest-vr.md), #29, #34) | The wrist panel, lifts and the hub, arm locomotion, the performance pass |
@@ -521,7 +520,8 @@ P5 is going ahead of P2-P4 on purpose: the carrot initiative is the next feature
 - Extract modules per section 4 behind the screenshot tests (the strangler pattern: the game stays playable after every PR).
 - `packages/shared`: meters (D3), `ring-space` (D4), level data with **spots defined as data**.
 - The entity/world model (D2): player, items, and lifts move out of meshes. Fixed tick and seeded RNG.
-- Saber lighting moves to emissive + glow (D9).
+- Saber lighting moves to emissive + glow (D9). Done in the Quest VR initiative's PR 6 (#43): sabers glow by their
+  own core and glow shells, and a fixed pool of two lights follows the nearest lit ones.
 - **Upgrade three.js** and re-verify the bend shader patches, color management, and light intensities.
 - Unit tests for ring math, lifts, movement, and items. The sim runs headless in Node.
 
