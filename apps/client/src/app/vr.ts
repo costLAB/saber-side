@@ -30,6 +30,9 @@ import type { DrawTexFn } from '../render/kit';
 import { createScaledViewDraw, keepSpriteSizeInScaledViews } from '../render/xr-view';
 import { offerVr } from '../ui/enter-vr';
 import { comfortPanel, loadComfort, saveComfort } from '../ui/vr-comfort';
+import { PILOT_EYE } from '../world/ship';
+import type { FlightMode } from './flight';
+import { createCockpit } from './vr-cockpit';
 import { createVrHands, type GrabHand, type HeldItem } from './vr-hands';
 import { createMiniMe } from './vr-selfie';
 import { createWristPanel } from './vr-wrist';
@@ -86,6 +89,8 @@ export interface VrGame {
   drawTex: DrawTexFn;
   /** What robots are built from (for the Selfie's mini-me). */
   kit: RobotKit;
+  /** The ships (app/flight.ts): the one being flown, for the cockpit, and its controls. */
+  ships: Pick<FlightMode, 'cockpit' | 'setVrControls' | 'state'>;
 }
 
 export interface VrMode {
@@ -120,6 +125,7 @@ export interface VrMode {
     vignette: number;
     wrist: ReturnType<typeof createWristPanel>;
     sign: ReturnType<typeof signPanel>;
+    cockpit: ReturnType<typeof createCockpit>;
     /** Where a point in the robot's world (the floor strip, or real space) is in your room, in meters. */
     toPlay(p: { x: number; y: number; z: number }): { x: number; y: number; z: number };
   };
@@ -143,6 +149,8 @@ const ORIGIN = new THREE.Vector3();
 const X_AXIS = new THREE.Vector3(1, 0, 0);
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const TURN_AROUND = new THREE.Quaternion().setFromAxisAngle(Y_AXIS, Math.PI);
+/** In a ship's cockpit, the rig's scale (scene units per meter): the cockpit is a little roomy for a grown-up. */
+const SHIP_RIG_SCALE = 1.4;
 
 export function createVrMode(game: VrGame): VrMode {
   const { renderer, bot, st } = game;
@@ -165,6 +173,7 @@ export function createVrMode(game: VrGame): VrMode {
     vignette: ReturnType<typeof vignettePanel>;
     wrist: ReturnType<typeof createWristPanel>;
     sign: ReturnType<typeof signPanel>;
+    cockpit: ReturnType<typeof createCockpit>;
   } | null = null;
   function parts() {
     if (!built) {
@@ -179,7 +188,9 @@ export function createVrMode(game: VrGame): VrMode {
       const wrist = createWristPanel(game.drawTex, comfort, saveComfort);
       rig.add(wrist.mesh);
       const sign = signPanel(game.drawTex);
-      built = { rig, camera, prompt, vignette, wrist, sign };
+      const cockpit = createCockpit();
+      rig.add(cockpit.group);
+      built = { rig, camera, prompt, vignette, wrist, sign, cockpit };
     }
     return built;
   }
@@ -258,6 +269,8 @@ export function createVrMode(game: VrGame): VrMode {
     hands.release();
     mini.hide();
     built?.wrist.hide();
+    built?.cockpit.leave();
+    game.ships.setVrControls(null);
     built?.sign.mesh.parent?.remove(built.sign.mesh);
   });
 
@@ -307,6 +320,10 @@ export function createVrMode(game: VrGame): VrMode {
   /** For the vignette: how fast the view turned and the robot moved last frame (radians, scene units per second). */
   let turnRate = 0;
   let speed = 0;
+  /** In a ship: how fast it's turning (for the vignette), and the cooldown last frame (a shot resets it). */
+  let shipTurn = 0;
+  let lastCooldown = 0;
+  const lastShip = { yaw: 0, pitch: 0 };
   const lastAt = new THREE.Vector3();
   let measured = false;
 
@@ -396,6 +413,13 @@ export function createVrMode(game: VrGame): VrMode {
       // a new frame to ride in (onto a lift, into a ship, back on the floor): start it facing the way the robot faces
       mode = st.mode;
       faceRobot();
+      if (mode === 'ship') {
+        parts().cockpit.sit(head);
+        const ship = game.ships.state.ship;
+        lastShip.yaw = ship.yaw;
+        lastShip.pitch = ship.pitch;
+        lastCooldown = ship.cooldown;
+      } else built?.cockpit.leave();
       lastHead.copy(head);
       anchor.copy(head);
     }
@@ -431,6 +455,34 @@ export function createVrMode(game: VrGame): VrMode {
         Math.abs(input.ry) > STICK_DEADZONE ? input.ry : 0,
         dt,
       );
+    // in a ship's cockpit: the hands on the joystick and throttle fly it, and their grips go no further
+    const flying = st.mode === 'ship' ? game.ships.cockpit() : null;
+    if (flying) {
+      const { cockpit } = parts();
+      const c = cockpit.update(hands.hands);
+      for (const i of c.took) hands.pulse(i, 'pickUp');
+      if (c.taken.size > 0 && hands.hands.every((h, i) => !h.grab || c.taken.has(i))) {
+        fromHands.now.delete('grab');
+        fromHands.fresh.delete('grab');
+      }
+      if (c.controls.fire) {
+        fromHands.now.delete('use');
+        fromHands.fresh.delete('use');
+      }
+      game.ships.setVrControls(c.controls);
+      // a buzz in the stick's hand for each shot, and the vignette while the ship turns fast
+      const ship = game.ships.state.ship;
+      const stickHand = cockpit.holding.stick;
+      if (stickHand !== null && ship.cooldown > lastCooldown + 1e-6) hands.pulse(stickHand, 'blasterKick', 0.4);
+      lastCooldown = ship.cooldown;
+      if (dt > 0)
+        shipTurn = (Math.abs(wrapAngle(ship.yaw - lastShip.yaw)) + Math.abs(ship.pitch - lastShip.pitch)) / dt;
+      lastShip.yaw = ship.yaw;
+      lastShip.pitch = ship.pitch;
+    } else {
+      game.ships.setVrControls(null);
+      shipTurn = 0;
+    }
     for (const a of fromHands.now) input.now.add(a);
     if (input.recenter && !recenterHeld) calibrate = true;
 
@@ -467,11 +519,12 @@ export function createVrMode(game: VrGame): VrMode {
 
     // turning: the view turns on the floor and in a ship; in the hub the robot turns, since it flies where it faces
     // (not while the right stick turns the mini-me). Snap turns by default, smooth with the comfort setting.
-    const rx = mini.open ? 0 : input.rx;
+    // (no turning in a ship's cockpit: you fly by the stick, and look round with your head)
+    const rx = mini.open || flying ? 0 : input.rx;
     const snap =
       comfort.turning === 'smooth' ? { view: smoothTurn(0, rx, dt), armed: true } : snapTurn(0, rx, snapArmed);
     snapArmed = snap.armed;
-    turnRate = comfort.turning === 'smooth' && dt > 0 ? snap.view / dt : 0;
+    turnRate = Math.max(comfort.turning === 'smooth' && dt > 0 ? Math.abs(snap.view / dt) : 0, shipTurn);
     if (snap.view !== 0) {
       if (st.mode === 'hub') {
         bot.root.quaternion.multiply(q.setFromAxisAngle(Y_AXIS, snap.view));
@@ -573,6 +626,16 @@ export function createVrMode(game: VrGame): VrMode {
       bendPoint(v2.set(P.x, st.y, P.z), rig.position);
       rig.quaternion.setFromAxisAngle(X_AXIS, -P.z / R_IN).multiply(q.setFromAxisAngle(Y_AXIS, view + Math.PI));
       rig.position.sub(v.set(head.x * scale, 0, head.z * scale).applyQuaternion(rig.quaternion));
+    } else if (st.mode === 'ship' && game.ships.cockpit()) {
+      // in the pilot's seat: the rig rides in the ship's body, its nose ahead of you, your eyes at the pilot's
+      const { model } = game.ships.cockpit() as NonNullable<ReturnType<FlightMode['cockpit']>>;
+      model.body.updateMatrixWorld(true);
+      model.body.getWorldQuaternion(rig.quaternion).multiply(TURN_AROUND);
+      model.body.localToWorld(v2.set(PILOT_EYE.x, PILOT_EYE.y, PILOT_EYE.z));
+      rig.position.copy(v2).sub(v.copy(anchor).multiplyScalar(SHIP_RIG_SCALE).applyQuaternion(rig.quaternion));
+      rig.scale.setScalar(SHIP_RIG_SCALE);
+      rig.updateMatrixWorld(true);
+      return;
     } else if (st.mode === 'ship') {
       // ride where the chase camera is, level with its "up"
       const cam = game.camera;
@@ -617,11 +680,13 @@ export function createVrMode(game: VrGame): VrMode {
     mini.draw(scene, rig, scale, robotEyeHeight() * SELFIE.miniMiddle);
     // in first person you see only your robot's arms and what it holds: its head, body, and wheel would block the
     // view, so they aren't drawn for you (everyone else still sees them, and so does the Selfie)
-    const hidden = firstPersonHidden(bot);
+    const hidden: THREE.Object3D[] = firstPersonHidden(bot);
+    // in the cockpit, you sit where the little alien pilot does
+    if (st.mode === 'ship') hidden.push(...(game.ships.cockpit()?.model.pilot ?? []));
     const shown = hidden.map((o) => o.visible);
     for (const o of hidden) o.visible = false;
     try {
-      drawScaled(scene, camera, 1 / scale);
+      drawScaled(scene, camera, 1 / rig.scale.x);
     } finally {
       hidden.forEach((o, i) => {
         o.visible = shown[i] as boolean;
@@ -673,6 +738,9 @@ export function createVrMode(game: VrGame): VrMode {
       },
       get sign() {
         return parts().sign;
+      },
+      get cockpit() {
+        return parts().cockpit;
       },
       toPlay(p: { x: number; y: number; z: number }) {
         rootFrame();

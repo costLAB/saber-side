@@ -13,7 +13,12 @@ export interface ShipModel {
   root: THREE.Group;
   body: THREE.Group;
   flames: THREE.Sprite[];
+  /** The little alien pilot, which a VR player sits in place of (app/vr-cockpit.ts). */
+  pilot: THREE.Mesh[];
 }
+
+/** Where the pilot's eye is, in the ship body's frame: a VR player's eyes go here. */
+export const PILOT_EYE = { x: 0, y: 0.72, z: 0.7 } as const;
 
 const zCyl = (a: number, b: number, h: number, s: number) =>
   new THREE.CylinderGeometry(a, b, h, s).rotateX(Math.PI / 2);
@@ -46,8 +51,10 @@ export function buildShip(hue: number, glow: GlowFn): ShipModel {
   add(new THREE.BoxGeometry(0.34, 0.12, 3.4), m.trim, 0, 0.7, -0.4);
   add(new THREE.SphereGeometry(0.72, 20, 12, 0, TAU, 0, Math.PI / 2), m.glass, 0, 0.45, 0.7).scale.set(1, 0.9, 1.35);
   // the pilot: a round little alien with one red eye
-  add(new THREE.SphereGeometry(0.36, 16, 12), m.hull, 0, 0.62, 0.7);
-  add(new THREE.SphereGeometry(0.13, 12, 8), m.eye, 0, 0.66, 1.02);
+  const pilot = [
+    add(new THREE.SphereGeometry(0.36, 16, 12), m.hull, 0, 0.62, 0.7),
+    add(new THREE.SphereGeometry(0.13, 12, 8), m.eye, 0, 0.66, 1.02),
+  ];
   add(new THREE.BoxGeometry(4.8, 0.12, 1.4), m.hull, 0, -0.15, -0.5);
   for (const sx of [-1, 1]) {
     add(new THREE.BoxGeometry(0.2, 0.7, 1.3), m.trim, sx * 2.4, 0.15, -0.5);
@@ -61,7 +68,7 @@ export function buildShip(hue: number, glow: GlowFn): ShipModel {
     body.add(f);
     return f;
   });
-  return { root, body, flames };
+  return { root, body, flames, pilot };
 }
 
 export function setFlames(ship: ShipModel, size: number) {

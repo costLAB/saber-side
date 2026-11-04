@@ -21,6 +21,7 @@ import {
   placeName,
   type ShipInput,
   stepFlight,
+  throttleSpeed,
   type XYZ,
 } from '@saber-side/shared';
 import * as THREE from 'three';
@@ -29,7 +30,7 @@ import type { DrawTexFn, GlowFn, MakeSignFn } from '../render/kit';
 import { buildHangar } from '../world/hangar';
 import { planetLook } from '../world/planet-looks';
 import { buildSurface, type SurfaceScene } from '../world/planet-surface';
-import { setFlames } from '../world/ship';
+import { type ShipModel, setFlames } from '../world/ship';
 import { buildSpace, type SpaceScene } from '../world/space';
 
 /** What the legacy game hands the flight mode: its camera, input, hub group, a few helpers, and HUD hooks. */
@@ -66,6 +67,20 @@ export interface FlightMode {
   nearestCradle(p: XYZ): { cradle: HubCradle; dist: number } | null;
   board(cradle: HubCradle): void;
   update(dt: number, t: number): void;
+  /** The ship being flown (launching, in space, or over a planet), for VR's cockpit; null while docked. */
+  cockpit(): { model: ShipModel; phase: Flight['phase'] } | null;
+  /**
+   * VR's cockpit controls (app/vr-cockpit.ts): the joystick's pitch and turn while it's held, the throttle (0 to 1),
+   * and the joystick's trigger. Null when not in VR, and the keyboard's input goes on as before.
+   */
+  setVrControls(c: VrShipControls | null): void;
+}
+
+export interface VrShipControls {
+  pitch?: number;
+  turn?: number;
+  throttle: number;
+  fire: boolean;
 }
 
 /** How long the screen stays white while the view switches scenes. */
@@ -98,6 +113,7 @@ export function createFlightMode(kit: StationKit): FlightMode {
   const v = new THREE.Vector3();
   const look = new THREE.Vector3();
   const input: ShipInput = { pitch: 0, turn: 0, boost: false, brake: false, fire: false, roll: false };
+  let vrControls: VrShipControls | null = null;
 
   const model = () => hangar.ships[flight.cradle?.i ?? 0];
   const setView = (o: { far: number; near: number }) => {
@@ -176,6 +192,14 @@ export function createFlightMode(kit: StationKit): FlightMode {
     input.brake = !!keys.jump;
     input.fire = !!keys.use;
     input.roll = !!pressed.spin;
+    input.speed = undefined;
+    if (vrControls) {
+      // flying from VR's cockpit: the held joystick steers, the throttle sets the speed, and its trigger fires
+      if (vrControls.pitch !== undefined) input.pitch = vrControls.pitch;
+      if (vrControls.turn !== undefined) input.turn = vrControls.turn;
+      input.speed = throttleSpeed(vrControls.throttle, flight.phase === 'surface');
+      input.fire = input.fire || vrControls.fire;
+    }
     return input;
   }
 
@@ -272,5 +296,12 @@ export function createFlightMode(kit: StationKit): FlightMode {
       kit.setPrompt('');
     },
     update,
+    cockpit() {
+      const m = model();
+      return flight.phase === 'docked' || !m ? null : { model: m, phase: flight.phase };
+    },
+    setVrControls(c) {
+      vrControls = c;
+    },
   };
 }

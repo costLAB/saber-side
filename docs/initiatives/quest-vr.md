@@ -287,6 +287,14 @@ The DOM HUD can't be seen in a headset, so VR draws its own:
   - A comfort vignette closes in while the ship turns fast. Haptics buzz on grabbing the controls and on firing.
   - The rules for turning a grabbed control's pose into stick and throttle values go in `shared/sim/vr-cockpit.ts`,
     feeding the same ship controls the arrow keys do (`shared/sim/ship.ts`), so friends see the ship fly as usual.
+  - **As built (PR 7, `app/vr-cockpit.ts`):** your eyes go where the little alien pilot's are (it isn't drawn for
+    you), at a rig scale of 1.4 scene units per meter, from the airlock launch to docking again. The ship has only
+    pitch and turn, so tilting the stick sideways and twisting it both turn (the ship banks into the turn itself);
+    pushing it forward dives and pulling it back climbs, with a small dead zone. The controls rest a little below and
+    ahead of where your head was when you sat down, and either hand can take either one, within 13 cm. The throttle
+    slides 22 cm: all the way back brakes (a stop in space, a hover over a planet), the middle cruises as the
+    keyboard does, and all the way forward boosts. While neither control is held, the left stick still flies like the
+    arrow keys. There are no snap turns in the cockpit: you look round with your head.
 
 ## Trying it on a headset (developers)
 
@@ -322,7 +330,7 @@ as each one merges.
 | 4 | **Done** (#PRNUM) | `feature/vr-lifts-and-hub` | Ride the lifts and float in the hub in VR | The rig in the lift cab with the comfort vignette, and stick floating in the zero-g hub. | none |
 | 5 | **Done** (#PRNUM) | `feature/arm-locomotion` | Let Quest players move by pushing off with their arms | The owner's "VR walking": Gorilla Tag style movement on the ring floor: hands as sphere colliders, push to move and jump, let go to fling (capped). Rules in `shared/sim/arm-locomotion.ts`. The rest of the comfort options: smooth turning, vignette strength, seated mode. Moving in the hub is the [zero-g swimming initiative](zero-g-swimming.md)'s PR 2. | none |
 | 6 | | `foundation/quest-performance` | Hold a steady frame rate on Quest | A pass on a real Quest 2 and 3 against the budget: fixed foveation, framebuffer scale, multiview (re-checking the bend per eye), emissive sabers instead of a light each (D9, if P1 hasn't done it), and draw-call cuts. | none |
-| 7 | | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and sit in its cockpit in first person. Fly by grabbing the joystick and throttle with your hands (`shared/sim/vr-cockpit.ts`), fire with the joystick's trigger, a vignette on fast turns, and haptics. | none |
+| 7 | **Done** (#PRNUM) | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and sit in its cockpit in first person. Fly by grabbing the joystick and throttle with your hands (`shared/sim/vr-cockpit.ts`), fire with the joystick's trigger, a vignette on fast turns, and haptics. | none |
 | 8 | **Done** (#36) | `feature/vr-hide-own-body` | Show only your robot's hands and arms in VR | Hides your own robot's body and wheel (its head is already hidden) while the headset draws, leaving the hands, arms, and held items. Friends still see all of it. | none |
 | 9 | **Done** (#37) | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
 
@@ -376,7 +384,9 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
     without snap-turning, and a hand gripping it turns it without dropping what that hand holds. On a flat page it
     swings the camera to the robot's front, the arrows and dragging orbit it while the robot stays put, and closing it
     puts the chase camera back and the arrows drive again. (PR 9)
-  - In a ship, grabbing and tilting the joystick turns it, and pushing the throttle speeds it up. (PR 7)
+  - In a ship, you sit in the pilot's seat; gripping the joystick buzzes, and pushing it forward dives; its trigger
+    fires with a kick; letting go stops the dive; and pushing the throttle all the way forward speeds the ship up past
+    cruising. (PR 7)
 - **Manual checklist** on a Quest before each VR PR merges:
   - Enter VR from a production-like build (the PR preview), on Quest 2 and Quest 3.
   - Recenter, standing and seated.
@@ -423,3 +433,5 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
    - Only floor prompts about a lift or an item get a sign; the hub's, the ships', and the carrot beds' stay on the
      floating line.
    - Touching a sign does what the prompt says (like gripping), with no button to press.
+7. **The cockpit, as built in PR 7:** the stick's sideways tilt turns the ship (it can't roll on its own), the
+   throttle's middle is the keyboard's cruise, and the rig scale is 1.4 in the cockpit. Does it feel the right size?
