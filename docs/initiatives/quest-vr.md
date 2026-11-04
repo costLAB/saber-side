@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: PR 1 (`feature/enter-vr`, #29) lets Quest players step into VR and drive, and PR 2 (`feature/vr-hands`, #34) makes their hands the robot's arms. Next is `feature/vr-hide-own-body` and `feature/selfie-view` (owner priority, 2026-11-04), then `feature/vr-wrist-panel`. |
+| **Status** | In progress: PR 1 (`feature/enter-vr`, #29) lets Quest players step into VR and drive, and PR 2 (`feature/vr-hands`, #34) makes their hands the robot's arms, and PR 8 (#36) shows only your own robot's hands and arms. Next is `feature/selfie-view` (owner priority, 2026-11-04), then `feature/arm-locomotion` and `feature/vr-wrist-panel`. |
 | **Phase** | P4, Meta Quest VR ([plan, section 8](../REFACTOR_PLAN.md#p4-meta-quest-vr-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid puts on a Quest, opens the bookmarked game in Quest Browser, picks their robot, taps **Enter VR**, and rolls around the ring in first person with friends on iPads, picking up sabers and blasters, riding a lift, and floating in the hub, at a steady frame rate and without feeling sick. |
@@ -160,9 +160,10 @@ Floor content is simulated on a flat strip (x across, z around, y up) and bent o
 
 ### Your robot, in first person
 
-- Your own robot is still built and posed, because friends see that pose. On your screen, its head is hidden while
-  the headset draws (and shown again straight after), so you see your arms, your body when you look down, and your
-  wheel. PR 8 hides the body and wheel too, so only the hands and arms are left (owner decision, 2026-11-04).
+- Your own robot is still built and posed, because friends see that pose. On your screen, everything on its core but
+  the arms (its head, body, wheel, and mouth hatch) is hidden while the headset draws, and shown again straight after
+  (`firstPersonHidden` in `avatar/robot.ts`, PR 8). So you see only its hands, its arms, and what they hold, and the
+  floor's blob shadow under you (owner decision, 2026-11-04).
 - **Selfie (PR 9):** in VR, a second, small copy of your robot, built from the same build and paint and posed from the
   same pose each frame, floats about half a meter in front of you at around a quarter of its size. Grab it to turn and
   tilt it, or turn it with the right stick; press Selfie again to put it away. Proposed button until the wrist panel
@@ -274,8 +275,8 @@ as each one merges.
 | 5 | | `feature/arm-locomotion` | Let Quest players move by pushing off with their arms | The owner's "VR walking": Gorilla Tag style movement on the ring floor: hands as sphere colliders, push to move and jump, let go to fling (capped). Rules in `shared/sim/arm-locomotion.ts`. The rest of the comfort options: smooth turning, vignette strength, seated mode. Moving in the hub is the [zero-g swimming initiative](zero-g-swimming.md)'s PR 2. | none |
 | 6 | | `foundation/quest-performance` | Hold a steady frame rate on Quest | A pass on a real Quest 2 and 3 against the budget: fixed foveation, framebuffer scale, multiview (re-checking the bend per eye), emissive sabers instead of a light each (D9, if P1 hasn't done it), and draw-call cuts. | none |
 | 7 | | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and sit in its cockpit in first person. Fly by grabbing the joystick and throttle with your hands (`shared/sim/vr-cockpit.ts`), fire with the joystick's trigger, a vignette on fast turns, and haptics. | none |
-| 8 | Next (owner priority) | `feature/vr-hide-own-body` | Show only your robot's hands and arms in VR | Hides your own robot's body and wheel (its head is already hidden) while the headset draws, leaving the hands, arms, and held items. Friends still see all of it. | none |
-| 9 | Next, after PR 8 | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
+| 8 | **Done** (#36) | `feature/vr-hide-own-body` | Show only your robot's hands and arms in VR | Hides your own robot's body and wheel (its head is already hidden) while the headset draws, leaving the hands, arms, and held items. Friends still see all of it. | none |
+| 9 | Next (owner priority) | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
 
 Handing items to friends needs P3's server-authoritative pickup and drop, which isn't done yet. When it lands, a Quest
 player hands things over the same way: let go of the item in a friend's grabber.
@@ -308,8 +309,8 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
   - Hand tracking (IWER's hands, with a fist pose added): hands pose the arms, a fist picks up the saber, and a
     pinch switches it off. (PR 2)
   - Later: the rig on a lift and in the hub.
-  - Your own body and wheel are hidden in the headset's view and your arms aren't, while a second page sees your
-    whole robot. (PR 8)
+  - Your own head, body, and wheel aren't drawn in the headset's view and your arms are, every part is visible again
+    between frames (so the pose friends are sent is the whole robot), and leaving VR draws it all again. (PR 8)
   - Selfie opens the mini-me in VR and turns it with the stick, and orbits the camera on a flat page; closing it puts
     things back. (PR 9)
   - In a ship, grabbing and tilting the joystick turns it, and pushing the throttle speeds it up. (PR 7)

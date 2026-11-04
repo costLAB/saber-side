@@ -181,6 +181,16 @@ export function buildRobot(
   };
 }
 
+/**
+ * What a robot's own player doesn't see of it in first person (VR): everything on its core but the arms and the grip,
+ * so the head, body, wheel, and mouth hatch. The arms and whatever the robot holds stay, and so do the spin effects.
+ */
+export function firstPersonHidden(robot: Robot): THREE.Object3D[] {
+  const keep = new Set<THREE.Object3D>(robot.arms.map((a) => a.shoulder));
+  keep.add(robot.grip);
+  return robot.core.children.filter((o) => !keep.has(o));
+}
+
 /** A robot with no head eats through a hatch on the front of its body (or on top of a bare wheel). */
 function hatch(kit: PartKit, core: THREE.Group, at: BodyMounts['mouth']): Jaw {
   const mount = new THREE.Group();
