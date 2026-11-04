@@ -48,7 +48,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 (#13), the robot mouth (#27), paint cure (#28), and the first shop (#32) done, next `feature/carrot-farmers` |
 | [Robot parts catalogs](initiatives/robot-parts-catalog.md) | P3 (parts), P5 (prices) | Planned: next `feature/jack-o-lantern-head` (also Inventory v1's first step) |
 | [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md) | P5 | Planned: next `feature/ore-planet` |
-| [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | In progress: entering VR (#29), hands (#34), hiding your own body (#36), the Selfie (#37), arm locomotion (#38), the wrist panel (#40), lifts and the hub (#41), flying ships from the cockpit (#42), and the first performance pass (#PRNUM) done, next `foundation/three-upgrade` |
+| [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | In progress: entering VR (#29), hands (#34), hiding your own body (#36), the Selfie (#37), arm locomotion (#38), the wrist panel (#40), lifts and the hub (#41), flying ships from the cockpit (#42), and the first performance pass (#43) done, next `foundation/three-upgrade` |
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
 
@@ -479,7 +479,7 @@ P0 Groundwork ─► P1 Decompose ─► P2 Input + avatar ─► P3 Online free
 | Phase | Status | Done | Still to do |
 | --- | --- | --- | --- |
 | P0 Groundwork | **Done** | Everything | |
-| P1 Decompose | **Partly done** | `packages/shared` and its tests, ships and planets on the new layout, render modules, the robot factory, seeded cosmetic RNG, emissive sabers sharing a pool of two lights (#PRNUM) | Meters (units are still feet-scaled, `FT`), the entity/world model (the player, items, and lifts still live on meshes), a fixed tick, the three.js upgrade (still r128), and most of `game.js` (1,661 lines, `update()` included) |
+| P1 Decompose | **Partly done** | `packages/shared` and its tests, ships and planets on the new layout, render modules, the robot factory, seeded cosmetic RNG, emissive sabers sharing a pool of two lights (#43) | Meters (units are still feet-scaled, `FT`), the entity/world model (the player, items, and lifts still live on meshes), a fixed tick, the three.js upgrade (still r128), and most of `game.js` (1,661 lines, `update()` included) |
 | P2 Input + avatar | Not started | | Action map and device adapters, `PilotedController`, the embodied avatar, the iPad touch rework (including the legend/d-pad overlap) |
 | P3 Online free roam | **Partly done** | The station server on Render, the owner panel, robots built from parts, the Bot Maker spawn, seeing friends' robots, and [players, their robots, and seats](initiatives/players-and-robots.md): guests, the Robot Registry, logins with PINs, one seat per player, up to 5 robots each | Server-authoritative item pickup/drop and lifts (sabers and blasters as shared toys); off-site backups (Litestream) |
 | P4 Quest VR | **Started** | Entering VR on a Quest, first person on the ring, stick driving and snap turn, and hands as the robot's arms (IK, grabbing, using, eating, haptics, hand tracking) (the [Quest VR initiative](initiatives/quest-vr.md), #29, #34) | The wrist panel, lifts and the hub, arm locomotion, the performance pass |
@@ -520,7 +520,7 @@ P5 is going ahead of P2-P4 on purpose: the carrot initiative is the next feature
 - Extract modules per section 4 behind the screenshot tests (the strangler pattern: the game stays playable after every PR).
 - `packages/shared`: meters (D3), `ring-space` (D4), level data with **spots defined as data**.
 - The entity/world model (D2): player, items, and lifts move out of meshes. Fixed tick and seeded RNG.
-- Saber lighting moves to emissive + glow (D9). Done in the Quest VR initiative's PR 6 (#PRNUM): sabers glow by their
+- Saber lighting moves to emissive + glow (D9). Done in the Quest VR initiative's PR 6 (#43): sabers glow by their
   own core and glow shells, and a fixed pool of two lights follows the nearest lit ones.
 - **Upgrade three.js** and re-verify the bend shader patches, color management, and light intensities.
 - Unit tests for ring math, lifts, movement, and items. The sim runs headless in Node.
