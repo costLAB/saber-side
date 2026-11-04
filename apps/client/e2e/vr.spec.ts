@@ -331,6 +331,90 @@ test('a Quest player’s hands move the robot’s arms, and the headset turns it
   expect(errors).toEqual([]);
 });
 
+/**
+ * Counts how often each part of the robot gets drawn from here on: its wheel, body, and head (everything on its core
+ * but the arms), and its arms. Culling is turned off on the counted meshes, so a part counts whenever it's visible.
+ */
+function countDraws(page: Page) {
+  return page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { bot } = (window as any).__saber;
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook
+    const w = window as any;
+    w.__drawn = { body: 0, arms: 0 };
+    // biome-ignore lint/suspicious/noExplicitAny: three.js objects from the page
+    const shoulders = new Set(bot.arms.map((a: any) => a.shoulder));
+    // biome-ignore lint/suspicious/noExplicitAny: three.js objects from the page
+    for (const part of bot.core.children as any[]) {
+      if (part === bot.grip) continue;
+      const key = shoulders.has(part) ? 'arms' : 'body';
+      // biome-ignore lint/suspicious/noExplicitAny: three.js objects from the page
+      part.traverse((o: any) => {
+        if (!o.isMesh) return;
+        o.frustumCulled = false;
+        o.onBeforeRender = () => {
+          w.__drawn[key]++;
+        };
+      });
+    }
+  });
+}
+
+function drawn(page: Page) {
+  // biome-ignore lint/suspicious/noExplicitAny: debug hook
+  return page.evaluate(() => ({ ...(window as any).__drawn }) as { body: number; arms: number });
+}
+
+test('in VR you see only your robot’s arms, and the whole robot is still there for everyone else', async ({
+  page,
+  errors,
+}, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await withQuest(page);
+  await bootDebug(page);
+  await countDraws(page);
+  await advance(page, 100);
+  // flat, the chase camera draws the whole robot
+  const flat = await drawn(page);
+  expect(flat.body).toBeGreaterThan(0);
+  expect(flat.arms).toBeGreaterThan(0);
+
+  await enterVr(page);
+  await countDraws(page);
+  await advance(page, 200);
+  // in the headset, the arms are drawn and the head, body, and wheel aren't
+  const inVr = await drawn(page);
+  expect(inVr.arms).toBeGreaterThan(0);
+  expect(inVr.body).toBe(0);
+  // between frames every part is visible again, so the pose friends are sent (and the Selfie) is the whole robot
+  const hidden = await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { bot } = (window as any).__saber;
+    let n = 0;
+    // biome-ignore lint/suspicious/noExplicitAny: three.js objects from the page
+    for (const part of bot.core.children as any[]) if (!part.visible) n++;
+    return n;
+  });
+  expect(hidden).toBe(0);
+
+  // leaving VR draws the whole robot again
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    (window as any).__saber.vr.leave();
+  });
+  await expect
+    .poll(async () => {
+      await advance(page, 33);
+      // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+      return page.evaluate(() => (window as any).__saber.vr.presenting);
+    })
+    .toBe(false);
+  await countDraws(page);
+  await advance(page, 100);
+  expect((await drawn(page)).body).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
 test('grip near the saber picks it up in that hand, and the trigger switches it off and on', async ({
   page,
   errors,

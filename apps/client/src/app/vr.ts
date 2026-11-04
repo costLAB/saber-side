@@ -14,7 +14,7 @@ import {
 } from '@saber-side/shared';
 import type { XR, XRFrame, XRInputSource, XRReferenceSpace, XRSession } from 'three';
 import * as THREE from 'three';
-import type { Robot, RobotArm } from '../avatar/robot';
+import { firstPersonHidden, type Robot, type RobotArm } from '../avatar/robot';
 import type { DrawTexFn } from '../render/kit';
 import { createScaledViewDraw, keepSpriteSizeInScaledViews } from '../render/xr-view';
 import { offerVr } from '../ui/enter-vr';
@@ -386,13 +386,17 @@ export function createVrMode(game: VrGame): VrMode {
     const { text, hint } = game.prompt();
     prompt.show(text, hint);
     if (rig.parent !== scene) scene.add(rig);
-    // you're inside the robot's head, so it isn't drawn for you (everyone else still sees it)
-    const headShown = bot.head.visible;
-    bot.head.visible = false;
+    // in first person you see only your robot's arms and what it holds: its head, body, and wheel would block the
+    // view, so they aren't drawn for you (everyone else still sees them, and so does the Selfie)
+    const hidden = firstPersonHidden(bot);
+    const shown = hidden.map((o) => o.visible);
+    for (const o of hidden) o.visible = false;
     try {
       drawScaled(scene, camera, 1 / scale);
     } finally {
-      bot.head.visible = headShown;
+      hidden.forEach((o, i) => {
+        o.visible = shown[i] as boolean;
+      });
     }
   }
 
