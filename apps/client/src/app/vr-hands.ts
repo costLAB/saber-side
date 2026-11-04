@@ -13,7 +13,6 @@ import {
   reachFor,
   THROW_MAX,
 } from '@saber-side/shared';
-import type { XRFrame, XRInputSource, XRJointSpace, XRReferenceSpace } from 'three';
 import * as THREE from 'three';
 import { applyArmPose, type Robot, type RobotArm } from '../avatar/robot';
 
@@ -191,7 +190,7 @@ export function createVrHands(bot: Robot) {
   }
 
   /** Reads the controllers and hands for this frame. */
-  function read(sources: readonly XRInputSource[], f: HandFrame) {
+  function read(sources: Iterable<XRInputSource>, f: HandFrame) {
     for (const h of hands) h.tracked = false;
     grabbing = null;
     for (const src of sources) {
@@ -250,7 +249,7 @@ export function createVrHands(bot: Robot) {
      * Reads this frame's hands, and says which actions they press: `held` while down, and `fresh` when a hand closes
      * on one while the other already holds it (so it's pressed again, as each hand's own press).
      */
-    input(sources: readonly XRInputSource[], f: HandFrame, held: HeldItem | null) {
+    input(sources: Iterable<XRInputSource>, f: HandFrame, held: HeldItem | null) {
       read(sources, f);
       const now = new Set<string>();
       const fresh = new Set<string>();

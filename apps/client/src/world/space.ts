@@ -2,6 +2,7 @@ import { HALF_L, LEN, mulberry, PLANETS, R_OUT, RING_DOCKS } from '@saber-side/s
 import * as THREE from 'three';
 import { type DrawTexFn, dot, type GlowFn } from '../render/kit';
 import { textLabel } from '../render/label';
+import { lux } from '../render/legacy-look';
 import { type PlanetLook, planetLook } from './planet-looks';
 
 /** Outside the station: stars, the sun, Ring Seven turning with a dock at each end, and the planets. */
@@ -16,8 +17,8 @@ const SUN = new THREE.Vector3(14000, 4000, 6000);
 export function buildSpace(kit: { drawTex: DrawTexFn; glow: GlowFn; capMap: THREE.Texture }): SpaceScene {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x02030a);
-  scene.add(new THREE.AmbientLight(0x5a6478, 0.55));
-  const sun = new THREE.DirectionalLight(0xfff2dc, 1.6);
+  scene.add(new THREE.AmbientLight(0x5a6478, lux(0.55)));
+  const sun = new THREE.DirectionalLight(0xfff2dc, lux(1.6));
   sun.position.copy(SUN);
   scene.add(sun);
 

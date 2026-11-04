@@ -52,7 +52,7 @@ export function makeCanvas(w: number, h: number): HTMLCanvasElement {
 export function textureKit(anisotropy: number) {
   function toTex(c: HTMLCanvasElement, srgb: boolean, repeat?: number): THREE.CanvasTexture {
     const t = new THREE.CanvasTexture(c);
-    if (srgb) t.encoding = THREE.sRGBEncoding;
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = anisotropy;
     if (repeat) {
       t.wrapS = t.wrapT = THREE.RepeatWrapping;

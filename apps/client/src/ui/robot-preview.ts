@@ -1,6 +1,7 @@
 import type { RobotBuild } from '@saber-side/shared';
 import * as THREE from 'three';
 import { buildRobot, disposeRobot, type Robot, type RobotKit, restPose } from '../avatar/robot';
+import { lux } from '../render/legacy-look';
 import { bendMaterial, REAL_OFF } from '../render/ring/bend';
 
 /** A small turntable that shows a robot as it's being built. */
@@ -27,16 +28,16 @@ export function createRobotPreview(kit: RobotKit): RobotPreview | undefined {
     return undefined;
   }
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.1;
 
   const scene = new THREE.Scene();
-  scene.add(new THREE.AmbientLight(0xfff4e6, 0.75));
-  const key = new THREE.DirectionalLight(0xfff1dc, 0.95);
+  scene.add(new THREE.AmbientLight(0xfff4e6, lux(0.75)));
+  const key = new THREE.DirectionalLight(0xfff1dc, lux(0.95));
   key.position.set(3, 6, 5);
   scene.add(key);
-  const rim = new THREE.DirectionalLight(0x9fc4ff, 0.45);
+  const rim = new THREE.DirectionalLight(0x9fc4ff, lux(0.45));
   rim.position.set(-4, 3, -5);
   scene.add(rim);
   const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 100);

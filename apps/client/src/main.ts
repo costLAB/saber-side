@@ -4,6 +4,8 @@ import '@fontsource/chakra-petch/700.css';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 
+// before anything makes a color: keeps r128's colors and lights (render/legacy-look.ts)
+import './render/legacy-look';
 import './legacy/game.js';
 import { comeAboard } from './app/aboard';
 import { openRoadmapFromHut } from './app/roadmap-hut';

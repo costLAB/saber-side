@@ -33,6 +33,7 @@ import { createFlightMode } from '../app/flight';
 import { createHarvest } from '../app/harvest';
 import { createSelfie } from '../app/selfie';
 import { createSaberLights } from '../render/saber-lights';
+import { lux } from '../render/legacy-look';
 import { createVrMode } from '../app/vr';
 import { buildBotMaker } from '../world/bot-maker';
 import { buildCarrotBeds, looseCarrot } from '../world/carrot-beds';
@@ -80,8 +81,8 @@ scene.fog = new THREE.Fog(HAZE, 70, 950);
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.2, 4000);
 
 // light comes from the sun-line on the axis, so it always falls straight "down" onto the floor
-scene.add(new THREE.AmbientLight(0xfff4e6, 0.72));
-const axisLight = new THREE.PointLight(0xfff1dc, 1.05, 0, 0);
+scene.add(new THREE.AmbientLight(0xfff4e6, lux(0.72)));
+const axisLight = new THREE.PointLight(0xfff1dc, lux(1.05), 0, 0);
 scene.add(axisLight);
 
 // ---------- procedural textures ----------
@@ -1366,7 +1367,7 @@ const stripR = new THREE.MeshBasicMaterial({ color: 0xffd28a });
     const mouth = new THREE.Mesh(new THREE.TorusGeometry(2.9, 0.4, 8, 32), M.orange); mouth.quaternion.setFromUnitVectors(new V3(0, 0, 1), L.u); mouth.position.copy(L.u).multiplyScalar(HUB_R - 0.2); hub.add(mouth);
     const lamp = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.12, 6, 32), stripR); lamp.quaternion.copy(mouth.quaternion); lamp.position.copy(L.u).multiplyScalar(HUB_R - 0.8); hub.add(lamp);
   }
-  const hubLight = new THREE.PointLight(0xfff0dc, 0.9, 60, 1.2); hub.add(hubLight);
+  const hubLight = new THREE.PointLight(0xfff0dc, lux(0.9), 60, 1.2); hub.add(hubLight);
 }
 // the elevator car that carries the bot
 const cab = new THREE.Group(); cab.visible = false; liftWorld.add(cab);
@@ -1573,7 +1574,7 @@ function syncLights() {
   for (const L of lightPairs) {
     L.src.getWorldPosition(tmp);
     if (tmp.y > REAL_OFF / 2) L.real.position.set(tmp.x, tmp.y - REAL_OFF, tmp.z); else bendPoint(tmp, L.real.position);
-    L.real.intensity = chainVisible(L.src.parent) ? L.src.intensity : 0;
+    L.real.intensity = chainVisible(L.src.parent) ? lux(L.src.intensity) : 0;
   }
 }
 const whereEl = document.getElementById('where');

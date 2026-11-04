@@ -5,7 +5,7 @@ import type * as THREE from 'three';
 // material keeps its list of patches, runs them all in the order they were added, and tells three a program cache key
 // naming all of them, so materials with different patches never share a compiled program.
 
-export type ShaderPatch = (shader: THREE.Shader, renderer: THREE.WebGLRenderer) => void;
+export type ShaderPatch = (shader: THREE.WebGLProgramParametersWithUniforms, renderer: THREE.WebGLRenderer) => void;
 
 /**
  * The patches on each material. Kept here, not in `userData`: a material's clone copies `userData` as JSON, which
