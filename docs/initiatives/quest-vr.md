@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: PR 1 (`feature/enter-vr`, #29) lets Quest players step into VR and drive, and PR 2 (`feature/vr-hands`, #34) makes their hands the robot's arms, PR 8 (#36) shows only your own robot's hands and arms, and PR 9 (#PRNUM) adds the Selfie. Next is `feature/arm-locomotion`, then `feature/vr-wrist-panel`. |
+| **Status** | In progress: PR 1 (`feature/enter-vr`, #29) lets Quest players step into VR and drive, and PR 2 (`feature/vr-hands`, #34) makes their hands the robot's arms, PR 8 (#36) shows only your own robot's hands and arms, and PR 9 (#37) adds the Selfie. Next is `feature/arm-locomotion`, then `feature/vr-wrist-panel`. |
 | **Phase** | P4, Meta Quest VR ([plan, section 8](../REFACTOR_PLAN.md#p4-meta-quest-vr-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid puts on a Quest, opens the bookmarked game in Quest Browser, picks their robot, taps **Enter VR**, and rolls around the ring in first person with friends on iPads, picking up sabers and blasters, riding a lift, and floating in the hub, at a steady frame rate and without feeling sick. |
@@ -285,7 +285,7 @@ as each one merges.
 | 6 | | `foundation/quest-performance` | Hold a steady frame rate on Quest | A pass on a real Quest 2 and 3 against the budget: fixed foveation, framebuffer scale, multiview (re-checking the bend per eye), emissive sabers instead of a light each (D9, if P1 hasn't done it), and draw-call cuts. | none |
 | 7 | | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and sit in its cockpit in first person. Fly by grabbing the joystick and throttle with your hands (`shared/sim/vr-cockpit.ts`), fire with the joystick's trigger, a vignette on fast turns, and haptics. | none |
 | 8 | **Done** (#36) | `feature/vr-hide-own-body` | Show only your robot's hands and arms in VR | Hides your own robot's body and wheel (its head is already hidden) while the headset draws, leaving the hands, arms, and held items. Friends still see all of it. | none |
-| 9 | **Done** (#PRNUM) | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
+| 9 | **Done** (#37) | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
 
 Handing items to friends needs P3's server-authoritative pickup and drop, which isn't done yet. When it lands, a Quest
 player hands things over the same way: let go of the item in a friend's grabber.
