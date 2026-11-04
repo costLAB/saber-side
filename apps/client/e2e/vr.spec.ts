@@ -23,8 +23,8 @@ async function withQuest(page: Page) {
 }
 
 /** Loads the game with the debug hook and lets it settle. */
-async function bootDebug(page: Page) {
-  await page.goto('/?debug');
+async function bootDebug(page: Page, query = '') {
+  await page.goto(`/?debug${query}`);
   await page.evaluate(() => document.fonts.ready);
   await advance(page, 1000);
 }
@@ -814,5 +814,163 @@ test('comfort settings: seated, smooth turning, and turning arm walking off', as
   await sweep(page, { x: 0.3, y: 0.3, z: -0.4 }, { x: 0.3, y: 0.3, z: 0.1 }, 20, 30);
   const after = await readWalk(page);
   expect(Math.hypot(after.x - off.x, after.z - off.z)).toBeLessThan(0.01);
+  expect(errors).toEqual([]);
+});
+
+/** The wrist panel's state, and where one of its buttons is in the room. */
+function readWrist(page: Page, button?: string) {
+  return page.evaluate((b) => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { vr } = (window as any).__saber;
+    const w = vr.debug.wrist;
+    return {
+      shown: w.shown as boolean,
+      page: w.page as string,
+      lines: [...w.lines] as string[],
+      at: (b ? w.buttonAt(b) : null) as XYZ | null,
+      turning: vr.debug.comfort.turning as string,
+      presenting: vr.presenting as boolean,
+      selfie: vr.selfieOpen as boolean,
+    };
+  }, button);
+}
+
+/**
+ * Turns the left controller so the back of its grip (its +y, where the wrist panel faces) points at your eyes. The
+ * grip pose is tilted from the controller's own, so the tilt is measured first.
+ */
+async function turnWristToEyes(page: Page) {
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug and IWER test hooks
+    const { THREE, vr } = (window as any).__saber;
+    // biome-ignore lint/suspicious/noExplicitAny: IWER test hook
+    const input = (window as any).__quest.controllers.left;
+    const hand = vr.debug.hands[0];
+    const qin = new THREE.Quaternion(input.quaternion.x, input.quaternion.y, input.quaternion.z, input.quaternion.w);
+    const tilt = qin.clone().invert().multiply(hand.quat);
+    const to = vr.debug.camera.position.clone().sub(hand.pos).normalize();
+    const want = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), to);
+    const next = want.multiply(tilt.invert());
+    input.quaternion.set(next.x, next.y, next.z, next.w);
+  });
+}
+
+/** Presses a wrist panel button with the right controller's fingertip, then takes the hand away. */
+async function pressWrist(page: Page, id: string) {
+  const { at } = await readWrist(page, id);
+  if (!at) throw new Error(`no ${id} button`);
+  // bring the right hand near, then nudge the controller so its fingertip (6 cm ahead of its grip) lands on the button
+  await place(page, 'right', { x: at.x, y: at.y, z: at.z + 0.15 }, { x: 0, y: 0, z: 0, w: 1 });
+  await advance(page, 40);
+  const off = await page.evaluate((target) => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { THREE, vr } = (window as any).__saber;
+    const h = vr.debug.hands[1];
+    const tip = new THREE.Vector3(0, 0, -0.06).applyQuaternion(h.quat).add(h.pos);
+    return { x: target.x - tip.x, y: target.y - tip.y, z: target.z - tip.z };
+  }, at);
+  // the controller where its fingertip is on the button, then away again (so the next press is fresh)
+  const on = { x: at.x + off.x, y: at.y + off.y, z: at.z + 0.15 + off.z };
+  await place(page, 'right', on);
+  await advance(page, 60);
+  await place(page, 'right', { x: on.x, y: on.y, z: on.z + 0.25 });
+  await advance(page, 60);
+}
+
+test('the wrist panel shows when you look at your wrist, and its buttons work', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await withQuest(page);
+  await bootDebug(page, '&perf');
+  await enterVr(page);
+  const head = await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: IWER test hook
+    const p = (window as any).__quest.position;
+    return { x: p.x as number, y: p.y as number, z: p.z as number };
+  });
+  const wrist = { x: head.x - 0.05, y: head.y - 0.15, z: head.z - 0.35 };
+  // the left hand held out, its back turned down: no panel
+  await place(page, 'left', wrist, { x: 1, y: 0, z: 0, w: 0 });
+  await advance(page, 100);
+  expect((await readWrist(page)).shown).toBe(false);
+
+  // the back of the wrist turned toward your eyes: it shows where you are and what you hold
+  await turnWristToEyes(page);
+  await advance(page, 100);
+  const shown = await readWrist(page);
+  expect(shown.shown).toBe(true);
+  expect(shown.page).toBe('main');
+  expect(shown.lines[0]).toBe(await page.locator('#where').textContent());
+  expect(shown.lines.some((l) => l.startsWith('Holding') || l === 'Hands free')).toBe(true);
+  // with ?perf, the frame rate, draw calls, and triangles
+  expect(shown.lines.at(-1)).toMatch(/^\d+ fps · \d+ draws · \d+k tris$/);
+
+  // Comfort opens its page, and Turn switches to smooth turning (and keeps it)
+  await pressWrist(page, 'comfort');
+  expect((await readWrist(page)).page).toBe('comfort');
+  await pressWrist(page, 'turning');
+  expect((await readWrist(page)).turning).toBe('smooth');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('saber-side.vr-comfort') ?? '{}').turning)).toBe(
+    'smooth',
+  );
+  await pressWrist(page, 'back');
+  expect((await readWrist(page)).page).toBe('main');
+
+  // Selfie opens the mini-me, and Exit VR goes back to the flat page
+  await pressWrist(page, 'selfie');
+  expect((await readWrist(page)).selfie).toBe(true);
+  await pressWrist(page, 'exit');
+  await expect
+    .poll(async () => {
+      await advance(page, 33);
+      return (await readWrist(page)).presenting;
+    })
+    .toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test('a prompt is a sign beside what it’s about, and touching it does what it says', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await withQuest(page);
+  await bootDebug(page);
+  await parkAtTable(page);
+  await enterVr(page);
+  await advance(page, 100);
+  const sign = await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { vr, bot } = (window as any).__saber;
+    const s = vr.debug.sign;
+    const room = vr.debug.rig.worldToLocal(s.mesh.position.clone());
+    return {
+      text: s.text as string,
+      room: { x: room.x, y: room.y, z: room.z } as XYZ,
+      held: bot.grip.children.length as number,
+      line: vr.debug.camera.children.find(
+        (c: { name?: string; visible: boolean; isMesh?: boolean }) => c.isMesh && c.visible && c.name !== 'vignette',
+      )
+        ? 'shown'
+        : 'hidden',
+    };
+  });
+  // the robot stands at the weapon table: the sign offers the nearest item, and the floating line gives way to it
+  expect(sign.text).toMatch(/^Grip · (Pick up|Swap for) the /);
+  // it floats over the table, ahead of you, a little above your eyes
+  expect(sign.room.z).toBeLessThan(-0.3);
+  // touching it with a hand picks the item up (swapping what the robot held)
+  const before = await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { items, bot } = (window as any).__saber;
+    // biome-ignore lint/suspicious/noExplicitAny: legacy item
+    return items.find((i: any) => i.group.parent === bot.grip)?.name ?? null;
+  });
+  await place(page, 'right', sign.room);
+  await advance(page, 200);
+  const after = await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { items, bot } = (window as any).__saber;
+    // biome-ignore lint/suspicious/noExplicitAny: legacy item
+    return items.find((i: any) => i.group.parent === bot.grip)?.name ?? null;
+  });
+  expect(after).not.toBe(before);
+  expect(after).not.toBeNull();
   expect(errors).toEqual([]);
 });

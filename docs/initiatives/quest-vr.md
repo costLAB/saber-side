@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: PR 1 (`feature/enter-vr`, #29) lets Quest players step into VR and drive, and PR 2 (`feature/vr-hands`, #34) makes their hands the robot's arms, PR 8 (#36) shows only your own robot's hands and arms, PR 9 (#37) adds the Selfie, and PR 5 (#38) lets you push off the floor with your arms. Next is `feature/vr-wrist-panel`, then `feature/vr-lifts-and-hub`. |
+| **Status** | In progress: Quest players can step into VR (#29), use their hands (#34), see only their own hands and arms (#36), take a Selfie (#37), push off the floor with their arms (#38), and read the HUD on their wrist (#40). Next is `feature/vr-lifts-and-hub`, then `feature/vr-ships`. |
 | **Phase** | P4, Meta Quest VR ([plan, section 8](../REFACTOR_PLAN.md#p4-meta-quest-vr-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid puts on a Quest, opens the bookmarked game in Quest Browser, picks their robot, taps **Enter VR**, and rolls around the ring in first person with friends on iPads, picking up sabers and blasters, riding a lift, and floating in the hub, at a steady frame rate and without feeling sick. |
@@ -251,11 +251,21 @@ The owner's "walking in VR", on the ring floor only (the hub is the zero-g swimm
 
 The DOM HUD can't be seen in a headset, so VR draws its own:
 
-- **Wrist panel** (left wrist, shown when you turn it toward your face): the place name, station status, what you're
-  holding, a comfort settings page (turning, vignette, seated mode, recenter), and **Exit VR**. It's a canvas texture,
-  redrawn only when its text changes. The carrot initiative's crystal and paint readouts go here too when they land.
-- **Prompts** ("Ride lift 2 up to the hub"): from PR 1, the prompt line floats a little below your view. PR 3 moves
-  each one beside the thing it's about, as a world-space sign.
+- **Wrist panel** (PR 3, `app/vr-wrist.ts`): an 18 by 12 cm panel on the back of your left wrist, shown when you turn
+  it toward your eyes (with a little slack, so it doesn't flicker). Press its buttons with your right fingertip (6 cm
+  ahead of the controller's grip): a press happens on touching a button, and the next one only after the finger
+  comes away. The rules (facing, touching, pressing) are in `shared/sim/vr-wrist.ts`.
+  - **Main page:** where you are, the station's status, who you're playing as and your wallet (the page HUD's own
+    text), what you're holding, and **Selfie**, **Comfort**, and **Exit VR**.
+  - **Comfort page:** turning (snap or smooth), the vignette (off, low, high), seated, pushing off with your hands,
+    **Recenter**, and **Back**. Changes save in the browser, the same settings as the flat page's panel.
+  - It's a canvas texture, redrawn only when its text changes. The carrot initiative's crystal and paint readouts go
+    here too when they land.
+- **Prompts** ("Ride lift 2 up to the hub"): on the floor, a prompt about a lift or an item is a sign floating beside
+  it (over the lift, or over the item), turned to face you, and the floating line below your view gives way to it.
+  Reach out and touch the sign to do what it says, as gripping does. A sign that appears where your hand already is
+  waits for the hand to reach in, so idle hands don't press it. Other prompts (the hub, ships, carrot beds) stay on
+  the floating line.
 - A **performance readout** (frame rate, draw calls, triangles) on the wrist panel with `?perf`.
 
 ### Lifts, the hub, and ships
@@ -306,7 +316,7 @@ as each one merges.
 | 0 | No longer first: PR 1 is built on r128 | `foundation/three-upgrade` | Upgrade three.js | The P1 item: three.js from r128 to a current release, re-checking the bend shader patches, color management, and light intensities. Changes the picture, so CI re-records the baselines. | none |
 | 1 | **Done** (#29) | `feature/enter-vr` | Let Quest players step into the station in VR | The Enter VR button, `setAnimationLoop`, the rig in the bend frame and real space (and at the chase camera in a ship), the rig scale measured from your height, Y to recenter, first person with your own head hidden, head-relative stick driving, snap turn, and the buttons pressing the keyboard's actions. Room-scale steps move the robot. The prompt line floats in view. Sprites, fog, and lights keep their size and reach under the scaled view. Fixed foveation. Driving into the Bot Maker or the Robot Registry leaves VR to show its sheet. Rig rules in `shared/sim/vr-rig.ts`; IWER in Playwright (`e2e/vr.spec.ts`). | none |
 | 2 | **Done** (#34) | `feature/vr-hands` | Let Quest players use their hands | Controllers and hand tracking drive the robot's arms through IK (`shared/sim/arm-ik.ts`), and the headset turns its head, so friends see both. Per-hand grabbing: grip (or a fist) picks up what's near that hand, the item sits in that hand turned with yours, and letting go throws it with your swing. Trigger or pinch to use; carrots eaten by bringing them to your mouth. Fist and pinch read from the hand joints (`shared/sim/vr-hands.ts`). Haptics on pick-up, drop, a lit saber, and blaster shots. | none |
-| 3 | | `feature/vr-wrist-panel` | Put the HUD on your wrist in VR | The wrist panel (place, station status, holding, comfort settings, Exit VR), world-space prompts beside what they're about, touching a sign to act, and the `?perf` readout. | none |
+| 3 | **Done** (#40) | `feature/vr-wrist-panel` | Put the HUD on your wrist in VR | The wrist panel (place, station status, holding, comfort settings, Exit VR), world-space prompts beside what they're about, touching a sign to act, and the `?perf` readout. | none |
 | 4 | | `feature/vr-lifts-and-hub` | Ride the lifts and float in the hub in VR | The rig in the lift cab with the comfort vignette, and stick floating in the zero-g hub. | none |
 | 5 | **Done** (#38) | `feature/arm-locomotion` | Let Quest players move by pushing off with their arms | The owner's "VR walking": Gorilla Tag style movement on the ring floor: hands as sphere colliders, push to move and jump, let go to fling (capped). Rules in `shared/sim/arm-locomotion.ts`. The rest of the comfort options: smooth turning, vignette strength, seated mode. Moving in the hub is the [zero-g swimming initiative](zero-g-swimming.md)'s PR 2. | none |
 | 6 | | `foundation/quest-performance` | Hold a steady frame rate on Quest | A pass on a real Quest 2 and 3 against the budget: fixed foveation, framebuffer scale, multiview (re-checking the bend per eye), emissive sabers instead of a light each (D9, if P1 hasn't done it), and draw-call cuts. | none |
@@ -351,6 +361,10 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
     closing in, and it glides to a stop; pushing down hard and letting go jumps. (PR 5)
   - The comfort panel shows on a VR device's flat page and saves its settings; seated, leaning doesn't move the robot;
     smooth turning turns the view a little each frame; with arm walking off, hands on the floor push nothing. (PR 5)
+  - The wrist panel shows only when the back of your wrist faces you, with where you are, what you hold, and the
+    `?perf` line; its Comfort page switches to smooth turning and saves it; Selfie opens the mini-me; Exit VR ends the
+    session. (PR 3)
+  - At the weapon table the prompt is a sign over the table, and touching it picks the item up. (PR 3)
   - Later: the rig on a lift and in the hub.
   - Your own head, body, and wheel aren't drawn in the headset's view and your arms are, every part is visible again
     between frames (so the pose friends are sent is the whole robot), and leaving VR draws it all again. (PR 8)
@@ -388,7 +402,7 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
 3. **Which headsets?** The checklist assumes Quest 2 and Quest 3. Is there a Quest 3S or Quest Pro in the house?
 4. **Selfie, as built in PR 9** (picked so the PR could ship; easy to change):
    - The flat button sits at the bottom center (the top right is kept empty), and P is its key.
-   - In VR it opens by pressing the right stick in, until the wrist panel (PR 3) gets a button for it too.
+   - In VR it opens by pressing the right stick in, or with the wrist panel's Selfie button (PR 3).
    - The mini-me hangs still in your room where you opened it, rather than following your head.
    - It doesn't copy what your robot holds.
    - The flat Selfie lets you grab and use (to light a saber for the picture) but not drive, jump, or spin.
@@ -398,5 +412,10 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
    - Contact alone pushes: no grip button needed, the same as with tracked hands.
    - The fling is capped at 3 m/s of your room, and a push down jumps 2.5 times as fast as you pushed.
    - The robot slides without turning to face where you push it.
-   - The comfort settings sit on the flat page above Enter VR until the wrist panel has a page for them. The vignette
-     is on at low by default.
+   - The comfort settings sit on the flat page above Enter VR, and on the wrist panel's comfort page (PR 3). The
+     vignette is on at low by default.
+6. **Wrist panel and signs, as built in PR 3:**
+   - The panel is on the back of the left wrist and pressed with the right fingertip; there's no laser pointer.
+   - Only floor prompts about a lift or an item get a sign; the hub's, the ships', and the carrot beds' stay on the
+     floating line.
+   - Touching a sign does what the prompt says (like gripping), with no button to press.

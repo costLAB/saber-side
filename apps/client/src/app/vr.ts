@@ -3,6 +3,7 @@ import {
   ARM_LOCO,
   armLocoStep,
   bendPoint,
+  bendUp,
   floorContact,
   glide,
   headYaw,
@@ -12,6 +13,7 @@ import {
   rigScale,
   rigToStrip,
   SELFIE,
+  SIGN_REACH,
   STICK_DEADZONE,
   smoothTurn,
   snapTurn,
@@ -27,9 +29,10 @@ import { firstPersonHidden, type Robot, type RobotArm, type RobotKit } from '../
 import type { DrawTexFn } from '../render/kit';
 import { createScaledViewDraw, keepSpriteSizeInScaledViews } from '../render/xr-view';
 import { offerVr } from '../ui/enter-vr';
-import { comfortPanel, loadComfort } from '../ui/vr-comfort';
+import { comfortPanel, loadComfort, saveComfort } from '../ui/vr-comfort';
 import { createVrHands, type GrabHand, type HeldItem } from './vr-hands';
 import { createMiniMe } from './vr-selfie';
+import { createWristPanel } from './vr-wrist';
 
 // Playing on a Meta Quest: the game in WebXR `immersive-vr`, in first person.
 //
@@ -73,7 +76,13 @@ export interface VrGame {
   keys: Record<string, boolean>;
   press(action: string): void;
   /** What the prompt line says right now, and whether it's only a hint (no button to press). */
-  prompt(): { text: string; hint: boolean };
+  prompt(): {
+    text: string;
+    hint: boolean;
+    /** What it's about, on the floor strip (a lift, an item), and the action touching its sign presses. */
+    at?: { x: number; y: number; z: number } | null;
+    action?: string;
+  };
   drawTex: DrawTexFn;
   /** What robots are built from (for the Selfie's mini-me). */
   kit: RobotKit;
@@ -109,6 +118,8 @@ export interface VrMode {
     mini: ReturnType<typeof createMiniMe>;
     comfort: Comfort;
     vignette: number;
+    wrist: ReturnType<typeof createWristPanel>;
+    sign: ReturnType<typeof signPanel>;
     /** Where a point in the robot's world (the floor strip, or real space) is in your room, in meters. */
     toPlay(p: { x: number; y: number; z: number }): { x: number; y: number; z: number };
   };
@@ -152,6 +163,8 @@ export function createVrMode(game: VrGame): VrMode {
     camera: THREE.PerspectiveCamera;
     prompt: ReturnType<typeof promptPanel>;
     vignette: ReturnType<typeof vignettePanel>;
+    wrist: ReturnType<typeof createWristPanel>;
+    sign: ReturnType<typeof signPanel>;
   } | null = null;
   function parts() {
     if (!built) {
@@ -163,7 +176,10 @@ export function createVrMode(game: VrGame): VrMode {
       camera.add(prompt.mesh);
       const vignette = vignettePanel(game.drawTex);
       camera.add(vignette.mesh);
-      built = { rig, camera, prompt, vignette };
+      const wrist = createWristPanel(game.drawTex, comfort, saveComfort);
+      rig.add(wrist.mesh);
+      const sign = signPanel(game.drawTex);
+      built = { rig, camera, prompt, vignette, wrist, sign };
     }
     return built;
   }
@@ -241,12 +257,45 @@ export function createVrMode(game: VrGame): VrMode {
     held.clear();
     hands.release();
     mini.hide();
+    built?.wrist.hide();
+    built?.sign.mesh.parent?.remove(built.sign.mesh);
   });
 
   offerVr(document.getElementById('enter-vr') as HTMLButtonElement | null, xr, enter);
   // the comfort settings, set on the flat page until the wrist panel has them (ui/vr-comfort.ts)
   const comfort = loadComfort();
   const settings = comfortPanel(comfort);
+  /** A hand touching the prompt's sign: whether one was last frame, and whether this frame's grab came from it. */
+  let signTouched = false;
+  let signGrab = false;
+  let signKey = '';
+  const perf = new URLSearchParams(location.search).has('perf');
+  let fps = 72;
+
+  /** The prompt's sign, when there is one: on the floor, about something (a lift, an item), with an action. */
+  function signTarget() {
+    const p = game.prompt();
+    if (st.mode !== 'floor' || !p.at || p.hint || !p.text) return null;
+    return { at: p.at, action: p.action ?? '', text: p.text };
+  }
+
+  /** What the wrist panel shows: the page HUD's text, what you're holding, and with ?perf the frame rate. */
+  function wristInfo(dt: number) {
+    const text = (id: string) => {
+      const el = document.getElementById(id);
+      return el && !el.hidden ? (el.textContent ?? '').trim() : '';
+    };
+    if (dt > 0) fps += (1 / dt - fps) * 0.05;
+    const r = renderer.info.render;
+    const name = (holding as { name?: string } | null)?.name ?? '';
+    return {
+      where: text('where'),
+      station: text('station'),
+      who: [text('who'), text('wallet')].filter(Boolean).join(' · '),
+      holding: name,
+      perf: perf ? `${fps.toFixed(0)} fps · ${r.calls} draws · ${(r.triangles / 1000).toFixed(0)}k tris` : undefined,
+    };
+  }
   xr?.isSessionSupported('immersive-vr').then(
     (ok) => ok && settings.show(),
     () => {},
@@ -379,6 +428,36 @@ export function createVrMode(game: VrGame): VrMode {
       );
     for (const a of fromHands.now) input.now.add(a);
     if (input.recenter && !recenterHeld) calibrate = true;
+
+    // the wrist panel: shows when the back of your left wrist faces you, and your right hand presses its buttons
+    const wristDid = parts().wrist.update(hands.hands[0], hands.hands[1], head, wristInfo(dt));
+    if (wristDid === 'selfie') mini.toggle(head, headQ);
+    else if (wristDid === 'recenter') calibrate = true;
+    else if (wristDid === 'exit') {
+      session.end().catch(() => {});
+      return;
+    }
+
+    // a hand touching the prompt's sign presses what the prompt says (once per touch)
+    signGrab = false;
+    const sign = signTarget();
+    let touching = false;
+    if (sign && built?.sign.mesh.visible) {
+      // the sign, in your room (meters), where it was drawn last frame
+      const at = built.rig.worldToLocal(v2.copy(built.sign.mesh.position));
+      touching = hands.hands.some((h) => h.tracked && h.pos.distanceTo(at) < SIGN_REACH);
+    }
+    // a sign that just showed (or changed) only presses once a hand reaches in, not for a hand already there
+    const key = sign ? `${sign.text}|${sign.action}` : '';
+    if (key !== signKey) {
+      signKey = key;
+      signTouched = touching;
+    }
+    if (touching && !signTouched && sign?.action) {
+      game.press(sign.action);
+      signGrab = sign.action === 'grab';
+    }
+    signTouched = touching;
     recenterHeld = input.recenter;
 
     // turning: the view turns on the floor and in a ship; in the hub the robot turns, since it flies where it faces
@@ -517,8 +596,18 @@ export function createVrMode(game: VrGame): VrMode {
     placeRig(rig);
     // the comfort vignette closes in while you move fast or turn smoothly
     vignette.show(vignetteAmount(comfort.vignette, speed, turnRate));
+    // the prompt: a sign beside what it's about (on the floor), or the line floating below your view
     const { text, hint } = game.prompt();
-    prompt.show(text, hint);
+    const { sign } = parts();
+    const target = signTarget();
+    if (target) {
+      if (sign.mesh.parent !== scene) scene.add(sign.mesh);
+      sign.show(target.text, target.at, camera);
+      prompt.show('', true);
+    } else {
+      sign.hide();
+      prompt.show(text, hint);
+    }
     if (rig.parent !== scene) scene.add(rig);
     mini.draw(scene, rig, scale, robotEyeHeight() * SELFIE.miniMiddle);
     // in first person you see only your robot's arms and what it holds: its head, body, and wheel would block the
@@ -541,7 +630,7 @@ export function createVrMode(game: VrGame): VrMode {
     poseArm,
     poseHead,
     poseGrip,
-    grabHand: () => (driving() ? hands.grabHand() : null),
+    grabHand: () => (driving() && !signGrab ? hands.grabHand() : null),
     leave() {
       session?.end().catch(() => {});
     },
@@ -573,6 +662,12 @@ export function createVrMode(game: VrGame): VrMode {
       comfort,
       get vignette() {
         return parts().vignette.amount;
+      },
+      get wrist() {
+        return parts().wrist;
+      },
+      get sign() {
+        return parts().sign;
       },
       toPlay(p: { x: number; y: number; z: number }) {
         rootFrame();
@@ -667,6 +762,70 @@ function vignettePanel(drawTex: DrawTexFn) {
       amount = a;
       mat.opacity = a;
       mesh.visible = a > 0.01;
+    },
+  };
+}
+
+/**
+ * The prompt as a sign in the world (VR), floating beside what it's about and turned to face you: "Grip · Ride lift 2
+ * up to the hub" over the lift. Touching it with a hand does what it says. Drawn as-is (not bent), at its bent place.
+ */
+function signPanel(drawTex: DrawTexFn) {
+  let line = '';
+  const paint = (g: CanvasRenderingContext2D, w: number, h: number) => {
+    g.clearRect(0, 0, w, h);
+    if (!line) return;
+    g.font = '600 44px "IBM Plex Mono", ui-monospace, monospace';
+    const tw = Math.min(w - 8, g.measureText(line).width + 64);
+    g.fillStyle = 'rgba(34, 29, 26, 0.85)';
+    g.beginPath();
+    g.roundRect((w - tw) / 2, 4, tw, h - 8, 20);
+    g.fill();
+    g.strokeStyle = '#b8642c';
+    g.lineWidth = 4;
+    g.stroke();
+    g.fillStyle = '#f1eadf';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(line, w / 2, h / 2 + 2, w - 40);
+  };
+  const tex = drawTex(1024, 112, paint);
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex,
+    transparent: true,
+    fog: false,
+    toneMapped: false,
+    depthWrite: false,
+  });
+  // in scene units: about 1.5 m wide at a grown-up's rig scale
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(3, 3 * (112 / 1024)), mat);
+  mesh.name = 'vr-sign';
+  mesh.renderOrder = 15;
+  mesh.frustumCulled = false;
+  mesh.visible = false;
+  const eye = new THREE.Vector3();
+  return {
+    mesh,
+    get text() {
+      return mesh.visible ? line : '';
+    },
+    show(text: string, at: { x: number; y: number; z: number }, camera: THREE.Camera) {
+      const next = `Grip · ${text}`;
+      if (next !== line) {
+        line = next;
+        const c = tex.image as HTMLCanvasElement;
+        const g = c.getContext('2d');
+        if (g) paint(g, c.width, c.height);
+        tex.needsUpdate = true;
+      }
+      bendPoint(at, mesh.position);
+      bendUp(at.z, mesh.up);
+      camera.getWorldPosition(eye);
+      mesh.lookAt(eye);
+      mesh.visible = true;
+    },
+    hide() {
+      mesh.visible = false;
     },
   };
 }
