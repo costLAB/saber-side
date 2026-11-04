@@ -48,7 +48,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 (#13), the robot mouth (#27), paint cure (#28), and the first shop (#32) done, next `feature/carrot-farmers` |
 | [Robot parts catalogs](initiatives/robot-parts-catalog.md) | P3 (parts), P5 (prices) | Planned: next `feature/jack-o-lantern-head` (also Inventory v1's first step) |
 | [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md) | P5 | Planned: next `feature/ore-planet` |
-| [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | In progress: entering VR (#29), hands (#34), hiding your own body (#36), the Selfie (#37), arm locomotion (#38), the wrist panel (#40), and lifts and the hub (#41) done, next `feature/vr-ships` |
+| [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | In progress: entering VR (#29), hands (#34), hiding your own body (#36), the Selfie (#37), arm locomotion (#38), the wrist panel (#40), lifts and the hub (#41), and flying ships from the cockpit (#PRNUM) done, next `foundation/quest-performance` |
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
 
@@ -64,36 +64,35 @@ merges, mark it done in its initiative's table and drop its line here if it isn'
 planned branch is missing from this list.
 
 1. `fix/ring-sprites` (#31): Draw dust, sparks and glows on the ring floor again
-2. `feature/vr-ships`
-3. `foundation/quest-performance`
-4. `foundation/three-upgrade`
-5. `feature/carrot-farmers`
-6. `feature/carrot-stand`
-7. `feature/carrot-farms`
-8. `feature/economy-tuning`
-9. `feature/jack-o-lantern-head`
-10. `feature/inventory`
-11. `feature/give-crystals`
-12. `foundation/server-held-items`
-13. `feature/give-items`
-14. `feature/zero-g-swim-stroke`
-15. `feature/vr-swimming`
-16. `feature/spacewalks`
-17. `feature/more-paint-colors`
-18. `foundation/seven-part-slots`
-19. `feature/more-robot-parts`
-20. `feature/parts-catalog`
-21. `feature/robot-thrusters`
-22. `feature/robot-tires`
-23. `feature/ore-planet`
-24. `feature/refinery-ring`
-25. `feature/ore-hauler`
-26. `feature/ore-mining`
-27. `feature/ore-refining`
-28. `feature/refinery-ring-interior`
-29. `feature/refinery-ring-swimming`
-30. `feature/ore-economy-tuning`
-31. `feature/talking-robots`
+2. `foundation/quest-performance`
+3. `foundation/three-upgrade`
+4. `feature/carrot-farmers`
+5. `feature/carrot-stand`
+6. `feature/carrot-farms`
+7. `feature/economy-tuning`
+8. `feature/jack-o-lantern-head`
+9. `feature/inventory`
+10. `feature/give-crystals`
+11. `foundation/server-held-items`
+12. `feature/give-items`
+13. `feature/zero-g-swim-stroke`
+14. `feature/vr-swimming`
+15. `feature/spacewalks`
+16. `feature/more-paint-colors`
+17. `foundation/seven-part-slots`
+18. `feature/more-robot-parts`
+19. `feature/parts-catalog`
+20. `feature/robot-thrusters`
+21. `feature/robot-tires`
+22. `feature/ore-planet`
+23. `feature/refinery-ring`
+24. `feature/ore-hauler`
+25. `feature/ore-mining`
+26. `feature/ore-refining`
+27. `feature/refinery-ring-interior`
+28. `feature/refinery-ring-swimming`
+29. `feature/ore-economy-tuning`
+30. `feature/talking-robots`
 
 ### Not split into PRs yet
 
