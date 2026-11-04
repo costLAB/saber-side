@@ -9,6 +9,10 @@ decisions, design, and a PR table with each PR's status. The plan lists the init
 is part of an initiative, update that PR's row in the same PR (mark it done, note its PR number, fix the protocol and
 migration numbers if they moved).
 
+The plan's **Build order** ranks every PR still to come, and the game's Roadmap (the hut in the park behind the Robot
+Registry, or `/roadmap.html`) is built from it and the initiatives' PR tables. A new PR row needs a line there (a unit
+test checks), and a PR's line goes when it's done.
+
 ## Branches and pull requests
 
 Name every branch and PR for its **purpose**: what the work is for, not a list of what it touches.

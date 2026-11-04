@@ -1,0 +1,406 @@
+/* The Roadmap page: the game's colors (index.html), on a dark plate. */
+:root {
+  --bg: #1f1b19;
+  --plate: #2b2522;
+  --plate-2: #352e2a;
+  --line: #4a413b;
+  --ink: #f1eadf;
+  --ink-dim: #c9bfb2;
+  --ink-faint: #9a8f82;
+  --rust: #d0702c;
+  --done: #7fc46a;
+  --next: #e0b23a;
+  --open: #7fd6ff;
+  --wait: #c79ad8;
+  --display: "Chakra Petch", "Arial Narrow", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  background: var(--bg);
+  color: var(--ink);
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  font: 15px / 1.5 var(--mono);
+}
+main {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 28px 16px 48px;
+}
+html.embedded main {
+  padding-top: 20px;
+}
+a {
+  color: var(--open);
+}
+code {
+  font: 500 0.86em var(--mono);
+  color: var(--ink-dim);
+  background: var(--plate-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+  line-height: 1.15;
+  margin: 0;
+}
+h1 {
+  font-size: clamp(40px, 8vw, 64px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+h2 {
+  font-size: 26px;
+  letter-spacing: 0.04em;
+  margin-top: 44px;
+}
+h3 {
+  font-size: 19px;
+  font-weight: 700;
+}
+.hint {
+  color: var(--ink-faint);
+  margin: 4px 0 16px;
+  font-size: 13px;
+}
+
+.top .eyebrow {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rust);
+}
+.top .lede {
+  color: var(--ink-dim);
+  max-width: 60ch;
+  margin: 8px 0 18px;
+}
+.score p {
+  margin: 6px 0 0;
+  color: var(--ink-dim);
+}
+.score strong {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 20px;
+}
+.bar {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--plate-2);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--done), #a8dd8f);
+  border-radius: 999px;
+}
+.bar.small {
+  height: 8px;
+  margin: 10px 0 4px;
+}
+.jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+.jump a {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--plate);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.jump a:hover,
+.jump a:focus-visible {
+  border-color: var(--rust);
+  color: var(--rust);
+}
+
+/* Phases: a strip of eight stops */
+.phases {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.phase {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--plate);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 2px;
+}
+.phase .pid {
+  font: 700 13px var(--display);
+  color: var(--ink-faint);
+  letter-spacing: 0.1em;
+}
+.phase .pname {
+  font: 700 15px var(--display);
+}
+.phase .pstatus {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.phase.done {
+  border-color: color-mix(in srgb, var(--done) 60%, transparent);
+}
+.phase.done .pstatus {
+  color: var(--done);
+}
+.phase.started {
+  border-color: color-mix(in srgb, var(--next) 60%, transparent);
+}
+.phase.started .pstatus {
+  color: var(--next);
+}
+
+/* Badges and chips */
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font: 700 12px var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--ink-faint);
+}
+.badge a {
+  color: inherit;
+}
+.badge.done {
+  background: var(--done);
+}
+.badge.open {
+  background: var(--open);
+}
+.badge.next,
+.badge.started {
+  background: var(--next);
+}
+.badge.waiting {
+  background: var(--wait);
+}
+.badge.planned {
+  background: var(--plate-2);
+  color: var(--ink-dim);
+  border: 1px solid var(--line);
+}
+.chip {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  border: 1px solid var(--line);
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+.branch {
+  font-size: 12px;
+}
+
+/* Up next: the stacked rank */
+.ranked {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+.item {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--plate);
+  border: 1px solid var(--line);
+}
+.item .rank {
+  font: 700 30px / 1 var(--display);
+  color: var(--ink-faint);
+  text-align: center;
+  padding-top: 2px;
+}
+.item:first-child {
+  border-color: var(--rust);
+  box-shadow: 0 0 0 1px var(--rust) inset;
+}
+.item:first-child .rank {
+  color: var(--rust);
+}
+.item.open .rank {
+  color: var(--open);
+}
+.item .note {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+.item details {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+.item summary {
+  cursor: pointer;
+  color: var(--ink-faint);
+  width: fit-content;
+}
+.item summary:hover {
+  color: var(--ink);
+}
+.item details p {
+  margin: 6px 0 0;
+}
+
+/* Initiatives */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr));
+  gap: 12px;
+}
+.card {
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--plate);
+  border: 1px solid var(--line);
+}
+.card > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+.card .goal {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+.card .goal span {
+  color: var(--rust);
+  font-weight: 500;
+}
+.card .count {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+.steps li {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  column-gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--plate-2);
+  font-size: 13px;
+}
+.steps .mark {
+  font: 700 14px var(--display);
+  color: var(--ink-faint);
+  grid-row: span 2;
+}
+.steps li.done .mark {
+  color: var(--done);
+}
+.steps li.done .stitle {
+  color: var(--ink-dim);
+}
+.steps .smeta {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+/* Someday, and done */
+.later-list,
+.done-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.later-list li {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--plate);
+  border: 1px dashed var(--line);
+  color: var(--ink-dim);
+}
+.later-list strong {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 16px;
+  display: block;
+}
+.done-list li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 2px 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--plate);
+}
+.done-list .tick {
+  color: var(--done);
+  font: 700 18px var(--display);
+  grid-row: span 2;
+}
+.done-list .meta {
+  margin: 0;
+}
+
+footer {
+  margin-top: 48px;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .item {
+    grid-template-columns: 38px 1fr;
+    padding: 12px;
+  }
+  .item .rank {
+    font-size: 24px;
+  }
+}

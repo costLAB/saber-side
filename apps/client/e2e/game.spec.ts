@@ -1,5 +1,13 @@
 import type { Page } from '@playwright/test';
-import { CARROT_BEDS, classicBuild, type Flight, PLANETS, type Planet, RING_DOCKS } from '@saber-side/shared';
+import {
+  CARROT_BEDS,
+  classicBuild,
+  type Flight,
+  PLANETS,
+  type Planet,
+  RING_DOCKS,
+  ROADMAP_HUT,
+} from '@saber-side/shared';
 import { REAL_OFF } from '../src/render/ring/bend';
 import { advance, boot, expect, hold, snap, test } from './fixtures';
 
@@ -60,6 +68,53 @@ test('the Bot Maker and the Robot Registry next door', async ({ page, errors }, 
   });
   await advance(page, 8000);
   await snap(page, 'plaza-west.png');
+  expect(errors).toEqual([]);
+});
+
+test('the Roadmap hut in the park behind the Registry opens the Roadmap', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await page.goto('/?debug');
+  await page.evaluate(() => document.fonts.ready);
+  await advance(page, 300);
+  // Out in the park, in front of the hut's door. A robot sitting still has the camera drift round to its front, so it
+  // faces away from the hut to have the camera look at it.
+  const standAt = async (x: number, z: number, yaw: number) =>
+    page.evaluate(
+      ({ x, z, yaw }) => {
+        // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+        const s = (window as any).__saber;
+        s.bot.root.position.set(x, 0, z);
+        s.st.yaw = yaw;
+      },
+      { x, z, yaw },
+    );
+  await standAt(ROADMAP_HUT.front + 8, ROADMAP_HUT.z + 4, Math.PI / 2 + 0.55);
+  await advance(page, 8000);
+  await snap(page, 'roadmap-hut.png');
+
+  // Driving in through the door opens the Roadmap over the game.
+  await standAt(ROADMAP_HUT.front + 5, ROADMAP_HUT.z, -Math.PI / 2);
+  await page.locator('#stage canvas').click();
+  await hold(page, 'ArrowUp', 2500);
+  const sheet = page.locator('.roadmap-sheet');
+  await expect(sheet).toBeVisible();
+  const roadmap = page.frameLocator('.roadmap-sheet iframe');
+  await expect(roadmap.getByRole('heading', { name: 'Roadmap', level: 1 })).toBeVisible();
+  // Up next, in build order: number 1 first, and every initiative with its pieces.
+  await expect(roadmap.locator('#next .item').first().locator('.rank')).toHaveText('1');
+  expect(await roadmap.locator('#next .item').count()).toBeGreaterThan(10);
+  expect(await roadmap.locator('#initiatives .card').count()).toBeGreaterThanOrEqual(7);
+  expect(await roadmap.locator('#done .done-list li').count()).toBeGreaterThan(5);
+
+  // Escape inside the page closes it, and so does the Close button.
+  await roadmap.locator('h1').click();
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the Roadmap hut
+  await page.evaluate(() => (window as any).__roadmap.show());
+  await expect(sheet).toBeVisible();
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(sheet).toBeHidden();
   expect(errors).toEqual([]);
 });
 

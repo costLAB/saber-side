@@ -52,6 +52,63 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
 
+### Build order
+
+The order we plan to build in, as a stacked rank: open PRs first, then the initiatives already under way, then the ones
+not started yet. Each line is a branch from an initiative's PR table, which has its title and status; a branch that
+isn't in any initiative gives its title here, and its PR number if it's open.
+
+The game's **Roadmap** (the little hut in the park behind the Robot Registry, or `/roadmap.html`) is built from this
+list, the initiatives' PR tables, and the phase table below, so moving a line here moves it in the game. When a PR
+merges, mark it done in its initiative's table and drop its line here if it isn't in one. A unit test fails if a
+planned branch is missing from this list.
+
+1. `fix/ring-sprites` (#31): Draw dust, sparks and glows on the ring floor again
+2. `feature/vr-hide-own-body`
+3. `feature/selfie-view`
+4. `feature/vr-wrist-panel`
+5. `feature/vr-lifts-and-hub`
+6. `feature/arm-locomotion`
+7. `feature/vr-ships`
+8. `foundation/quest-performance`
+9. `foundation/three-upgrade`
+10. `feature/carrot-farmers`
+11. `feature/carrot-stand`
+12. `feature/carrot-farms`
+13. `feature/economy-tuning`
+14. `feature/jack-o-lantern-head`
+15. `feature/inventory`
+16. `feature/give-crystals`
+17. `foundation/server-held-items`
+18. `feature/give-items`
+19. `feature/zero-g-swim-stroke`
+20. `feature/vr-swimming`
+21. `feature/spacewalks`
+22. `feature/more-paint-colors`
+23. `foundation/seven-part-slots`
+24. `feature/more-robot-parts`
+25. `feature/parts-catalog`
+26. `feature/robot-thrusters`
+27. `feature/robot-tires`
+28. `feature/ore-planet`
+29. `feature/refinery-ring`
+30. `feature/ore-hauler`
+31. `feature/ore-mining`
+32. `feature/ore-refining`
+33. `feature/refinery-ring-interior`
+34. `feature/refinery-ring-swimming`
+35. `feature/ore-economy-tuning`
+36. `feature/talking-robots`
+
+### Not split into PRs yet
+
+- **Tidy up the code (P1):** meters instead of feet, the entity and world model, a fixed tick, glowing sabers without a light each, and the rest of `game.js` split into modules.
+- **Better controls and avatars (P2):** the input layer, one avatar for every device, and an iPad touch rework (with the keyboard legend kept off the d-pad).
+- **Station backups (P3):** off-site backups of the station's save file.
+- **The rest of Economy v1 (P5):** buying extra shops, sabers, blasters, hats, and pet bots to sell, the Depot, and tuning for every item.
+- **Economy v2 and friends (P6):** shop upgrades, clerk bots, robot shoppers you can see, decorating your shop, trading with friends, voice chat, and Tag.
+- **Someday (P7):** a player-run Refinery, crafting, more places and modes, saber duels, and better art.
+
 ---
 
 ## 1. What we have today

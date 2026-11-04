@@ -1,5 +1,6 @@
 export * from './content/carrot-beds.ts';
 export * from './content/places.ts';
+export * from './content/roadmap-hut.ts';
 export * from './content/robot-parts.ts';
 export * from './content/space.ts';
 export * from './content/spawn.ts';
