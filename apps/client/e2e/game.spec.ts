@@ -506,3 +506,87 @@ test('flying a ship out of the hub, to a planet and back', async ({ page, errors
   ]);
   expect(errors).toEqual([]);
 });
+
+/** The robot, the Selfie's orbit, and which side of the robot the camera is on (+1 in front, -1 behind). */
+function readSelfie(page: Page) {
+  return page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { st, bot, camPos, selfie } = (window as any).__saber;
+    const p = bot.root.position;
+    const dx = camPos.x - p.x;
+    const dz = camPos.z - p.z;
+    return {
+      open: selfie.open as boolean,
+      orbit: selfie.orbit as { turn: number; tilt: number; zoom: number } | null,
+      robot: { x: p.x as number, z: p.z as number },
+      side: (dx * Math.sin(st.yaw) + dz * Math.cos(st.yaw)) / Math.hypot(dx, dz),
+    };
+  });
+}
+
+test('Selfie swings the camera round to the front of your robot, and the arrows orbit it', async ({
+  page,
+  errors,
+}, info) => {
+  await page.goto('/?debug');
+  await page.evaluate(() => document.fonts.ready);
+  await advance(page, 300);
+  // drive a little, so the chase camera is behind the robot
+  if (info.project.name === 'macbook') {
+    await page.locator('#stage canvas').click();
+    await hold(page, 'ArrowUp', 600);
+    await advance(page, 600);
+    expect((await readSelfie(page)).side).toBeLessThan(-0.5);
+  }
+  const button = page.locator('#selfie');
+  await expect(button).toBeVisible();
+  await expect(button).toHaveAttribute('aria-pressed', 'false');
+  if (info.project.name === 'ipad') await button.tap();
+  else await button.click();
+  await advance(page, 2000);
+  const open = await readSelfie(page);
+  expect(open.open).toBe(true);
+  await expect(button).toHaveAttribute('aria-pressed', 'true');
+  // the camera stands in front of the robot, looking back at it
+  expect(open.side).toBeGreaterThan(0.8);
+  if (info.project.name === 'ipad') {
+    await button.tap();
+    await advance(page, 100);
+    expect((await readSelfie(page)).open).toBe(false);
+    expect(errors).toEqual([]);
+    return;
+  }
+  await snap(page, 'selfie.png');
+
+  // the arrows turn and tilt the camera, and the robot stays put
+  await page.locator('#stage canvas').click();
+  await hold(page, 'ArrowRight', 500);
+  await hold(page, 'ArrowUp', 500);
+  await advance(page, 500);
+  const turned = await readSelfie(page);
+  expect(turned.robot.x).toBeCloseTo(open.robot.x, 3);
+  expect(turned.robot.z).toBeCloseTo(open.robot.z, 3);
+  expect(turned.orbit?.turn).toBeLessThan(-0.5);
+  expect(turned.orbit?.tilt).toBeGreaterThan(open.orbit?.tilt ?? 0);
+  expect(turned.side).toBeLessThan(open.side);
+
+  // dragging turns it too
+  const before = turned.orbit?.turn ?? 0;
+  await page.mouse.move(640, 400);
+  await page.mouse.down();
+  await page.mouse.move(540, 400, { steps: 5 });
+  await page.mouse.up();
+  expect((await readSelfie(page)).orbit?.turn).toBeGreaterThan(before);
+
+  // P puts it away: the camera goes back behind the robot, and the arrows drive again
+  await hold(page, 'p', 50);
+  await advance(page, 100);
+  expect((await readSelfie(page)).open).toBe(false);
+  await expect(button).toHaveAttribute('aria-pressed', 'false');
+  await hold(page, 'ArrowUp', 600);
+  await advance(page, 3000);
+  const back = await readSelfie(page);
+  expect(Math.hypot(back.robot.x - open.robot.x, back.robot.z - open.robot.z)).toBeGreaterThan(1);
+  expect(back.side).toBeLessThan(-0.5);
+  expect(errors).toEqual([]);
+});

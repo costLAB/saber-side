@@ -53,6 +53,7 @@ With a station server (always in `pnpm dev`, and on the hosted game), the game o
 | Q E, drag | Orbit camera |
 | − +, scroll | Zoom |
 | C, double-click | Reset camera |
+| P, Selfie button | Selfie: swing the camera round to look at your robot (arrows or drag to orbit). In VR, press the right stick in for a mini-me |
 
 The ring is 800 ft across with an 85 ft hull, 400 ft long, and spins at 3.05 rpm for 1 g at the floor. Four lift tubes run from the promenade to a zero-gravity hub on the axis.
 

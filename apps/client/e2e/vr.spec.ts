@@ -415,6 +415,90 @@ test('in VR you see only your robot’s arms, and the whole robot is still there
   expect(errors).toEqual([]);
 });
 
+/** The Selfie's mini-me: open or not, its turn and tilt, where it floats, and whether it's drawn. */
+function readMini(page: Page) {
+  return page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { vr, bot, items } = (window as any).__saber;
+    const mini = vr.debug.mini;
+    const r = mini.robot;
+    const head = vr.debug.camera.position;
+    return {
+      open: mini.open as boolean,
+      selfieOpen: vr.selfieOpen as boolean,
+      turn: mini.orbit.turn as number,
+      tilt: mini.orbit.tilt as number,
+      at: { x: mini.at.x, y: mini.at.y, z: mini.at.z } as XYZ,
+      /** How far in front of your eyes it floats (meters). */
+      ahead: Math.hypot(mini.at.x - head.x, mini.at.z - head.z),
+      shown: !!r && r.root.visible && r.root.parent !== null,
+      /** Its left arm's shoulder turn, against your robot's. */
+      arm: r ? [r.arms[0].shoulder.quaternion.angleTo(bot.arms[0].shoulder.quaternion)] : [],
+      view: vr.debug.view as number,
+      // biome-ignore lint/suspicious/noExplicitAny: legacy item
+      held: items.filter((i: any) => i.group.parent === bot.grip).length as number,
+    };
+  });
+}
+
+test('Selfie in VR opens a mini-me that the stick and a hand turn', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await withQuest(page);
+  await bootDebug(page);
+  await parkAtTable(page);
+  await enterVr(page);
+  expect((await readMini(page)).open).toBe(false);
+
+  // pressing the right stick in opens it, half a meter in front of your eyes, posed like your robot
+  await button(page, 'right', 'thumbstick', 1);
+  await advance(page, 100);
+  await button(page, 'right', 'thumbstick', 0);
+  await advance(page, 100);
+  const open = await readMini(page);
+  expect(open.open).toBe(true);
+  expect(open.selfieOpen).toBe(true);
+  expect(open.shown).toBe(true);
+  expect(open.ahead).toBeCloseTo(0.5, 1);
+  expect(open.arm[0]).toBeLessThan(1e-3);
+
+  // the right stick spins it, and doesn't snap-turn your view
+  await stick(page, 'right', 1, 0);
+  await advance(page, 500);
+  await stick(page, 'right', 0, 0);
+  await advance(page, 100);
+  const spun = await readMini(page);
+  expect(spun.turn).toBeGreaterThan(open.turn + 0.5);
+  expect(spun.view).toBeCloseTo(open.view, 5);
+
+  // a hand gripping it turns it with the hand, and the grip doesn't reach the game: the robot keeps the saber it
+  // holds in its left hand (gripping thin air with the hand that holds it would drop it)
+  await place(page, 'left', open.at);
+  await advance(page, 100);
+  const holding = (await readMini(page)).held;
+  expect(holding).toBe(1);
+  await button(page, 'left', 'squeeze', 1);
+  await advance(page, 100);
+  // turn the hand a quarter turn to the left
+  const a = Math.PI / 4;
+  await place(page, 'left', open.at, { x: 0, y: Math.sin(a), z: 0, w: Math.cos(a) });
+  await advance(page, 100);
+  const twisted = await readMini(page);
+  expect(twisted.turn - spun.turn).toBeCloseTo(Math.PI / 2, 1);
+  await button(page, 'left', 'squeeze', 0);
+  await advance(page, 100);
+  expect((await readMini(page)).held).toBe(holding);
+
+  // pressing the right stick in again puts it away
+  await button(page, 'right', 'thumbstick', 1);
+  await advance(page, 100);
+  await button(page, 'right', 'thumbstick', 0);
+  await advance(page, 100);
+  const shut = await readMini(page);
+  expect(shut.open).toBe(false);
+  expect(shut.shown).toBe(false);
+  expect(errors).toEqual([]);
+});
+
 test('grip near the saber picks it up in that hand, and the trigger switches it off and on', async ({
   page,
   errors,
