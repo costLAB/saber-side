@@ -33,6 +33,11 @@ export interface ShipInput {
   fire: boolean;
   /** True on the tick the barrel-roll button goes down. */
   roll: boolean;
+  /**
+   * The speed the pilot wants, when they fly with a throttle (VR's cockpit, sim/vr-cockpit.ts) instead of boost and
+   * brake. Unset from the keyboard.
+   */
+  speed?: number;
 }
 
 export const NO_INPUT: Readonly<ShipInput> = {
@@ -73,8 +78,17 @@ export function makeShip(): Ship {
  */
 export function steerShip(s: Ship, input: ShipInput, dt: number, surface: boolean) {
   const cruise = surface ? CRUISE_SURFACE : CRUISE_SPACE;
-  const target = input.brake ? (surface ? BRAKE_SURFACE : BRAKE_SPACE) : cruise * (input.boost ? BOOST : 1);
-  s.speed = damp(s.speed, target, input.brake ? 2.5 : 1.4, dt);
+  const target =
+    input.speed !== undefined
+      ? input.speed
+      : input.brake
+        ? surface
+          ? BRAKE_SURFACE
+          : BRAKE_SPACE
+        : cruise * (input.boost ? BOOST : 1);
+  // a throttle slows down as quickly as the brake does; the keyboard's rates are as they always were
+  const slowing = input.speed !== undefined ? target < s.speed : input.brake;
+  s.speed = damp(s.speed, target, slowing ? 2.5 : 1.4, dt);
   s.yaw += input.turn * TURN_RATE * dt;
   s.pitch = clamp(s.pitch + input.pitch * PITCH_RATE * dt, -PITCH_LIMIT, PITCH_LIMIT);
   if (!input.pitch && surface) s.pitch = damp(s.pitch, 0, 0.6, dt);

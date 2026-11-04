@@ -1056,3 +1056,117 @@ test('a Quest player rides a lift up to the hub, with the vignette, and floats t
   expect((await readReal(page)).eyeGap).toBeLessThan(0.3);
   expect(errors).toEqual([]);
 });
+
+/** Moves a controller so its grip (where it grabs from) lands on a point in the room. */
+async function putHand(page: Page, hand: 'left' | 'right', target: XYZ) {
+  const i = hand === 'left' ? 0 : 1;
+  for (let k = 0; k < 2; k++) {
+    const off = await page.evaluate(
+      ([t, n]) => {
+        // biome-ignore lint/suspicious/noExplicitAny: debug and IWER test hooks
+        const w = window as any;
+        const h = w.__saber.vr.debug.hands[n as number];
+        const c = w.__quest.controllers[n === 0 ? 'left' : 'right'].position;
+        const p = t as XYZ;
+        return { x: c.x + p.x - h.pos.x, y: c.y + p.y - h.pos.y, z: c.z + p.z - h.pos.z };
+      },
+      [target, i] as const,
+    );
+    await place(page, hand, off);
+    await advance(page, 40);
+  }
+}
+
+/** The ship being flown, the cockpit's controls, and how far your eyes are from the pilot's seat. */
+function readCockpit(page: Page) {
+  return page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { ships, vr, THREE } = (window as any).__saber;
+    const c = vr.debug.cockpit;
+    const flying = ships.cockpit();
+    const e = vr.debug.camera.matrixWorld.elements;
+    const seat = flying ? flying.model.body.localToWorld(new THREE.Vector3(0, 0.72, 0.7)) : null;
+    const s = ships.state.ship;
+    return {
+      phase: ships.state.phase as string,
+      pitch: s.pitch as number,
+      yaw: s.yaw as number,
+      speed: s.speed as number,
+      seatGap: seat ? Math.hypot(e[12] - seat.x, e[13] - seat.y, e[14] - seat.z) : -1,
+      stick: c.restAt('stick') as XYZ,
+      throttleAt: c.restAt('throttle') as XYZ,
+      throttle: c.throttle as number,
+      holding: c.holding as { stick: number | null; throttle: number | null },
+      pulses: [...vr.debug.pulses] as string[],
+      lasers: ships.state.lasers.lasers.filter((l: { life: number }) => l.life > 0).length as number,
+    };
+  });
+}
+
+test('a Quest player flies a ship from the cockpit with the joystick and throttle', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await withQuest(page);
+  await bootDebug(page);
+  // up to the hub and over to the first ship's cradle (as the flat flying test does), then into VR
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const s = (window as any).__saber;
+    s.st.boardNext = s.lifts[0];
+  });
+  await advance(page, 9500);
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    (window as any).__saber.bot.root.position.set(12, 5, 0);
+  });
+  await advance(page, 100);
+  await enterVr(page);
+  // gripping boards it, and it launches through the airlock into space
+  await button(page, 'right', 'squeeze', 1);
+  await advance(page, 100);
+  await button(page, 'right', 'squeeze', 0);
+  await advance(page, 4500);
+  const seated = await readCockpit(page);
+  expect(seated.phase).toBe('space');
+  // you sit in the pilot's seat, and the throttle starts at cruising
+  expect(seated.seatGap).toBeLessThan(0.2);
+  expect(seated.throttle).toBeCloseTo(0.5);
+
+  // grip the joystick and push it forward: the ship dives, with a buzz on taking hold
+  await putHand(page, 'right', seated.stick);
+  await button(page, 'right', 'squeeze', 1);
+  await advance(page, 60);
+  expect((await readCockpit(page)).holding.stick).toBe(1);
+  expect((await readCockpit(page)).pulses).toContain('right:pickUp');
+  await putHand(page, 'right', { ...seated.stick, z: seated.stick.z - 0.1 });
+  await advance(page, 800);
+  const dived = await readCockpit(page);
+  expect(dived.pitch).toBeLessThan(seated.pitch - 0.5);
+
+  // the trigger on the joystick fires, with a kick in that hand
+  await button(page, 'right', 'trigger', 1);
+  await advance(page, 300);
+  const fired = await readCockpit(page);
+  expect(fired.lasers).toBeGreaterThan(0);
+  expect(fired.pulses).toContain('right:blasterKick');
+  await button(page, 'right', 'trigger', 0);
+
+  // letting go springs the stick back: the ship stops diving
+  await button(page, 'right', 'squeeze', 0);
+  await advance(page, 100);
+  const freed = await readCockpit(page);
+  await advance(page, 500);
+  expect((await readCockpit(page)).pitch).toBeCloseTo(freed.pitch, 2);
+
+  // grip the throttle and push it all the way forward: the ship speeds up past cruising
+  await putHand(page, 'left', freed.throttleAt);
+  await button(page, 'left', 'squeeze', 1);
+  await advance(page, 60);
+  expect((await readCockpit(page)).holding.throttle).toBe(0);
+  await putHand(page, 'left', { ...freed.throttleAt, z: freed.throttleAt.z - 0.2 });
+  await button(page, 'left', 'squeeze', 0);
+  await advance(page, 2000);
+  const fast = await readCockpit(page);
+  expect(fast.throttle).toBe(1);
+  expect(fast.speed).toBeGreaterThan(seated.speed * 1.8);
+  expect(errors).toEqual([]);
+});

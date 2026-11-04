@@ -1612,7 +1612,7 @@ legacy.drivingOnFloor = () => (st.mode === 'floor' && st.rollout <= 0 ? bot.root
 legacy.releaseKeys = () => { for (const k in keys) keys[k] = false; };
 
 // ---- VR on a Meta Quest (app/vr.ts) ----
-const vr = createVrMode({ renderer, camera, bot, st, keys, press, prompt: () => ({ text: promptText, hint: promptHint, at: promptAt, action: promptAction }), drawTex, kit: robotKit });
+const vr = createVrMode({ renderer, camera, bot, st, keys, press, prompt: () => ({ text: promptText, hint: promptHint, at: promptAt, action: promptAction }), drawTex, kit: robotKit, ships });
 const selfie = createSelfie({ keys, pressed, canvas: renderer.domElement, button: document.getElementById('selfie'), resetCam, vr });
 legacy.leaveVr = vr.leave;
 
