@@ -20,6 +20,7 @@ import {
   placeName,
   R_IN,
   R_OUT,
+  ROADMAP_HUT,
   RPM,
   smooth,
   TAU,
@@ -33,6 +34,7 @@ import { createHarvest } from '../app/harvest';
 import { createVrMode } from '../app/vr';
 import { buildBotMaker } from '../world/bot-maker';
 import { buildCarrotBeds, looseCarrot } from '../world/carrot-beds';
+import { buildRoadmapHut } from '../world/roadmap-hut';
 import { buildRobotRegistry } from '../world/robot-registry';
 import { buildShopRow } from '../world/shop-row';
 import { buildRobot, disposeRobot } from '../avatar/robot';
@@ -496,6 +498,8 @@ const landmarkZones = [];  // keep trees out: [x, z, radius]
     landmarkZones.push([x, z, r + 3]);
   }
 }
+// a clearing for the Roadmap hut behind the Robot Registry (world/roadmap-hut.ts, built with the Registry below)
+landmarkZones.push([ROADMAP_HUT.clearing.x, ROADMAP_HUT.clearing.z, ROADMAP_HUT.clearing.r]);
 // park trees
 {
   const R = mulberry(23);
@@ -659,6 +663,10 @@ const TABLE = { x: -4, z: -3, w: 3.0, d: 1.2, top: 0.95 };
   const registry = buildRobotRegistry({ makeSign, glow, steel: W.steel, glass: W.glass, lamp: W.glowWarm, hazard });
   scene.add(registry.root);
   colliders.push(...registry.colliders);
+  // and out in the park behind it, the Roadmap hut: what's built and what's next (app/roadmap-hut.ts)
+  const roadmapHut = buildRoadmapHut({ makeSign, glow, steel: W.steel, glass: W.glass, lamp: W.glowWarm, hazard });
+  scene.add(roadmapHut.root);
+  colliders.push(...roadmapHut.colliders);
   // and across the plaza, the row of shop spots to lease (world/shop-row.ts; their signs follow the station)
   const shopRow = buildShopRow({ glow, glass: W.glass, lamp: W.glowWarm });
   scene.add(shopRow.root);

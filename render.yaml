@@ -27,6 +27,8 @@ services:
       paths:
         - apps/client/**
         - packages/shared/**
+        # The in-game Roadmap is built from the plan and the initiative docs, so a docs change redeploys the game.
+        - docs/**
         - package.json
         - pnpm-lock.yaml
         - pnpm-workspace.yaml
@@ -51,6 +53,9 @@ services:
         name: Cache-Control
         value: no-cache
       - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /roadmap.html
         name: Cache-Control
         value: no-cache
       # Built JS, CSS, and fonts have content hashes in their names, so browsers can cache them forever.

@@ -6,7 +6,11 @@ import '@fontsource/ibm-plex-mono/500.css';
 
 import './legacy/game.js';
 import { comeAboard } from './app/aboard';
+import { openRoadmapFromHut } from './app/roadmap-hut';
 import { stationServerUrl } from './net/server-url';
+
+// The Roadmap hut in the park works with or without a station.
+openRoadmapFromHut();
 
 // Online: come aboard the shared station when this build has a server. Single-player play doesn't wait on it.
 const server = stationServerUrl();

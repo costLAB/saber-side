@@ -1,0 +1,52 @@
+/* The Roadmap over the game: the page (roadmap.html) in a frame, with a close button. */
+.roadmap-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(20, 16, 14, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.roadmap-sheet[hidden] {
+  display: none;
+}
+.roadmap-sheet .frame {
+  position: relative;
+  width: min(980px, 100%);
+  height: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #1f1b19;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+}
+.roadmap-sheet iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.roadmap-sheet .close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--rust);
+  color: var(--ink);
+  font: 700 13px var(--display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    inset 0 -3px 0 #8a4517,
+    0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.roadmap-sheet .close:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
