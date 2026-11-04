@@ -31,6 +31,7 @@ import * as THREE from 'three';
 import { createEating } from '../app/eating';
 import { createFlightMode } from '../app/flight';
 import { createHarvest } from '../app/harvest';
+import { createSelfie } from '../app/selfie';
 import { createVrMode } from '../app/vr';
 import { buildBotMaker } from '../world/bot-maker';
 import { buildCarrotBeds, looseCarrot } from '../world/carrot-beds';
@@ -835,7 +836,7 @@ function dustBurst(x, z, count, power) {
 // ---------- input ----------
 const keys = {}, pressed = {};
 const keymap = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'jump', KeyX: 'spin', ShiftLeft: 'boost', ShiftRight: 'boost',
-  KeyQ: 'camL', KeyE: 'camR', KeyC: 'camReset', KeyF: 'use', KeyG: 'grab', Equal: 'zoomIn', NumpadAdd: 'zoomIn', Minus: 'zoomOut', NumpadSubtract: 'zoomOut' };
+  KeyQ: 'camL', KeyE: 'camR', KeyC: 'camReset', KeyF: 'use', KeyG: 'grab', KeyP: 'selfie', Equal: 'zoomIn', NumpadAdd: 'zoomIn', Minus: 'zoomOut', NumpadSubtract: 'zoomOut' };
 const hint = document.getElementById('hint');
 const dismissHint = () => hint.classList.add('gone');
 let legendTimer = 0;
@@ -995,6 +996,7 @@ function startSpin() {
 }
 
 function update(dt, t) {
+  const selfieOn = selfie.step(dt, st.mode);   // the Selfie camera takes over driving while it's open (app/selfie.ts)
   if (st.boardNext) { boardLift(st.boardNext); st.boardNext = null; }
   if (st.mode === 'ship') {   // flying: see apps/client/src/app/flight.ts
     ships.update(dt, t);
@@ -1002,7 +1004,7 @@ function update(dt, t) {
     for (const k in pressed) pressed[k] = false;
     return;
   }
-  if (st.mode !== 'floor') { updateReal(dt, t); for (const k in pressed) pressed[k] = false; return; }
+  if (st.mode !== 'floor') { updateReal(dt, t, selfieOn); for (const k in pressed) pressed[k] = false; return; }
   // a new robot drives itself out of the Bot Maker before it's handed over
   const rolling = st.rollout > 0;
   if (rolling) {
@@ -1260,14 +1262,16 @@ function update(dt, t) {
   const elev = clamp(Math.atan2(h - 1.4, d) + cam.pitch, 0.03, 1.4);
   tmp.set(p.x - Math.sin(a) * D * Math.cos(elev), Math.max(0.35, 1.4 + st.y * 0.4 + D * Math.sin(elev)), p.z - Math.cos(a) * D * Math.cos(elev));
   if (rolling) { const c = BOT_MAKER.spawn.camera; tmp.set(c.x, c.y, c.z); }   // watching it roll out from the walkway
+  const look = tmp2.set(p.x, 1.4 + st.y * 0.6, p.z);
+  if (selfieOn && !rolling) selfie.place(p, st.yaw, st.y, tmp, look);
   if (!started) { camPos.copy(tmp); started = true; } else camPos.lerp(tmp, 1 - Math.exp(-(camBusy ? 14 : 5) * dt));
   // the camera works on the flat strip too, then gets bent onto the ring with "up" pointing at the axis
   tmp.copy(camPos);
   st.shake = Math.max(0, st.shake - dt * 1.6);
-  if (st.shake > 0) tmp.add(tmp2.set(fx() - 0.5, fx() - 0.5, fx() - 0.5).multiplyScalar(st.shake));
+  if (st.shake > 0) tmp.add(tmp3.set(fx() - 0.5, fx() - 0.5, fx() - 0.5).multiplyScalar(st.shake));
   bendPoint(tmp, camera.position);
   bendUp(tmp.z, camera.up);
-  camera.lookAt(bendPoint(tmp2.set(p.x, 1.4 + st.y * 0.6, p.z), tmp3));
+  camera.lookAt(bendPoint(look, tmp3));
   const fov = 50 + 14 * st.boostAmt;
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
   axisLight.position.set(p.x, 0, 0);
@@ -1291,6 +1295,7 @@ function frame(_time, xrFrame) {
   const dt = Math.min(clock.getDelta(), 1 / 30);
   vr.beforeUpdate(dt, xrFrame);   // the headset and controllers (app/vr.ts)
   update(dt, clock.elapsedTime);
+  selfie.afterUpdate();
   for (const f of legacy.frameHooks) f(dt);
   vr.draw(ships.scene || scene, camera);   // flat: renderer.render(scene, camera), as before
 }
@@ -1397,7 +1402,7 @@ function landLift(L) {
   bot.blob.visible = true; cab.visible = false;
   unbend(camera.position, camPos); camPos.z = L.z + wrapD(camPos.z - L.z);
 }
-function updateReal(dt, t) {
+function updateReal(dt, t, selfieOn) {
   const L = st.lift, R0 = bot.root, P = R0.position;
   const fwd = (keys.up ? 1 : 0) - (keys.down ? 1 : 0), turn = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
   let g = 0, prompt = '', where = '';
@@ -1512,11 +1517,13 @@ function updateReal(dt, t) {
   if (pressed.camReset) resetCam();
   const q = R0.quaternion, D = 9 * Math.min(cam.zoom, 1.6), el = clamp(0.3 + cam.pitch, -1.2, 1.45);
   tmp.set(-Math.sin(cam.yaw) * D * Math.cos(el), 1.6 + D * Math.sin(el), -Math.cos(cam.yaw) * D * Math.cos(el)).applyQuaternion(q).add(P);
+  tmp2.set(0, 1.6, 0).applyQuaternion(q).add(P);
+  if (selfieOn) selfie.place(P, st.yaw, 0, tmp, tmp2, q);
   tmp.x = clamp(tmp.x, -(HUB_L / 2 - 3), HUB_L / 2 - 3);   // stay out of the airlock doors at the ends
   fl.cam.lerp(tmp, 1 - Math.exp(-(cam.dragging ? 14 : 4) * dt));
   camera.position.copy(fl.cam);
   camera.up.set(0, 1, 0).applyQuaternion(q);
-  camera.lookAt(tmp2.set(0, 1.6, 0).applyQuaternion(q).add(P));
+  camera.lookAt(tmp2);
   axisLight.position.set(P.x, 0, 0);
 
   for (const f of spinners) f(dt, t);
@@ -1599,11 +1606,12 @@ legacy.drivingOnFloor = () => (st.mode === 'floor' && st.rollout <= 0 ? bot.root
 legacy.releaseKeys = () => { for (const k in keys) keys[k] = false; };
 
 // ---- VR on a Meta Quest (app/vr.ts) ----
-const vr = createVrMode({ renderer, camera, bot, st, keys, press, prompt: () => ({ text: promptText, hint: promptHint }), drawTex });
+const vr = createVrMode({ renderer, camera, bot, st, keys, press, prompt: () => ({ text: promptText, hint: promptHint }), drawTex, kit: robotKit });
+const selfie = createSelfie({ keys, pressed, canvas: renderer.domElement, button: document.getElementById('selfie'), resetCam, vr });
 legacy.leaveVr = vr.leave;
 
 // Test/debug hook (added in Phase 0): exposes live state when the page is opened with ?debug.
-if (new URLSearchParams(location.search).has('debug')) window.__saber = { THREE, st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships, eating, items, vr, legacy, harvest };
+if (new URLSearchParams(location.search).has('debug')) window.__saber = { THREE, st, bot, cam, camera, camPos, keys, clock, lifts: LIFTS, ships, eating, items, vr, legacy, harvest, selfie };
 
 frame();
 renderer.setAnimationLoop(frame);

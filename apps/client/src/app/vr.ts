@@ -5,6 +5,7 @@ import {
   R_IN,
   rigScale,
   rigToStrip,
+  SELFIE,
   STICK_DEADZONE,
   snapTurn,
   stickHeading,
@@ -14,11 +15,12 @@ import {
 } from '@saber-side/shared';
 import type { XR, XRFrame, XRInputSource, XRReferenceSpace, XRSession } from 'three';
 import * as THREE from 'three';
-import { firstPersonHidden, type Robot, type RobotArm } from '../avatar/robot';
+import { firstPersonHidden, type Robot, type RobotArm, type RobotKit } from '../avatar/robot';
 import type { DrawTexFn } from '../render/kit';
 import { createScaledViewDraw, keepSpriteSizeInScaledViews } from '../render/xr-view';
 import { offerVr } from '../ui/enter-vr';
 import { createVrHands, type GrabHand, type HeldItem } from './vr-hands';
+import { createMiniMe } from './vr-selfie';
 
 // Playing on a Meta Quest: the game in WebXR `immersive-vr`, in first person.
 //
@@ -55,6 +57,8 @@ export interface VrGame {
   /** What the prompt line says right now, and whether it's only a hint (no button to press). */
   prompt(): { text: string; hint: boolean };
   drawTex: DrawTexFn;
+  /** What robots are built from (for the Selfie's mini-me). */
+  kit: RobotKit;
 }
 
 export interface VrMode {
@@ -73,6 +77,9 @@ export interface VrMode {
   /** In VR, the hand that just grabbed: where it reaches from, and whether it holds the item. Null when flat. */
   grabHand(): GrabHand | null;
   readonly presenting: boolean;
+  /** Opens or puts away the Selfie's mini-me (app/vr-selfie.ts), in VR. */
+  toggleSelfie(): void;
+  readonly selfieOpen: boolean;
   /** For tests (`?debug`): the rig, its camera, the scale, the hands, and a point's place in your room. */
   readonly debug: {
     rig: THREE.Group;
@@ -81,6 +88,7 @@ export interface VrMode {
     view: number;
     hands: ReturnType<typeof createVrHands>['hands'];
     pulses: string[];
+    mini: ReturnType<typeof createMiniMe>;
     /** Where a point in the robot's world (the floor strip, or real space) is in your room, in meters. */
     toPlay(p: { x: number; y: number; z: number }): { x: number; y: number; z: number };
   };
@@ -97,6 +105,8 @@ const BUTTONS: { hand: 'left' | 'right' | 'either'; index: number; action: strin
 ];
 /** Y recenters: your eyes at the robot's eyes again, facing the way it faces. */
 const RECENTER = { hand: 'left', index: 5 } as const;
+/** Pressing the right stick in opens the Selfie's mini-me (until the wrist panel has a button for it). */
+const SELFIE_BUTTON = { hand: 'right', index: 3 } as const;
 
 const ORIGIN = new THREE.Vector3();
 const X_AXIS = new THREE.Vector3(1, 0, 0);
@@ -106,6 +116,10 @@ const TURN_AROUND = new THREE.Quaternion().setFromAxisAngle(Y_AXIS, Math.PI);
 export function createVrMode(game: VrGame): VrMode {
   const { renderer, bot, st } = game;
   const hands = createVrHands(bot);
+  const mini = createMiniMe(game.kit, bot);
+  /** Whether each hand gripped last frame, and whether the Selfie button was down. */
+  const wasGrab = [false, false];
+  let selfieHeld = false;
   const xr = (navigator as Navigator & { xr?: XR }).xr;
   renderer.xr.enabled = true;
   keepSpriteSizeInScaledViews();
@@ -200,6 +214,7 @@ export function createVrMode(game: VrGame): VrMode {
     for (const a of held) game.keys[a] = false;
     held.clear();
     hands.release();
+    mini.hide();
   });
 
   offerVr(document.getElementById('enter-vr') as HTMLButtonElement | null, xr, enter);
@@ -209,7 +224,9 @@ export function createVrMode(game: VrGame): VrMode {
     let lx = 0;
     let ly = 0;
     let rx = 0;
+    let ry = 0;
     let recenter = false;
+    let selfie = false;
     for (const src of sources) {
       const pad = src.gamepad;
       if (!pad || src.hand) continue; // a tracked hand has no buttons (app/vr-hands.ts reads its gestures)
@@ -217,12 +234,16 @@ export function createVrMode(game: VrGame): VrMode {
       for (const b of BUTTONS)
         if ((b.hand === 'either' || b.hand === src.handedness) && down(b.index)) now.add(b.action);
       if (src.handedness === RECENTER.hand && down(RECENTER.index)) recenter = true;
+      if (src.handedness === SELFIE_BUTTON.hand && down(SELFIE_BUTTON.index)) selfie = true;
       if (src.handedness === 'left') {
         lx = pad.axes[2] ?? 0;
         ly = pad.axes[3] ?? 0;
-      } else if (src.handedness === 'right') rx = pad.axes[2] ?? 0;
+      } else if (src.handedness === 'right') {
+        rx = pad.axes[2] ?? 0;
+        ry = pad.axes[3] ?? 0;
+      }
     }
-    return { now, lx, ly, rx, recenter };
+    return { now, lx, ly, rx, ry, recenter, selfie };
   }
 
   function beforeUpdate(dt: number, frame?: XRFrame) {
@@ -255,12 +276,30 @@ export function createVrMode(game: VrGame): VrMode {
 
     const input = readInput(session.inputSources);
     const fromHands = hands.input(session.inputSources, { frame, space, head, headQ }, holding);
+    // the Selfie: the right stick in opens the mini-me, the right stick then turns it, and a hand can grip it
+    if (input.selfie && !selfieHeld) mini.toggle(head, headQ);
+    selfieHeld = input.selfie;
+    const turning = mini.hands(hands.hands, wasGrab);
+    hands.hands.forEach((h, i) => {
+      wasGrab[i] = h.tracked && h.grab;
+    });
+    if (turning.size > 0 && hands.hands.every((h, i) => !h.grab || turning.has(i))) {
+      fromHands.now.delete('grab');
+      fromHands.fresh.delete('grab');
+    }
+    if (mini.open)
+      mini.stick(
+        Math.abs(input.rx) > STICK_DEADZONE ? input.rx : 0,
+        Math.abs(input.ry) > STICK_DEADZONE ? input.ry : 0,
+        dt,
+      );
     for (const a of fromHands.now) input.now.add(a);
     if (input.recenter && !recenterHeld) calibrate = true;
     recenterHeld = input.recenter;
 
     // snap turns: the view turns on the floor and in a ship; in the hub the robot turns, since it flies where it faces
-    const snap = snapTurn(0, input.rx, snapArmed);
+    // (not while the right stick turns the mini-me)
+    const snap = snapTurn(0, mini.open ? 0 : input.rx, snapArmed);
     snapArmed = snap.armed;
     if (snap.view !== 0) {
       if (st.mode === 'hub') {
@@ -386,6 +425,7 @@ export function createVrMode(game: VrGame): VrMode {
     const { text, hint } = game.prompt();
     prompt.show(text, hint);
     if (rig.parent !== scene) scene.add(rig);
+    mini.draw(scene, rig, scale, robotEyeHeight() * SELFIE.miniMiddle);
     // in first person you see only your robot's arms and what it holds: its head, body, and wheel would block the
     // view, so they aren't drawn for you (everyone else still sees them, and so does the Selfie)
     const hidden = firstPersonHidden(bot);
@@ -413,6 +453,12 @@ export function createVrMode(game: VrGame): VrMode {
     get presenting() {
       return session !== null;
     },
+    toggleSelfie() {
+      if (session) mini.toggle(head, headQ);
+    },
+    get selfieOpen() {
+      return mini.open;
+    },
     debug: {
       get rig() {
         return parts().rig;
@@ -428,6 +474,7 @@ export function createVrMode(game: VrGame): VrMode {
       },
       hands: hands.hands,
       pulses: hands.pulses,
+      mini,
       toPlay(p: { x: number; y: number; z: number }) {
         rootFrame();
         bot.root.updateMatrixWorld(true);

@@ -51,6 +51,7 @@ settings come in later PRs, as the table below says.
 | Use: switch a saber off and on, fire a blaster, bite a carrot | Trigger, as F does. Bring a carrot up to your mouth to bite it | Pinch. The carrot works the same way |
 | Feel it | A buzz on picking up and dropping, a hum while a saber is lit, a kick for each blaster shot | (no haptics) |
 | Boost | Press the left stick in | (none) |
+| Selfie (PR 9) | Press the right stick in: a mini-me of your robot floats in front of you. The right stick spins it, or grip it and turn your hand | Make a fist on the mini-me and turn your hand |
 | Recenter | Y: measures your eye height again and turns you to face the way your robot faces | The Meta button's own recenter |
 | In the hub, on a lift, or in a ship | The left stick works like the arrow keys | (later) |
 | Wrist panel | Turn your left wrist to look at it (PR 3) | The same |
@@ -164,12 +165,20 @@ Floor content is simulated on a flat strip (x across, z around, y up) and bent o
   the arms (its head, body, wheel, and mouth hatch) is hidden while the headset draws, and shown again straight after
   (`firstPersonHidden` in `avatar/robot.ts`, PR 8). So you see only its hands, its arms, and what they hold, and the
   floor's blob shadow under you (owner decision, 2026-11-04).
-- **Selfie (PR 9):** in VR, a second, small copy of your robot, built from the same build and paint and posed from the
-  same pose each frame, floats about half a meter in front of you at around a quarter of its size. Grab it to turn and
-  tilt it, or turn it with the right stick; press Selfie again to put it away. Proposed button until the wrist panel
-  exists: pressing the right stick in. On flat devices, Selfie swaps the chase camera for one that orbits your robot,
-  turned by dragging or the arrow keys, and drives nothing until you leave it. It costs one extra robot draw in VR,
-  and only while it's open.
+- **Selfie (PR 9):** the rules (the orbit, its limits, the mini-me's size and place) are in `shared/sim/selfie.ts`.
+  - **In VR** (`app/vr-selfie.ts`): pressing the right stick in opens a second, small copy of your robot, built from
+    the same parts and paint the first time it opens, and posed from your robot every frame (its arms wave when yours
+    do). It floats half a meter in front of where you were looking when you opened it, a little below your eyes, at a
+    quarter of the robot's size, facing you, and stays put in your room while you look around. The right stick spins
+    and tilts it (no snap turns while it's open), or reach in and grip it, and it turns with your hand; that grip
+    doesn't reach the game, so it picks nothing up and drops nothing. Pressing the right stick in again puts it away.
+    It's drawn in real space (parked `REAL_OFF` up), so the bend shader draws it exactly where the rig puts it. It
+    doesn't hold copies of your items. It costs one extra robot draw, and only while it's open.
+  - **On flat devices** (`app/selfie.ts`): a **Selfie** button at the bottom center of the screen (or P) swings the
+    chase camera round to the front of your robot. Dragging, the arrow keys, or Q and E orbit it; up and down tilt it;
+    scroll, pinch, + and − zoom. The robot drives nothing while it's open, but grab and use still work, so you can light
+    a saber for the picture. Selfie or P again puts the chase camera back. It works on the floor, on a lift, and in
+    the hub, and closes when you board a ship.
 - **Arms:** the robot's arms have shoulder, elbow, and wrist angles plus a grip curl (`RobotArm.cur`, the `arm0*` and
   `arm1*` pose fields). A small two-bone IK solves those angles from each controller's (or hand's) grip pose, so the
   robot's grip lands on yours and its hand points the way your hand does (PR 2):
@@ -276,7 +285,7 @@ as each one merges.
 | 6 | | `foundation/quest-performance` | Hold a steady frame rate on Quest | A pass on a real Quest 2 and 3 against the budget: fixed foveation, framebuffer scale, multiview (re-checking the bend per eye), emissive sabers instead of a light each (D9, if P1 hasn't done it), and draw-call cuts. | none |
 | 7 | | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and sit in its cockpit in first person. Fly by grabbing the joystick and throttle with your hands (`shared/sim/vr-cockpit.ts`), fire with the joystick's trigger, a vignette on fast turns, and haptics. | none |
 | 8 | **Done** (#36) | `feature/vr-hide-own-body` | Show only your robot's hands and arms in VR | Hides your own robot's body and wheel (its head is already hidden) while the headset draws, leaving the hands, arms, and held items. Friends still see all of it. | none |
-| 9 | Next (owner priority) | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
+| 9 | **Done** (#PRNUM) | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
 
 Handing items to friends needs P3's server-authoritative pickup and drop, which isn't done yet. When it lands, a Quest
 player hands things over the same way: let go of the item in a friend's grabber.
@@ -311,8 +320,10 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
   - Later: the rig on a lift and in the hub.
   - Your own head, body, and wheel aren't drawn in the headset's view and your arms are, every part is visible again
     between frames (so the pose friends are sent is the whole robot), and leaving VR draws it all again. (PR 8)
-  - Selfie opens the mini-me in VR and turns it with the stick, and orbits the camera on a flat page; closing it puts
-    things back. (PR 9)
+  - Selfie opens the mini-me in VR, posed like your robot, half a meter in front of you; the right stick spins it
+    without snap-turning, and a hand gripping it turns it without dropping what that hand holds. On a flat page it
+    swings the camera to the robot's front, the arrows and dragging orbit it while the robot stays put, and closing it
+    puts the chase camera back and the arrows drive again. (PR 9)
   - In a ship, grabbing and tilting the joystick turns it, and pushing the throttle speeds it up. (PR 7)
 - **Manual checklist** on a Quest before each VR PR merges:
   - Enter VR from a production-like build (the PR preview), on Quest 2 and Quest 3.
@@ -341,3 +352,9 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
 2. **Order against the economy.** The plan does P5 (the carrot initiative) before P4. Should this initiative wait until
    the carrot economy is done, or run alongside it?
 3. **Which headsets?** The checklist assumes Quest 2 and Quest 3. Is there a Quest 3S or Quest Pro in the house?
+4. **Selfie, as built in PR 9** (picked so the PR could ship; easy to change):
+   - The flat button sits at the bottom center (the top right is kept empty), and P is its key.
+   - In VR it opens by pressing the right stick in, until the wrist panel (PR 3) gets a button for it too.
+   - The mini-me hangs still in your room where you opened it, rather than following your head.
+   - It doesn't copy what your robot holds.
+   - The flat Selfie lets you grab and use (to light a saber for the picture) but not drive, jump, or spin.
