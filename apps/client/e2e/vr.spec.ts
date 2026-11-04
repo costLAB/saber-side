@@ -974,3 +974,85 @@ test('a prompt is a sign beside what it’s about, and touching it does what it 
   expect(after).not.toBeNull();
   expect(errors).toEqual([]);
 });
+
+/** Where the robot is and how far your eyes are from its eye line, in real space (lift tubes and the hub). */
+function readReal(page: Page) {
+  return page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { st, bot, vr } = (window as any).__saber;
+    // your eyes sit straight above the robot's wheel at its eye's height (as on the floor), in the robot's own frame;
+    // real space is parked 10000 up and drawn as-is that much lower (render/ring/bend.ts)
+    bot.root.updateMatrixWorld(true);
+    const local = bot.root.worldToLocal((bot.eyeCore ?? bot.head).getWorldPosition(bot.root.position.clone()));
+    const eye = bot.root.localToWorld(local.set(0, local.y, 0));
+    eye.y -= 10000;
+    const e = vr.debug.camera.matrixWorld.elements;
+    const p = bot.root.position;
+    return {
+      mode: st.mode as string,
+      yaw: st.yaw as number,
+      at: { x: p.x, y: p.y, z: p.z } as XYZ,
+      eyeGap: Math.hypot(e[12] - eye.x, e[13] - eye.y, e[14] - eye.z),
+      vignette: vr.debug.vignette as number,
+      where: document.getElementById('where')?.textContent ?? '',
+    };
+  });
+}
+
+test('a Quest player rides a lift up to the hub, with the vignette, and floats there with the sticks', async ({
+  page,
+  errors,
+}, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await withQuest(page);
+  await bootDebug(page);
+  // stand at lift 1's door
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const { bot, lifts, st } = (window as any).__saber;
+    bot.root.position.set(0, 0, lifts[0].z + 3);
+    st.yaw = Math.PI;
+  });
+  await advance(page, 300);
+  await enterVr(page);
+  // the prompt is a sign over the lift; gripping boards it
+  // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+  const sign = await page.evaluate(() => (window as any).__saber.vr.debug.sign.text as string);
+  expect(sign).toMatch(/^Grip · Ride lift 1 up/);
+  await button(page, 'right', 'squeeze', 1);
+  await advance(page, 100);
+  await button(page, 'right', 'squeeze', 0);
+  await advance(page, 3000);
+
+  // halfway up: you ride in the cab, at the robot's eye, and the vignette closes in while it moves
+  const riding = await readReal(page);
+  expect(riding.mode).toBe('up');
+  expect(riding.eyeGap).toBeLessThan(0.3);
+  expect(riding.vignette).toBeGreaterThan(0.3);
+
+  // in the hub: the ride is over, the vignette opens again, and the view still sits at the robot's eye
+  await advance(page, 7000);
+  const hub = await readReal(page);
+  expect(hub.mode).toBe('hub');
+  expect(hub.where).toBe('Ring Seven · Hub');
+  expect(hub.eyeGap).toBeLessThan(0.3);
+  await advance(page, 3000);
+  expect((await readReal(page)).vignette).toBeLessThan(0.1);
+
+  // the left stick pushes the robot the way it faces, and a snap turn turns the robot (it flies the way it faces)
+  const before = await readReal(page);
+  await stick(page, 'left', 0, -1);
+  await advance(page, 1000);
+  await stick(page, 'left', 0, 0);
+  const floated = await readReal(page);
+  expect(
+    Math.hypot(floated.at.x - before.at.x, floated.at.y - before.at.y, floated.at.z - before.at.z),
+  ).toBeGreaterThan(1);
+  await stick(page, 'right', 1, 0);
+  await advance(page, 100);
+  await stick(page, 'right', 0, 0);
+  await advance(page, 100);
+  expect((await readReal(page)).yaw).toBeCloseTo(floated.yaw - Math.PI / 4, 3);
+  expect((await readReal(page)).eyeGap).toBeLessThan(0.3);
+  expect(errors).toEqual([]);
+});

@@ -400,10 +400,15 @@ export function createVrMode(game: VrGame): VrMode {
       anchor.copy(head);
     }
 
-    // how fast the robot went last frame, for the vignette (a lap of the ring or a ride up a lift isn't speed)
+    // how fast the robot went last frame, for the vignette: rolling or gliding across the floor, riding a lift, or
+    // floating in the hub (stepping onto or off a lift, or round a lap of the ring, jumps too far to be speed)
     const at = bot.root.position;
-    const moved = measured ? Math.hypot(at.x - lastAt.x, at.z - lastAt.z) : 0;
-    speed = dt > 0 && moved < 5 && st.mode === 'floor' ? moved / dt : 0;
+    const moved = !measured
+      ? 0
+      : st.mode === 'floor'
+        ? Math.hypot(at.x - lastAt.x, at.z - lastAt.z)
+        : at.distanceTo(lastAt);
+    speed = dt > 0 && moved < 5 && st.mode !== 'ship' ? moved / dt : 0;
     lastAt.copy(at);
     measured = true;
 
