@@ -270,7 +270,9 @@ The DOM HUD can't be seen in a headset, so VR draws its own:
 
 ### Lifts, the hub, and ships
 
-- **Lifts:** the rig rides in the cab (PR 1). PR 4 adds the comfort vignette for the 9-second ride.
+- **Lifts:** the rig rides in the cab (PR 1), your eyes on the robot's eye line. PR 4 closes the comfort vignette in
+  for the 9-second ride (it measures the robot's speed in real space too, so it follows the ride's easing in and out)
+  and opens it again in the hub.
 - **The hub:** zero-g floating with the stick (PR 1: it works like the arrow keys, and a snap turn turns the robot,
   since it flies the way it faces), then arm locomotion in PR 5, which is where it's most fun: pushing off the drum and
   catching drifting things.
@@ -317,7 +319,7 @@ as each one merges.
 | 1 | **Done** (#29) | `feature/enter-vr` | Let Quest players step into the station in VR | The Enter VR button, `setAnimationLoop`, the rig in the bend frame and real space (and at the chase camera in a ship), the rig scale measured from your height, Y to recenter, first person with your own head hidden, head-relative stick driving, snap turn, and the buttons pressing the keyboard's actions. Room-scale steps move the robot. The prompt line floats in view. Sprites, fog, and lights keep their size and reach under the scaled view. Fixed foveation. Driving into the Bot Maker or the Robot Registry leaves VR to show its sheet. Rig rules in `shared/sim/vr-rig.ts`; IWER in Playwright (`e2e/vr.spec.ts`). | none |
 | 2 | **Done** (#34) | `feature/vr-hands` | Let Quest players use their hands | Controllers and hand tracking drive the robot's arms through IK (`shared/sim/arm-ik.ts`), and the headset turns its head, so friends see both. Per-hand grabbing: grip (or a fist) picks up what's near that hand, the item sits in that hand turned with yours, and letting go throws it with your swing. Trigger or pinch to use; carrots eaten by bringing them to your mouth. Fist and pinch read from the hand joints (`shared/sim/vr-hands.ts`). Haptics on pick-up, drop, a lit saber, and blaster shots. | none |
 | 3 | **Done** (#PRNUM) | `feature/vr-wrist-panel` | Put the HUD on your wrist in VR | The wrist panel (place, station status, holding, comfort settings, Exit VR), world-space prompts beside what they're about, touching a sign to act, and the `?perf` readout. | none |
-| 4 | | `feature/vr-lifts-and-hub` | Ride the lifts and float in the hub in VR | The rig in the lift cab with the comfort vignette, and stick floating in the zero-g hub. | none |
+| 4 | **Done** (#PRNUM) | `feature/vr-lifts-and-hub` | Ride the lifts and float in the hub in VR | The rig in the lift cab with the comfort vignette, and stick floating in the zero-g hub. | none |
 | 5 | **Done** (#38) | `feature/arm-locomotion` | Let Quest players move by pushing off with their arms | The owner's "VR walking": Gorilla Tag style movement on the ring floor: hands as sphere colliders, push to move and jump, let go to fling (capped). Rules in `shared/sim/arm-locomotion.ts`. The rest of the comfort options: smooth turning, vignette strength, seated mode. Moving in the hub is the [zero-g swimming initiative](zero-g-swimming.md)'s PR 2. | none |
 | 6 | | `foundation/quest-performance` | Hold a steady frame rate on Quest | A pass on a real Quest 2 and 3 against the budget: fixed foveation, framebuffer scale, multiview (re-checking the bend per eye), emissive sabers instead of a light each (D9, if P1 hasn't done it), and draw-call cuts. | none |
 | 7 | | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and sit in its cockpit in first person. Fly by grabbing the joystick and throttle with your hands (`shared/sim/vr-cockpit.ts`), fire with the joystick's trigger, a vignette on fast turns, and haptics. | none |
@@ -365,7 +367,9 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
     `?perf` line; its Comfort page switches to smooth turning and saves it; Selfie opens the mini-me; Exit VR ends the
     session. (PR 3)
   - At the weapon table the prompt is a sign over the table, and touching it picks the item up. (PR 3)
-  - Later: the rig on a lift and in the hub.
+  - Gripping at a lift's door (its sign says "Ride lift 1 up") rides it: halfway up your eyes are on the robot's eye
+    line in the cab and the vignette has closed in; in the hub it opens again, the left stick floats the robot the
+    way it faces, and a snap turn turns the robot. (PR 4)
   - Your own head, body, and wheel aren't drawn in the headset's view and your arms are, every part is visible again
     between frames (so the pose friends are sent is the whole robot), and leaving VR draws it all again. (PR 8)
   - Selfie opens the mini-me in VR, posed like your robot, half a meter in front of you; the right stick spins it
