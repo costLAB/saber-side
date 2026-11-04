@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | Planned: next is `feature/jack-o-lantern-head` |
+| **Status** | Planned: next is `feature/jack-o-lantern-head`, which is also the first step of [Inventory v1](inventory.md). The wallet the prices need is done (#21) |
 | **Phase** | P3 (the builder) and P5 (prices), after [Players, their robots, and seats](players-and-robots.md) |
 | **Started** | 2026-11-01 |
 | **Done when** | A registered kid walks into the Bot Maker, flips through a catalog for each kind of part, buys a jack-o-lantern head and a pair of thrusters with Cyber Crystals, paints them in a new color, rolls out, and flies across the zero-g hub while a friend on an iPad sees exactly that robot. |
@@ -64,6 +64,9 @@ The build grows from four slots to seven. In code, `PART_SLOTS` in `shared/conte
 - **Saved builds** with no `eyes` field read as the head's original eyes, so a migration isn't needed to read them.
 
 ### The jack-o-lantern head
+
+The owner made this the first wearable of [Inventory v1](inventory.md) (2026-11-04): it's bought with Cyber
+Crystals (8 CC) ahead of the rest of the catalog, and owning it shows in the inventory.
 
 A cute pumpkin, not a scary one:
 
@@ -200,11 +203,11 @@ merges.
 
 | # | Status | Branch | PR title | What it adds | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Next | `feature/jack-o-lantern-head` | Add a jack-o-lantern head to the Bot Maker | The pumpkin head: ribbed shell, curly stem, carved happy face with an emissive glow, its grin as the jaw if the robot mouth has landed. Free for now, like every part. A close-up screenshot. | `PROTOCOL_VERSION` bump |
+| 1 | Next | `feature/jack-o-lantern-head` | Add a jack-o-lantern head to the Bot Maker | The pumpkin head: ribbed shell, curly stem, carved happy face with an emissive glow, its grin as the jaw if the robot mouth has landed. Free for now, like every part, until [Inventory v1](inventory.md)'s PR 1 sells it for CC. A close-up screenshot. | `PROTOCOL_VERSION` bump |
 | 2 | | `feature/more-paint-colors` | Give robots more paint colors | `ROBOT_COLORS` to about 24, a wider swatch grid in the builder. Free for now. | `PROTOCOL_VERSION` bump |
 | 3 | | `foundation/seven-part-slots` | Split robots into seven kinds of parts | `eyes`, `voice`, and `thrusters` slots; eye sockets on every head and the eyes split out (the dome's lens, the visor's band, the stalk's ball, the pumpkin's candle); coverings that fit a mobility; old builds read with the new slots filled in. The builder lists every slot. The classic robot draws byte-identically, and every baseline stays unchanged. | `PROTOCOL_VERSION` bump |
 | 4 | | `feature/more-robot-parts` | Fill the Bot Maker with more robot parts | The new heads, coverings, eyes, and arms from the table above, and voice parts as cosmetics. A screenshot sheet of every part. | `PROTOCOL_VERSION` bump |
-| 5 | | `feature/parts-catalog` | Let players buy robot parts with Cyber Crystals | The catalog per slot at the Bot Maker, prices, `owned_parts` and `owned_paints`, buying from the wallet, the server checking builds against what the player owns, guests limited to free parts. The owner panel can grant a part. Needs the wallet. | migration (next free), `PROTOCOL_VERSION` bump |
+| 5 | | `feature/parts-catalog` | Let players buy robot parts with Cyber Crystals | The catalog per slot at the Bot Maker, prices, `owned_parts` and `owned_paints`, buying from the wallet, the server checking builds against what the player owns, guests limited to free parts. The owner panel can grant a part. Builds on `owned_parts` and `buyPart`, which [Inventory v1](inventory.md)'s PR 1 brings forward for the pumpkin head; this PR adds `owned_paints` and the rest. | migration (next free), `PROTOCOL_VERSION` bump |
 | 6 | | `feature/robot-thrusters` | Let thrusters fly robots in zero gravity | The thruster parts, `thrustOf(build)` in `shared/sim/zero-g.ts`, slow puffs for robots without them, flares friends can see (a `thrust` pose field). | `PROTOCOL_VERSION` bump |
 | 7 | | `feature/robot-tires` | Let robots roll on tires and treads | Two tires, four tires, treads, and coverings that fit them. Handling per mobility in config. | `PROTOCOL_VERSION` bump |
 | 8 | | `feature/talking-robots` | Let robots with voice parts talk to each other | Talking gated on a voice part, voice coming from the part, and each part's sound. Lands with, or right after, proximity voice chat (P6). | `PROTOCOL_VERSION` bump |

@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: PR 1 (`feature/enter-vr`, #29) lets Quest players step into VR and drive, and PR 2 (`feature/vr-hands`, #34) makes their hands the robot's arms. Next is `feature/vr-wrist-panel`. |
+| **Status** | In progress: PR 1 (`feature/enter-vr`, #29) lets Quest players step into VR and drive, and PR 2 (`feature/vr-hands`, #34) makes their hands the robot's arms. Next is `feature/vr-hide-own-body` and `feature/selfie-view` (owner priority, 2026-11-04), then `feature/vr-wrist-panel`. |
 | **Phase** | P4, Meta Quest VR ([plan, section 8](../REFACTOR_PLAN.md#p4-meta-quest-vr-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid puts on a Quest, opens the bookmarked game in Quest Browser, picks their robot, taps **Enter VR**, and rolls around the ring in first person with friends on iPads, picking up sabers and blasters, riding a lift, and floating in the hub, at a steady frame rate and without feeling sick. |
@@ -83,13 +83,27 @@ moves exactly like everyone else's.
 - **Build on today's three.js.** The owner asked for a build to test on a Quest, so PR 1 is built on three.js r128,
   and the upgrade (PR 0) no longer comes first. It's still a P1 item, and the VR code will move with it.
 
+### From the owner (2026-11-04)
+
+- **Walking in VR is arm-push locomotion.** Improving how Quest players move on the floor is this initiative's PR 5:
+  pushing off the floor with your hands, Gorilla Tag style. Moving in the zero-g hub moves to the
+  [zero-g swimming initiative](zero-g-swimming.md) instead, as a breaststroke through the air.
+- **In first person you see only your robot's hands and arms.** Its head, body, and wheel are hidden from you, so they
+  don't block your view. Everyone else still sees your whole robot, and so do you in the **Selfie** view.
+- **Selfie** (a button, on every device) lets you look at your own robot:
+  - **In VR:** a small live copy of your robot floats in front of you (a "mini-me"), and you spin and tilt it with your
+    hand or the stick. The camera never moves, so it doesn't make you sick.
+  - **On an iPad or Mac:** the camera pulls back and orbits your robot, and you spin it around.
+- **Ships in VR are flown from the cockpit, with grabbable controls.** You sit in the cockpit in first person and fly
+  by grabbing a joystick and a throttle with your hands, like a real ship. This answers open question 1.
+
 ### Proposed here, for the owner to confirm
 
 PR 1 builds all of these but the arm IK, and PR 2 builds that, so they can be tried on a headset before they're
 settled.
 
-- **First person.** The camera is the robot's eye, and your own robot's head is hidden so it doesn't fill your view.
-  Third person in VR moves the world without your head moving, which makes people sick.
+- **First person.** The camera is the robot's eye. Third person in VR moves the world without your head moving, which
+  makes people sick. (What you see of your own robot is now the owner's decision above: hands and arms only.)
 - **Thumbstick driving comes first, arm locomotion second.** The plan wants both. Driving with the stick reuses the
   existing movement code, so a Quest player can roll around with friends from PR 1, and arm locomotion (PR 5) is a
   bigger job that benefits from playtests first.
@@ -148,7 +162,13 @@ Floor content is simulated on a flat strip (x across, z around, y up) and bent o
 
 - Your own robot is still built and posed, because friends see that pose. On your screen, its head is hidden while
   the headset draws (and shown again straight after), so you see your arms, your body when you look down, and your
-  wheel.
+  wheel. PR 8 hides the body and wheel too, so only the hands and arms are left (owner decision, 2026-11-04).
+- **Selfie (PR 9):** in VR, a second, small copy of your robot, built from the same build and paint and posed from the
+  same pose each frame, floats about half a meter in front of you at around a quarter of its size. Grab it to turn and
+  tilt it, or turn it with the right stick; press Selfie again to put it away. Proposed button until the wrist panel
+  exists: pressing the right stick in. On flat devices, Selfie swaps the chase camera for one that orbits your robot,
+  turned by dragging or the arrow keys, and drives nothing until you leave it. It costs one extra robot draw in VR,
+  and only while it's open.
 - **Arms:** the robot's arms have shoulder, elbow, and wrist angles plus a grip curl (`RobotArm.cur`, the `arm0*` and
   `arm1*` pose fields). A small two-bone IK solves those angles from each controller's (or hand's) grip pose, so the
   robot's grip lands on yours and its hand points the way your hand does (PR 2):
@@ -208,7 +228,16 @@ The DOM HUD can't be seen in a headset, so VR draws its own:
   since it flies the way it faces), then arm locomotion in PR 5, which is where it's most fun: pushing off the drum and
   catching drifting things.
 - **Ships and planets** (`app/flight.ts`) draw their own scene with a chase camera. For now, in VR, you ride where
-  that camera is, kept level, and the left stick flies like the arrow keys. What comes next is open question 1.
+  that camera is, kept level, and the left stick flies like the arrow keys. PR 7 puts you in the cockpit (owner
+  decision, 2026-11-04):
+  - You sit in the pilot's seat in first person, and the rig rides in the ship's frame, so the cockpit stays still
+    around you while space moves outside it.
+  - A **joystick** (by your right hand) steers: grab it and tilt it to pitch and roll, twist it to turn. A **throttle**
+    (by your left hand) sets the speed: grab it and push it forward or pull it back. Letting go of the joystick
+    springs it back to center; the throttle stays where you left it. Trigger on the joystick fires the ship's laser.
+  - A comfort vignette closes in while the ship turns fast. Haptics buzz on grabbing the controls and on firing.
+  - The rules for turning a grabbed control's pose into stick and throttle values go in `shared/sim/vr-cockpit.ts`,
+    feeding the same ship controls the arrow keys do (`shared/sim/ship.ts`), so friends see the ship fly as usual.
 
 ## Trying it on a headset (developers)
 
@@ -242,9 +271,11 @@ as each one merges.
 | 2 | **Done** (#34) | `feature/vr-hands` | Let Quest players use their hands | Controllers and hand tracking drive the robot's arms through IK (`shared/sim/arm-ik.ts`), and the headset turns its head, so friends see both. Per-hand grabbing: grip (or a fist) picks up what's near that hand, the item sits in that hand turned with yours, and letting go throws it with your swing. Trigger or pinch to use; carrots eaten by bringing them to your mouth. Fist and pinch read from the hand joints (`shared/sim/vr-hands.ts`). Haptics on pick-up, drop, a lit saber, and blaster shots. | none |
 | 3 | | `feature/vr-wrist-panel` | Put the HUD on your wrist in VR | The wrist panel (place, station status, holding, comfort settings, Exit VR), world-space prompts beside what they're about, touching a sign to act, and the `?perf` readout. | none |
 | 4 | | `feature/vr-lifts-and-hub` | Ride the lifts and float in the hub in VR | The rig in the lift cab with the comfort vignette, and stick floating in the zero-g hub. | none |
-| 5 | | `feature/arm-locomotion` | Let Quest players move by pushing off with their arms | Gorilla Tag style movement on the floor and in the hub: hands as sphere colliders, push to move, let go to fling (capped). Rules in `shared/sim/arm-locomotion.ts`. The rest of the comfort options: smooth turning, vignette strength, seated mode. | none |
+| 5 | | `feature/arm-locomotion` | Let Quest players move by pushing off with their arms | The owner's "VR walking": Gorilla Tag style movement on the ring floor: hands as sphere colliders, push to move and jump, let go to fling (capped). Rules in `shared/sim/arm-locomotion.ts`. The rest of the comfort options: smooth turning, vignette strength, seated mode. Moving in the hub is the [zero-g swimming initiative](zero-g-swimming.md)'s PR 2. | none |
 | 6 | | `foundation/quest-performance` | Hold a steady frame rate on Quest | A pass on a real Quest 2 and 3 against the budget: fixed foveation, framebuffer scale, multiview (re-checking the bend per eye), emissive sabers instead of a light each (D9, if P1 hasn't done it), and draw-call cuts. | none |
-| 7 | Waiting on open question 1 | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and fly it in first person, with the stick and trigger. | none |
+| 7 | | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and sit in its cockpit in first person. Fly by grabbing the joystick and throttle with your hands (`shared/sim/vr-cockpit.ts`), fire with the joystick's trigger, a vignette on fast turns, and haptics. | none |
+| 8 | Next (owner priority) | `feature/vr-hide-own-body` | Show only your robot's hands and arms in VR | Hides your own robot's body and wheel (its head is already hidden) while the headset draws, leaving the hands, arms, and held items. Friends still see all of it. | none |
+| 9 | Next, after PR 8 | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
 
 Handing items to friends needs P3's server-authoritative pickup and drop, which isn't done yet. When it lands, a Quest
 player hands things over the same way: let go of the item in a friend's grabber.
@@ -277,6 +308,11 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
   - Hand tracking (IWER's hands, with a fist pose added): hands pose the arms, a fist picks up the saber, and a
     pinch switches it off. (PR 2)
   - Later: the rig on a lift and in the hub.
+  - Your own body and wheel are hidden in the headset's view and your arms aren't, while a second page sees your
+    whole robot. (PR 8)
+  - Selfie opens the mini-me in VR and turns it with the stick, and orbits the camera on a flat page; closing it puts
+    things back. (PR 9)
+  - In a ship, grabbing and tilting the joystick turns it, and pushing the throttle speeds it up. (PR 7)
 - **Manual checklist** on a Quest before each VR PR merges:
   - Enter VR from a production-like build (the PR preview), on Quest 2 and Quest 3.
   - Recenter, standing and seated.
@@ -300,9 +336,7 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
 
 ## Open questions
 
-1. **Ships in VR?** Flying a ship in first person is great fun but easy to feel sick in. Options: fly from the cockpit
-   (PR 7), or have Quest players ride along and leave VR to fly. Recommended: leave ships flat for now, and decide
-   after the kids have tried PRs 1-5.
+1. ~~**Ships in VR?**~~ Answered 2026-11-04: from the cockpit, with grabbable controls (PR 7).
 2. **Order against the economy.** The plan does P5 (the carrot initiative) before P4. Should this initiative wait until
    the carrot economy is done, or run alongside it?
 3. **Which headsets?** The checklist assumes Quest 2 and Quest 3. Is there a Quest 3S or Quest Pro in the house?
