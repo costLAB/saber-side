@@ -978,9 +978,15 @@ function updateBolts(dt) {
 
 const promptEl = document.getElementById('prompt');
 let promptText = '', promptHint = false;
+// what the prompt is about, on the floor strip, and what it presses: VR shows it as a sign beside it (app/vr-wrist.ts)
+let promptAt = null, promptAction = '';
+const promptPos = new V3();
 function updatePrompt(p, override, hintOnly) {
   const lift = override === undefined ? nearLift(p) : null, near = override === undefined && !lift ? nearestItem(p) : null;
   const spinHere = override === undefined && !lift && !near && st.mode === 'floor' && harvest.ripeNear(p);
+  if (st.mode === 'floor' && lift) { promptAt = { x: 0, y: 6.2, z: lift.z }; promptAction = 'grab'; }
+  else if (st.mode === 'floor' && near) { near.group.getWorldPosition(promptPos); promptAt = { x: promptPos.x, y: promptPos.y + 1.3, z: promptPos.z }; promptAction = 'grab'; }
+  else { promptAt = null; promptAction = spinHere ? 'spin' : override !== undefined && !hintOnly ? 'grab' : ''; }
   const txt = override !== undefined ? override : lift ? `Ride lift ${lift.k + 1} up to the hub` : near ? `${held ? 'Swap for' : 'Pick up'} the ${near.name}` : spinHere ? 'Spin to kick up carrots' : '';
   if (txt === promptText) return;
   promptText = txt; promptHint = !!hintOnly;
@@ -1606,7 +1612,7 @@ legacy.drivingOnFloor = () => (st.mode === 'floor' && st.rollout <= 0 ? bot.root
 legacy.releaseKeys = () => { for (const k in keys) keys[k] = false; };
 
 // ---- VR on a Meta Quest (app/vr.ts) ----
-const vr = createVrMode({ renderer, camera, bot, st, keys, press, prompt: () => ({ text: promptText, hint: promptHint }), drawTex, kit: robotKit });
+const vr = createVrMode({ renderer, camera, bot, st, keys, press, prompt: () => ({ text: promptText, hint: promptHint, at: promptAt, action: promptAction }), drawTex, kit: robotKit });
 const selfie = createSelfie({ keys, pressed, canvas: renderer.domElement, button: document.getElementById('selfie'), resetCam, vr });
 legacy.leaveVr = vr.leave;
 
