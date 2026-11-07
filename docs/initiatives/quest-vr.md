@@ -232,11 +232,12 @@ floor.
   times as far, or 2.4 times seated, so a hand at about knee height (your lap, seated) puts the robot's hand on the
   floor. Hands near your neck barely move; hands held out reach a long way. The robot's arms are drawn 1.8 times as
   long to reach them (`setArmReach` in `avatar/parts/arms.ts`): the joints and the parts on each bone spread out, and
-  the bone segments stretch, so nothing new is built. They grow long in about a tenth of a second when your hands take
+  the bone segments stretch (or, on Snatch the cat, the stacked bands stretch with the bone), so nothing new is
+  built. They grow long in about a tenth of a second when your hands take
   over, and go back to as built whenever the legacy animation poses them (spinning, a lost controller, leaving VR).
   Everything you touch in the world, you touch with the robot's long arms: items, signs, the wrist panel, and the
   mini-me. Eating still goes by your real hand at your real mouth, and so does the cockpit.
-- **Friends see the long arms:** the pose carries how long each arm is (`arm0reach` and `arm1reach`, protocol 13),
+- **Friends see the long arms:** the pose carries how long each arm is (`arm0reach` and `arm1reach`, protocol 14),
   so a Quest player's robot has long arms on every screen, with its hands where the player put them.
 - **What's solid (`shared/sim/solids.ts`):** the floor, and each of the legacy game's obstacles that has a height
   (`top`): walls of the Bot Maker, the Robot Registry, the roadmap hut, and the shops; the old shops' blocks, the
@@ -426,7 +427,7 @@ as each one merges.
 | 7 | **Done** (#42) | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and sit in its cockpit in first person. Fly by grabbing the joystick and throttle with your hands (`shared/sim/vr-cockpit.ts`), fire with the joystick's trigger, a vignette on fast turns, and haptics. | none |
 | 8 | **Done** (#36) | `feature/vr-hide-own-body` | Show only your robot's hands and arms in VR | Hides your own robot's body and wheel (its head is already hidden) while the headset draws, leaving the hands, arms, and held items. Friends still see all of it. | none |
 | 9 | **Done** (#37) | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
-| 10 | In review (#45) | `feature/vr-long-arms` | Let Quest players move and climb the way Gorilla Tag does | The owner's Gorilla Tag asks (2026-11-07): the robot's arms are long in VR, your hands stretch out to match, and its hands can't go into anything solid. A hand holds on to whatever it touches: pull to run, climb walls, trees, and posts, shove down to jump, push off to leap, and stand on what you climb. Gorilla Tag's release speeds and Earth's gravity for your body. Arms are the only way to walk (the stick is a comfort setting), and the vignette starts off. Friends see the long arms. Rules in `shared/sim/arm-locomotion.ts` and `shared/sim/solids.ts`. | protocol 13 (`arm0reach`, `arm1reach` pose fields) |
+| 10 | In review (#45) | `feature/vr-long-arms` | Let Quest players move and climb the way Gorilla Tag does | The owner's Gorilla Tag asks (2026-11-07): the robot's arms are long in VR, your hands stretch out to match, and its hands can't go into anything solid. A hand holds on to whatever it touches: pull to run, climb walls, trees, and posts, shove down to jump, push off to leap, and stand on what you climb. Gorilla Tag's release speeds and Earth's gravity for your body. Arms are the only way to walk (the stick is a comfort setting), and the vignette starts off. Friends see the long arms. Rules in `shared/sim/arm-locomotion.ts` and `shared/sim/solids.ts`. | protocol 14 (`arm0reach`, `arm1reach` pose fields) |
 
 Handing items to friends needs P3's server-authoritative pickup and drop, which isn't done yet. When it lands, a Quest
 player hands things over the same way: let go of the item in a friend's grabber.
@@ -475,7 +476,8 @@ sent how long each arm is.
     and letting go jumps; pushing further down than the arms reach lifts it no higher, with its hands still on the
     floor; no vignette by default. A hand pulled down a lamp post climbs it, and the robot hangs there until the hand
     comes off the post. Pushing down on the weapon table lifts the robot above it, pulling back draws it over, and
-    letting go it stands on the tabletop. The left stick doesn't drive until **Move: stick**. (PR 10)
+    letting go it stands on the tabletop. The left stick doesn't drive until **Move: stick**. Snatch the cat's arms
+    grow long too, bands and all, and go back after. (PR 10)
   - The comfort panel shows on a VR device's flat page and saves its settings; seated, leaning doesn't move the robot;
     smooth turning turns the view a little each frame; with arm walking off, hands on the floor push nothing. (PR 5)
   - The wrist panel shows only when the back of your wrist faces you, with where you are, what you hold, and the

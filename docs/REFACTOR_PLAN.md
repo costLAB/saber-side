@@ -31,7 +31,7 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **Owner panel:** just the owners.
 - **Permissions:** **as light as possible.** No accounts, passwords, or roles for players, and every player can use every feature.
 - **Players, robots, and guests (2026-11-01).** A **player** (the kid) is a unique username and a 4-digit PIN, and owns the wallet, shops, farms, and many **robots**. No emails or phone numbers. Kids come in as **guests** first: **Play** builds a robot with an auto-generated name, and nothing is saved. Guests can eat carrots and cure their paint. Registering at the **Robot Registry**, a free office next to the Bot Maker and the only place to register, saves their robot and cure and creates their Cyber Crystal wallet. Registered players log in with username and PIN, on the arrival screen or at the Registry. One seat per player: a second device takes over from the first. Existing robots are wiped. **The first robot is free, and extra robots cost CC** at the Bot Maker, **up to 5 per player** for now. The details and the PRs are in the initiative [Players, their robots, and seats](initiatives/players-and-robots.md).
-- **Carrot-first economy, and paint that cures (2026-11-01).** A robot's paint is a see-through coat that cures 1 percentage point per carrot eaten, from 10% to the chosen color at full opacity. Robots eat through a jaw that opens on the panel seam below the eye. Economy v1 starts with carrots: carrot stands, the **Farmers** who sell carrots wholesale, and farms players can buy. The details and the PRs are in the initiative [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md).
+- **Carrot-first economy, and paint that cures (2026-11-01).** A robot's paint is a see-through coat that cures 1 percentage point per carrot eaten, from 10% to the chosen color at full opacity. Since 2026-11-07, a new robot starts in full color; only new paint on an existing robot starts at 10%. Robots eat through a jaw that opens on the panel seam below the eye. Economy v1 starts with carrots: carrot stands, the **Farmers** who sell carrots wholesale, and farms players can buy. The details and the PRs are in the initiative [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md).
 - **Robot parts catalogs (2026-11-01).** Robots are built from seven kinds of parts, each with its own catalog at the Bot Maker: **mobility** (the giant drive sphere today, tires later), **body coverings** (over the ball or the tires), **heads** (including a cute **jack-o-lantern**), **arms**, **voice** (voice boxes and microphones, for talking to other players), **eyes**, and **thrusters** (for moving in zero gravity). More parts, more colors, and everything costs Cyber Crystals. The details and the PRs are in the initiative [Robot parts catalogs](initiatives/robot-parts-catalog.md).
 - **VR movement, first person, and Selfie (2026-11-04).** Walking in VR is arm-push locomotion on the floor. In first person, Quest players see only their robot's hands and arms; everyone else sees the whole robot, and a **Selfie** button on every device shows you your own (a small live "mini-me" in VR, an orbiting camera on iPad and Mac). Ships in VR are flown from the cockpit by grabbing a joystick and throttle. All in the [Quest VR initiative](initiatives/quest-vr.md).
 - **Long arms in VR, just like Gorilla Tag (2026-11-07).** In VR the robot's arms are long and its hands collide with everything solid, so Quest players run, jump, climb, and fling themselves around by pushing off the floor, walls, and trees, and stand on what they climb. As in Gorilla Tag, the arms are the only way to walk (the stick is a comfort setting), with Gorilla Tag's own speeds, Earth's gravity for your body, and no vignette. Friends see the long arms too. It's PR 10 of the [Quest VR initiative](initiatives/quest-vr.md).
@@ -53,7 +53,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | In progress: the first ten PRs are done (#29, #34, #36 to #38, #40 to #43, #44), from entering VR to flying ships from the cockpit, and `feature/vr-long-arms` (#45: moving the way Gorilla Tag does, with long arms that hold on to whatever they touch) is in review. The next frame-rate cuts are an open question |
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
-| [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Planned: next `feature/sketchbook-cat` |
+| [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Started: Snatch is in the game (#46); next `feature/sketchbook-astronaut` |
 
 ### Build order
 
@@ -77,30 +77,29 @@ planned branch is missing from this list.
 9. `feature/give-crystals`
 10. `foundation/server-held-items`
 11. `feature/give-items`
-12. `feature/sketchbook-cat`
-13. `feature/sketchbook-astronaut`
-14. `feature/sketchbook-pumpkin`
-15. `feature/sketchbook-spider`
-16. `feature/sketchbook-homemade`
-17. `feature/cat-tail-grab`
-18. `feature/zero-g-swim-stroke`
-19. `feature/vr-swimming`
-20. `feature/spacewalks`
-21. `feature/more-paint-colors`
-22. `foundation/seven-part-slots`
-23. `feature/more-robot-parts`
-24. `feature/parts-catalog`
-25. `feature/robot-thrusters`
-26. `feature/robot-tires`
-27. `feature/ore-planet`
-28. `feature/refinery-ring`
-29. `feature/ore-hauler`
-30. `feature/ore-mining`
-31. `feature/ore-refining`
-32. `feature/refinery-ring-interior`
-33. `feature/refinery-ring-swimming`
-34. `feature/ore-economy-tuning`
-35. `feature/talking-robots`
+12. `feature/sketchbook-astronaut`
+13. `feature/sketchbook-pumpkin`
+14. `feature/sketchbook-spider`
+15. `feature/sketchbook-homemade`
+16. `feature/cat-tail-grab`
+17. `feature/zero-g-swim-stroke`
+18. `feature/vr-swimming`
+19. `feature/spacewalks`
+20. `feature/more-paint-colors`
+21. `foundation/seven-part-slots`
+22. `feature/more-robot-parts`
+23. `feature/parts-catalog`
+24. `feature/robot-thrusters`
+25. `feature/robot-tires`
+26. `feature/ore-planet`
+27. `feature/refinery-ring`
+28. `feature/ore-hauler`
+29. `feature/ore-mining`
+30. `feature/ore-refining`
+31. `feature/refinery-ring-interior`
+32. `feature/refinery-ring-swimming`
+33. `feature/ore-economy-tuning`
+34. `feature/talking-robots`
 
 ### Not split into PRs yet
 

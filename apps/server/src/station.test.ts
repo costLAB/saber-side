@@ -591,9 +591,9 @@ describe('owner panel', () => {
     const server = await boot({ ADMIN_KEY: key, ...seeded({ name: 'Zed', pin: '1111' }) });
     const room = await logIn(server, 'Zed', '1111');
     const garages = garage(room);
-    await until(() => room.state.players?.get(room.sessionId)?.cure === 10, 'a fresh coat');
+    await until(() => room.state.players?.get(room.sessionId)?.cure === 100, 'a new robot in full color');
     const robot = (await list(server))[0]?.robots[0] as OwnerRobot;
-    expect(robot.cure).toBe(10);
+    expect(robot.cure).toBe(100);
     const res = await api<OwnerRobot>(server, 'POST', `/owner/robots/${robot.id}/cure`, { cure: 37 }, owner);
     expect(res).toMatchObject({ status: 200, body: { cure: 37 } });
     await until(() => room.state.players.get(room.sessionId)?.cure === 37, 'the cure to sync');
@@ -634,11 +634,11 @@ describe('paint cure for guests', () => {
     const server = await boot();
     const guest = await comeAboard(server, { guest: { build: red } });
     const me = () => guest.state.players?.get(guest.sessionId);
-    await until(() => me()?.cure === 10, 'a fresh coat');
-    // Swapping a part in the same paint keeps the coat; new paint starts it again (here, still 10).
+    await until(() => me()?.cure === 100, 'a new robot in full color');
+    // Swapping a part in the same paint keeps the coat; new paint starts a fresh one at 10%.
     guest.send(MESSAGE.rebuild, { ...red, arms: null });
     await until(() => me()?.build.includes('"arms":null') ?? false, 'the rebuild');
-    expect(me()?.cure).toBe(10);
+    expect(me()?.cure).toBe(100);
     guest.send(MESSAGE.rebuild, blue);
     await until(() => me()?.color === '#5d97d8', 'the repaint');
     expect(me()?.cure).toBe(10);

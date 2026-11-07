@@ -1,5 +1,6 @@
 import type { PartPick } from '@saber-side/shared';
 import * as THREE from 'three';
+import { CAT_GRIP, catArm } from './cat';
 import { type BodyMounts, Cyl, flatRing, type PartKit, Sph } from './kit';
 
 // Arms. Every pair has the same joints (shoulder, elbow, wrist, fingers, thumb), so one animation poses them all.
@@ -24,7 +25,8 @@ export interface RobotArm {
 /**
  * Something on an arm's upper arm or forearm, as built: where it sat (`y`, down the bone from the joint above), and
  * how long the bone it's on is. The next joint and the parts on the bone spread out along the longer bone; a segment
- * (`len`, its built length, and `sy`, its own scale) stretches so its ends keep their gaps to the joints.
+ * (`len`, its built length, and `sy`, its own scale) stretches so its ends keep their gaps to the joints; and a band
+ * (one of several stacked along the bone, like the cat's) stretches with the bone, so the stack stays joined.
  */
 export interface ArmBone {
   obj: THREE.Object3D;
@@ -32,6 +34,7 @@ export interface ArmBone {
   bone: number;
   len?: number;
   sy?: number;
+  band?: boolean;
 }
 
 export interface BuiltArms {
@@ -47,15 +50,20 @@ export function buildArms(kit: PartKit, core: THREE.Group, pick: PartPick<'arms'
     core.add(grip);
     return { arms: [], grip };
   }
-  const arm = { grabber, pincer, noodle }[pick.part];
-  const limb = kit.tint(kit.materials.limb, pick.paint);
+  const paint = pick.paint;
+  const arm =
+    pick.part === 'cat'
+      ? (k: PartKit, _limb: THREE.Material, shoulder: THREE.Group, s: number) => catArm(k, shoulder, s, paint)
+      : { grabber, pincer, noodle }[pick.part];
+  const limb = pick.part === 'cat' ? kit.materials.limb : kit.tint(kit.materials.limb, pick.paint);
   const arms = [1, -1].map((s) => {
     const cur = { ab: 0.35, sw: 0, el: 0.45, ez: 0, wr: 0, wz: 0, curl: 0.3 };
     const shoulder = new THREE.Group();
     shoulder.position.set(s * at.shoulder[0], at.shoulder[1], at.shoulder[2]);
     core.add(shoulder);
-    const { segments, ...joints } = arm(kit, limb, shoulder, s);
-    return { s, cur, shoulder, ...joints, reach: 1, bones: armBones(shoulder, joints.elbow, joints.wrist, segments) };
+    const { segments = [], bands = [], ...joints }: Joints = arm(kit, limb, shoulder, s);
+    const bones = armBones(shoulder, joints.elbow, joints.wrist, segments, bands);
+    return { s, cur, shoulder, ...joints, reach: 1, bones };
   });
   const grip = new THREE.Group();
   const [gx, gy, gz] = GRIP[pick.part];
@@ -65,7 +73,13 @@ export function buildArms(kit: PartKit, core: THREE.Group, pick: PartPick<'arms'
 }
 
 /** Lists what lengthening an arm moves: the shoulder's and the elbow's parts, down to the next joint. */
-function armBones(shoulder: THREE.Group, elbow: THREE.Group, wrist: THREE.Group, segments: THREE.Mesh[]): ArmBone[] {
+function armBones(
+  shoulder: THREE.Group,
+  elbow: THREE.Group,
+  wrist: THREE.Group,
+  segments: THREE.Mesh[],
+  bands: THREE.Object3D[],
+): ArmBone[] {
   const out: ArmBone[] = [];
   for (const [joint, next] of [
     [shoulder, elbow],
@@ -74,6 +88,10 @@ function armBones(shoulder: THREE.Group, elbow: THREE.Group, wrist: THREE.Group,
     const bone = Math.abs(next.position.y);
     for (const obj of joint.children) {
       if (obj.position.y === 0) continue; // on the joint itself (its ball): stays put
+      if (bands.includes(obj)) {
+        out.push({ obj, y: obj.position.y, bone, sy: obj.scale.y, band: true });
+        continue;
+      }
       const seg = segments.find((m) => m === obj);
       const len = (seg?.geometry as { parameters?: { height?: number } } | undefined)?.parameters?.height;
       out.push(
@@ -92,7 +110,11 @@ export function setArmReach(arm: RobotArm, reach: number) {
   arm.reach = reach;
   const k = reach - 1;
   for (const b of arm.bones) {
-    if (b.len === undefined || b.sy === undefined) b.obj.position.y = b.y * reach;
+    if (b.band && b.sy !== undefined) {
+      // a band stretches with its bone, so the stack stays joined
+      b.obj.position.y = b.y * reach;
+      b.obj.scale.y = b.sy * reach;
+    } else if (b.len === undefined || b.sy === undefined) b.obj.position.y = b.y * reach;
     else {
       // the segment's top keeps its gap to the joint above, and its bottom its gap to the next joint
       b.obj.position.y = b.y - (k * b.bone) / 2;
@@ -102,10 +124,16 @@ export function setArmReach(arm: RobotArm, reach: number) {
 }
 
 /** Where each kind of hand holds things, in its wrist's frame. */
-const GRIP = { grabber: [0, -0.24, 0.05], pincer: [0, -0.26, 0.05], noodle: [0, -0.12, 0.1] } as const;
+const GRIP = { grabber: [0, -0.24, 0.05], pincer: [0, -0.26, 0.05], noodle: [0, -0.12, 0.1], cat: CAT_GRIP } as const;
 
-/** What each kind of arm builds: its joints, and the bone segments that stretch when the arm is lengthened. */
-type Joints = Omit<RobotArm, 's' | 'cur' | 'shoulder' | 'reach' | 'bones'> & { segments: THREE.Mesh[] };
+/**
+ * What each kind of arm builds: its joints, and what stretches when the arm is lengthened: its bone segments, or the
+ * bands stacked along its bones.
+ */
+type Joints = Omit<RobotArm, 's' | 'cur' | 'shoulder' | 'reach' | 'bones'> & {
+  segments?: THREE.Mesh[];
+  bands?: THREE.Object3D[];
+};
 
 /** The classic jointed arms with two fingers and a thumb, moved unchanged from the legacy robot. */
 function grabber(kit: PartKit, limb: THREE.Material, shoulder: THREE.Group, s: number): Joints {

@@ -101,6 +101,10 @@ test('plays straight away as a guest: builds a robot from parts and rolls it out
   await expect(sheet.getByLabel('Name')).toHaveCount(0);
   const slot = (name: string) => page.locator(`[data-slot=${name}]`);
   await expect(slot('mobility').locator('.chip')).toHaveText(['Single wheel']);
+  // One tap puts on all of Snatch, the sketchbook cat; any part can still be swapped after.
+  await sheet.getByRole('button', { name: 'Snatch' }).click();
+  for (const s of ['body', 'head', 'arms']) await expect(slot(s).getByRole('radio', { name: 'Snatch' })).toBeChecked();
+  await expect(slot('mobility').getByRole('radio', { name: 'Single wheel' })).toBeChecked();
   await slot('body').getByText('Barrel').click();
   await slot('body').locator('label[title="Sky"]').click();
   await slot('head').getByText('Visor').click();
@@ -452,7 +456,7 @@ test('stays single-player when the build has no server', async ({ page, errors }
   expect(errors).toEqual([]);
 });
 
-test('paints a guest robot with a fresh coat once the owner turns paint cure on', async ({ page, errors }, info) => {
+test('keeps a new guest robot in full color when the owner turns paint cure on', async ({ page, errors }, info) => {
   test.skip(info.project.name === 'ipad', 'one profile is enough');
   const paintCure = (on: boolean) =>
     page.request.post(`${STATION}/api/owner/settings`, { headers: owner, data: { paintCure: on } });
@@ -469,16 +473,15 @@ test('paints a guest robot with a fresh coat once the owner turns paint cure on'
     await expect(who).not.toContainText('Paint');
     expect(await saber<number>(page, 's.bot.coat.value')).toBe(1);
 
-    // On: a fresh coat, 10%, eased in.
+    // On: a new robot starts in full color, so the readout says 100% and the coat stays as it was.
     expect((await paintCure(true)).ok()).toBe(true);
-    await eventually(page, () => who.textContent()).toContain('Paint 10%');
+    await eventually(page, () => who.textContent()).toContain('Paint 100%');
     await advance(page, 2000);
-    expect(await saber<number>(page, 's.bot.coat.value')).toBeCloseTo(0.1, 3);
+    expect(await saber<number>(page, 's.bot.coat.value')).toBe(1);
   } finally {
     await paintCure(false);
   }
   await eventually(page, () => page.locator('#who').textContent()).not.toContain('Paint');
-  // Back to full color, eased over about a second.
   await advance(page, 2000);
   expect(await saber<number>(page, 's.bot.coat.value')).toBe(1);
   expect(errors).toEqual([]);

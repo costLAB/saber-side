@@ -36,6 +36,9 @@ All by the owner, 2026-11-01.
 - **Carrot beds on the ring farms (2026-11-02).** The farm strips have real carrots planted in beds. A spin move in a
   bed kicks a few up into the air, to grab and eat; the plants grow back in about 40 seconds. Up to 100 harvested
   carrots can lie about at once. Like the table carrot, they're snacks for now (see *Where carrots go*).
+- **A new robot starts in full color (2026-11-07).** A guest's robot, a player's first robot, and an extra one from
+  the Bot Maker all start at 100%. Only new paint on an existing robot starts a fresh coat at 10% and cures by eating
+  carrots. This replaces "a fresh coat starts at 10%" for new robots. Robots already saved keep their cure.
 - **Fully cured paint is exactly the color picked (2026-11-02).** At 100%, every painted part is the selected color,
   covering the skin completely: none of its seams, rivets, grime, or panel pattern shows through. Light, shadow, and
   the part's shape still shade it. This replaces the first design, where the skin read through faintly at 100%.
@@ -60,7 +63,8 @@ All by the owner, 2026-11-01.
   - When a carrot lands, the change eases in over about a second.
   - The jaw's cut follows the same seam, so a shut jaw at 100% shows no line at all (the head reads as one smooth
     dome), and an open one shows the dark mouth inside.
-- **Rates (config):** a fresh coat starts at 10%, and each carrot adds 1 point (`CURE_PER_CARROT = 1`). The cure is
+- **Rates (config):** a new robot starts at 100% (`NEW_ROBOT_COAT`), a fresh coat on new paint at 10%
+  (`FRESH_COAT`), and each carrot adds 1 point (`CURE_PER_CARROT = 1`). The cure is
   capped at 100. A fully cured robot can still eat carrots for fun, with the animation and no effect.
 - **Where it shows:** the HUD (`Paint 37%`), and the roster and builder, which show the target color with a cure ring.
   The builder can preview the robot at 100%, so a kid sees what they're working toward.
@@ -129,7 +133,7 @@ All are in config and tunable from the owner panel.
 | First farm plot | 25 CC (2,500 shards) | It takes a while of running a stand to save up. |
 | Farm growth | 1 carrot every 2 minutes, bin of 60 | A full bin lasts 2 hours of being away. |
 | Seed fee | 1 shard per carrot grown | A farm-fed stand earns about 9 shards a carrot, 4.5 times as much. |
-| Paint cure | starts at 10%, +1 point per carrot | A full coat takes 90 carrots, about 9 CC at a friend's stand. |
+| Paint cure | a new robot at 100%; new paint at 10%, +1 point per carrot | A full coat takes 90 carrots, about 9 CC at a friend's stand. |
 | Window-shoppers (first shop) | 240 shards an hour × the spot's traffic | Always more than a first shop's rent. |
 | Rent | 60 shards an hour × size (S 1, M 1.5, L 2) × traffic | A first shop nets 1.1 to 2.3 CC an hour while its owner is aboard. |
 | Spots | P1 S ×1.3, P2 M ×1.15, P3 M ×1.0, P4 L ×0.9 | On the plaza across from the Bot Maker (`content/spots.ts`). |
@@ -176,6 +180,7 @@ Changes to the paint cure after it shipped, from the owner's decisions.
 | # | Status | Branch | PR title | What it changes | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
 | 2a | **Done** (#33) | `feature/solid-cured-paint` | Make fully cured paint the exact color you picked | The coat blends from the bare skin to the flat paint (`mix(skin, paint, cure)`) instead of multiplying the skin, so at 100% a painted part is exactly the color picked: the hex converted to linear, one satin non-metallic finish on every part, and the skin's bump flattened. The `boost` for dark skins is gone. With `paintCure` off, every coat is drawn at 100%, so every painted robot changes look. An e2e check reads back a painted panel's pixels. | none |
+| 2b | **Done** (#48) | `feature/full-color-new-robots` | Start new robots in full color | A new robot (a guest's, a player's first, or an extra from the Bot Maker) starts at 100% (`newRobotCoat` in `sim/paint-cure.ts`). New paint on an existing robot still starts a fresh coat at 10%. Robots already saved keep their cure. | none |
 
 ## Tests
 

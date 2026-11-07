@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import type { Page } from '@playwright/test';
-import { ARM_LOCO } from '@saber-side/shared';
+import { ARM_LOCO, CHARACTERS, classicBuild, wearCharacter } from '@saber-side/shared';
 import { advance, expect, test } from './fixtures';
 
 // VR on a Meta Quest, through IWER (Meta's WebXR emulation runtime): it stands in for a Quest 3 and its controllers,
@@ -454,6 +454,53 @@ test('in VR you see only your robot’s arms, and the whole robot is still there
   expect((await drawn(page)).body).toBeGreaterThan(0);
   // and the arms are as built again
   expect(await armReach(page)).toEqual([1, 1]);
+  expect(errors).toEqual([]);
+});
+
+test('Snatch the cat gets long arms in VR too, its bands stretched along them', async ({ page, errors }, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await withQuest(page);
+  await bootDebug(page);
+  const snatch = CHARACTERS.find((c) => c.id === 'snatch');
+  if (!snatch) throw new Error('no Snatch');
+  const cat = wearCharacter(classicBuild(), snatch);
+  // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+  await page.evaluate((build) => (window as any).__saber.legacy.setRobotBuild(build), cat);
+  await advance(page, 300);
+  const arm = () =>
+    page.evaluate(() => {
+      // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+      const a = (window as any).__saber.bot.arms[0];
+      // the upper arm's bands: each one's ends, down the bone
+      const bands = a.bones
+        .filter((b: { band?: boolean; obj: { parent: unknown } }) => b.band && b.obj.parent === a.shoulder)
+        .map((b: { obj: { position: { y: number }; scale: { y: number } } }) => b.obj.scale.y);
+      return { reach: a.reach as number, elbow: -a.elbow.position.y as number, bands: bands as number[] };
+    });
+  const built = await arm();
+  expect(built.reach).toBe(1);
+  expect(built.bands.length).toBeGreaterThan(0);
+
+  await enterVr(page);
+  const long = await arm();
+  expect(long.reach).toBe(ARM_LOCO.armLength);
+  expect(long.elbow).toBeCloseTo(built.elbow * ARM_LOCO.armLength, 6);
+  long.bands.forEach((sy, i) => {
+    expect(sy).toBeCloseTo((built.bands[i] as number) * ARM_LOCO.armLength, 6);
+  });
+
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    (window as any).__saber.vr.leave();
+  });
+  await expect
+    .poll(async () => {
+      await advance(page, 33);
+      // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+      return page.evaluate(() => (window as any).__saber.vr.presenting);
+    })
+    .toBe(false);
+  expect(await arm()).toEqual(built);
   expect(errors).toEqual([]);
 });
 

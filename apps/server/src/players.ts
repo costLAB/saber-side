@@ -9,6 +9,7 @@ import {
   freshCoat,
   isGuestName,
   isPin,
+  newRobotCoat,
   type OwnerPlayer,
   type OwnerRobot,
   PIN_TRIES,
@@ -209,7 +210,7 @@ export class Players {
     rawName: string,
     pin: string,
     rawBuild: unknown,
-    cure: number = freshCoat(),
+    cure: number = newRobotCoat(),
   ): Outcome<{ player: PlayerRecord; robot: RobotRecord }> {
     const name = cleanRobotName(rawName);
     if (!name) return fail(400, BAD_NAME);
@@ -233,7 +234,7 @@ export class Players {
           `INSERT INTO robots (id, player_id, display_name, color, build_json, paint_cure, created_at, piloted_at)
            VALUES (?, ?, ?, ?, ?, ?, ${NOW_SQL}, ${NOW_SQL})`,
         )
-        .run(robotId, player.id, name, buildColor(build), JSON.stringify(build), cleanCure(cure) ?? freshCoat());
+        .run(robotId, player.id, name, buildColor(build), JSON.stringify(build), cleanCure(cure) ?? newRobotCoat());
       this.#db.exec('COMMIT');
     } catch (e) {
       this.#db.exec('ROLLBACK');
@@ -257,10 +258,10 @@ export class Players {
     const id = randomUUID();
     this.#db
       .prepare(
-        `INSERT INTO robots (id, player_id, display_name, color, build_json, created_at)
-         VALUES (?, ?, ?, ?, ?, ${NOW_SQL})`,
+        `INSERT INTO robots (id, player_id, display_name, color, build_json, paint_cure, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ${NOW_SQL})`,
       )
-      .run(id, playerId, name, buildColor(build), JSON.stringify(build));
+      .run(id, playerId, name, buildColor(build), JSON.stringify(build), newRobotCoat());
     return { ok: true, value: this.robot(id) as RobotRecord };
   }
 
