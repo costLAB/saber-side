@@ -15,8 +15,9 @@ import type { ShopStatus } from './sim/shops.ts';
 // 4 = robots built from parts; 5 = guests and logins (players own robots); 6 = the Robot Registry;
 // 7 = the Cyber Crystal wallet; 8 = several robots per player; 9 = renaming your robot at the Bot Maker;
 // 10 = robots open their mouths to eat (the `jaw` pose field); 11 = paint that cures (each robot's `cure`, and the
-// station's `paintCure` setting); 12 = shops (leasing a spot, the station's `shops`).
-export const PROTOCOL_VERSION = 12;
+// station's `paintCure` setting); 12 = shops (leasing a spot, the station's `shops`); 13 = Snatch, the sketchbook
+// cat (the `cat` head, body, and arms).
+export const PROTOCOL_VERSION = 13;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';

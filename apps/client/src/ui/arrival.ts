@@ -1,4 +1,6 @@
 import {
+  CHARACTERS,
+  type Character,
   ccToShards,
   classicBuild,
   cleanCure,
@@ -676,8 +678,30 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
         ),
       };
     });
+    // One tap puts on a whole character from the sketchbook (its head, body, and arms, unpainted). Each part stays in
+    // its slot's list, so any of them can be swapped afterwards.
+    const wear = (c: Character) => {
+      for (const slot of ['body', 'head', 'arms'] as const) {
+        const part = node.querySelector<HTMLInputElement>(`input[name="part-${slot}"][value="${c.parts[slot]}"]`);
+        if (part) part.checked = true;
+        const plain = node.querySelector<HTMLInputElement>(`input[name="paint-${slot}"][value="${ORIGINAL_PAINT}"]`);
+        if (plain) plain.checked = true;
+      }
+      update();
+    };
+    const characters = h(
+      'fieldset',
+      { class: 'slot characters' },
+      h('legend', {}, 'From the sketchbook'),
+      h('div', { class: 'parts' }, ...CHARACTERS.map((c) => button(h('span', {}, c.name), 'chip', () => wear(c)))),
+    );
     const stage = h('div', { class: 'stage' });
-    const node = h('div', { class: 'builder' }, stage, h('div', { class: 'slots' }, ...slots.map((x) => x.node)));
+    const node = h(
+      'div',
+      { class: 'builder' },
+      stage,
+      h('div', { class: 'slots' }, characters, ...slots.map((x) => x.node)),
+    );
 
     const value = (name: string) => node.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)?.value ?? '';
     function read(): RobotBuild {

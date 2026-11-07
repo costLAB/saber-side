@@ -29,7 +29,7 @@ export interface JawCut {
 }
 
 /** A SphereGeometry's own index of faces, split by the segment cell each face lies in. */
-function splitFaces(geo: THREE.SphereGeometry, take: (row: number, col: number) => boolean) {
+export function splitFaces(geo: THREE.SphereGeometry, take: (row: number, col: number) => boolean) {
   const across = geo.parameters.widthSegments + 1;
   const index = geo.getIndex() as THREE.BufferAttribute;
   const kept: number[] = [];
@@ -44,7 +44,7 @@ function splitFaces(geo: THREE.SphereGeometry, take: (row: number, col: number) 
 }
 
 /** A copy of `geo` drawing only these faces. */
-function withFaces(geo: THREE.BufferGeometry, faces: number[]) {
+export function withFaces(geo: THREE.BufferGeometry, faces: number[]) {
   const g = new THREE.BufferGeometry();
   for (const name of ['position', 'normal', 'uv'] as const) g.setAttribute(name, geo.getAttribute(name));
   g.setIndex(faces);

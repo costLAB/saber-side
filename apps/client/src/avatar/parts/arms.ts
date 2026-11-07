@@ -1,5 +1,6 @@
 import type { PartPick } from '@saber-side/shared';
 import * as THREE from 'three';
+import { CAT_GRIP, catArm } from './cat';
 import { type BodyMounts, Cyl, flatRing, type PartKit, Sph } from './kit';
 
 // Arms. Every pair has the same joints (shoulder, elbow, wrist, fingers, thumb), so one animation poses them all.
@@ -30,8 +31,12 @@ export function buildArms(kit: PartKit, core: THREE.Group, pick: PartPick<'arms'
     core.add(grip);
     return { arms: [], grip };
   }
-  const arm = { grabber, pincer, noodle }[pick.part];
-  const limb = kit.tint(kit.materials.limb, pick.paint);
+  const paint = pick.paint;
+  const arm =
+    pick.part === 'cat'
+      ? (k: PartKit, _limb: THREE.Material, shoulder: THREE.Group, s: number) => catArm(k, shoulder, s, paint)
+      : { grabber, pincer, noodle }[pick.part];
+  const limb = pick.part === 'cat' ? kit.materials.limb : kit.tint(kit.materials.limb, pick.paint);
   const arms = [1, -1].map((s) => {
     const cur = { ab: 0.35, sw: 0, el: 0.45, ez: 0, wr: 0, wz: 0, curl: 0.3 };
     const shoulder = new THREE.Group();
@@ -47,7 +52,7 @@ export function buildArms(kit: PartKit, core: THREE.Group, pick: PartPick<'arms'
 }
 
 /** Where each kind of hand holds things, in its wrist's frame. */
-const GRIP = { grabber: [0, -0.24, 0.05], pincer: [0, -0.26, 0.05], noodle: [0, -0.12, 0.1] } as const;
+const GRIP = { grabber: [0, -0.24, 0.05], pincer: [0, -0.26, 0.05], noodle: [0, -0.12, 0.1], cat: CAT_GRIP } as const;
 
 type Joints = Omit<RobotArm, 's' | 'cur' | 'shoulder'>;
 

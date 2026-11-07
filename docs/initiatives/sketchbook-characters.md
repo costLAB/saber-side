@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | Planned: next is `feature/sketchbook-cat` |
+| **Status** | Started: Snatch is in the game (#46); next is `feature/sketchbook-astronaut` |
 | **Phase** | P3 (the characters), P5 (prices, with the [parts catalog](robot-parts-catalog.md)) |
 | **Started** | 2026-11-07 |
 | **Done when** | A kid walks into the Bot Maker, opens the Characters shelf, taps Snatch, and rolls out as a gray robot cat with huge yellow eyes, pointed ears, and a ringed tail. They swap its head for Patch's pumpkin, then reach out with the cat's tail, grab a saber off the floor two meters away, and pull it into their grabber, while a friend on an iPad sees exactly that robot. |
@@ -104,7 +104,8 @@ By the owner, 2026-11-07.
   its dome rides on a short neck above its body.
 - **The roller.** The characters don't sit on the giant drive sphere. Their mobility is a small drive roller hidden
   under the body, so they still roll. Spider Web stands on its claws, with its body off the floor; it rolls on the same
-  hidden roller, and its legs step as it goes.
+  hidden roller, and its legs step as it goes. Until PR 2 adds the roller, Snatch sits on the drive ball like every
+  other body, its bell covering the ball's top.
 - **Torsos keep the standard mounts** (the neck spot on top, shoulders, the hold point, a chest hatch), placed on each
   shape, so any head and any arms fit any torso, and a character's head and arms fit the old bodies too.
 - **The arms** are segmented: short capsules in two alternating colors, so the outline draws each joint. The hand on
@@ -118,9 +119,10 @@ By the owner, 2026-11-07.
 
 - **A skin is a texture, not a shape.** Each skin is a canvas texture drawn in code (`makeCanvas`, like every robot
   skin today), cached, so every robot wearing it shares one texture.
-- **A paint mask.** Each skin has a second texture marking what paint covers. The coat shader (`avatar/parts/kit.ts`)
-  mixes by `cure × mask` instead of `cure`, on the toon material as on the standard one. Parts without a mask draw as
-  before, so the classic robot and every screenshot baseline stay unchanged.
+- **Paint goes on the fur.** A skin is a layer of details over the fur color, clear wherever the fur shows: Snatch's
+  face, stripes, and belly. Paint changes the fur color under it, so the details stay. The cat's parts do this in
+  their own shaders (`avatar/parts/cat-look.ts`), with the same coat cure as every painted part, and the shared coat
+  shader is untouched, so the classic robot and every screenshot baseline stay as they were.
 - **Paint cure works the same:** a freshly painted cat is see-through over its gray fur, and the color fills in as it
   eats carrots.
 
@@ -186,8 +188,8 @@ merges.
 
 | # | Status | Branch | PR title | What it adds | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Next | `feature/sketchbook-cat` | Turn the sketchbook cat into a robot | The head and torso shape generators, each character's shape numbers, the shared arm, feature anchors, and jaw; the small drive roller as a mobility part; skins with paint masks (the coat shader's `cure × mask`); `shared/content/characters.ts`; the Characters shelf with the drawing on each card. The toon material with outlines. Snatch: its skins, mitten paws, ears, fur tufts, eyes, and a ringed tail that swishes (grabbing comes in PR 6). A close-up screenshot, painted and not, and every classic baseline unchanged. | `PROTOCOL_VERSION` bump |
-| 2 | | `feature/sketchbook-astronaut` | Turn the sketchbook astronaut into a robot | Astro: the helmet and visor, the boxy body and chest panel, striped arms and grabbers, the antenna, ear discs, and backpack. A screenshot. | `PROTOCOL_VERSION` bump |
+| 1 | **Done** (#46) | `feature/sketchbook-cat` | Turn the sketchbook cat into a robot | Snatch as parts: a `cat` head, body, and arms in each slot's list, and a **From the sketchbook** pick in the Bot Maker that puts all three on (`shared/content/characters.ts`). Cel-shaded on a stepped ramp, with inverted-hull outlines. Skins drawn in code as details over the fur, so paint covers the fur only. The head: the superellipsoid with the face, eyes laid on it, the nose, ears, cheek tufts, and a jaw. The body: a bell sitting on the drive ball (the small roller comes with PR 2), carrying the ringed tail in its rest pose. The arms: banded, with mitten paws. Screenshots face on, painted and not, and every classic baseline unchanged. | `PROTOCOL_VERSION` 13 |
+| 2 | | `feature/sketchbook-astronaut` | Turn the sketchbook astronaut into a robot | The cat's head and body made into the shared generators, with each character's shape numbers; the small drive roller as a mobility part; the Characters shelf, with a card and the drawing for each. Astro: the helmet and visor, the boxy body and chest panel, striped arms and grabbers, the antenna, ear discs, and backpack. A screenshot. | `PROTOCOL_VERSION` bump |
 | 3 | | `feature/sketchbook-pumpkin` | Turn the sketchbook pumpkin into a robot | Patch: the ribbed pumpkin head and body, glowing eyes, the stem, the chest panel, and hooked claws. A screenshot. | `PROTOCOL_VERSION` bump |
 | 4 | | `feature/sketchbook-spider` | Turn the sketchbook spider into a robot | Spider Web: the dark dome with glowing slit eyes, the box body on its neck, and four jointed legs with claw feet that step as it rolls. A screenshot. | `PROTOCOL_VERSION` bump |
 | 5 | | `feature/sketchbook-homemade` | Turn the sketchbook homemade robot into a robot | Homemade Web: the striped mushroom cap and bell, the peg, the stick bundle with rope, rings, and the red tag. A screenshot sheet of all five characters, and of a few mixed builds. | `PROTOCOL_VERSION` bump |

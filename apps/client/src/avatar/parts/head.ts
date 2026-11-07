@@ -1,5 +1,6 @@
 import type { PartPick } from '@saber-side/shared';
 import * as THREE from 'three';
+import { catHead } from './cat';
 import { cutJaw, type Jaw } from './jaw';
 import { Cyl, flatRing, onSphere, type PartKit, Sph, TAU, zCyl } from './kit';
 
@@ -33,6 +34,8 @@ export function buildHead(
       return visor(kit, core, pick.paint, neckY, eyeLight);
     case 'stalk':
       return stalk(kit, core, pick.paint, neckY, eyeLight);
+    case 'cat':
+      return catHead(kit, core, pick.paint, neckY);
   }
 }
 

@@ -358,6 +358,17 @@
   outline: 2px solid var(--bone);
   outline-offset: 2px;
 }
+.arrival button.chip {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.arrival button.chip:focus-visible span {
+  outline: 2px solid var(--bone);
+  outline-offset: 2px;
+}
 .arrival .slot .paints {
   --swatch: 30px;
   gap: 6px;
