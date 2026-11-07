@@ -151,14 +151,14 @@ describe('paint cure', () => {
   const red = classicBuild('#e8935a');
   const blue = classicBuild('#5d97d8');
 
-  it('starts a new robot at a fresh coat, or at the cure it earned as a guest', () => {
+  it('starts a new robot in full color, or at the cure it earned as a guest', () => {
     const { p } = players();
-    expect(register(p).robot.cure).toBe(10);
+    expect(register(p).robot.cure).toBe(100);
     const made = p.register('Kai', '1234', red, 37);
     expect(made).toMatchObject({ ok: true, value: { robot: { cure: 37 } } });
     if (!made.ok) return;
     const extra = p.addRobot(made.value.player.id, 'Kai2', red);
-    expect(extra).toMatchObject({ ok: true, value: { cure: 10 } });
+    expect(extra).toMatchObject({ ok: true, value: { cure: 100 } });
   });
 
   it('starts a fresh coat on new paint, and keeps the cure otherwise', () => {

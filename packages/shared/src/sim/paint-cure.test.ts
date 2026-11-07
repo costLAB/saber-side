@@ -13,6 +13,8 @@ import {
   FRESH_COAT,
   freshCoat,
   hasPaint,
+  NEW_ROBOT_COAT,
+  newRobotCoat,
   repainted,
 } from './paint-cure.ts';
 
@@ -27,6 +29,11 @@ describe('paint cure', () => {
     expect(cureAfter(freshCoat(), 1)).toBe(11);
     expect(cureAfter(freshCoat(), 27)).toBe(37);
     expect(cureAfter(freshCoat(), 90)).toBe(CURE_MAX);
+  });
+
+  it('starts a new robot in full color', () => {
+    expect(newRobotCoat()).toBe(CURE_MAX);
+    expect(NEW_ROBOT_COAT).toBe(100);
   });
 
   it('caps at 100, and a fully cured robot eats with no effect', () => {

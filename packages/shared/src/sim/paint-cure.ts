@@ -1,13 +1,14 @@
 // Paint that cures (docs/initiatives/carrot-economy.md). A robot's paint is a see-through coat over its original skin.
-// A fresh coat starts at 10%, and each carrot eaten adds a point, up to the chosen color at full opacity. There's one
-// cure per robot, for every painted part at once; parts left in their original skin don't change.
+// A new robot starts in full color. New paint on an old robot starts a fresh coat at 10%, and each carrot eaten adds a
+// point, up to the chosen color at full opacity. There's one cure per robot, for every painted part at once; parts left
+// in their original skin don't change.
 //
 // The server keeps the cure (saved on `robots.paint_cure`, or in the room for a guest). Until carrots can be bought
 // (`feature/carrot-farmers`), the station setting `paintCure` is off and every coat is drawn at 100%.
 
 import { ORIGINAL_PAINT, PART_SLOTS, type RobotBuild } from '../content/robot-parts.ts';
 
-/** Where a fresh coat starts, in percent. */
+/** Where a fresh coat starts, in percent: new paint on a robot that already has some. */
 export const FRESH_COAT = 10;
 
 /** Percentage points one carrot adds. */
@@ -16,9 +17,17 @@ export const CURE_PER_CARROT = 1;
 /** Fully cured: the chosen color at full opacity. */
 export const CURE_MAX = 100;
 
-/** A fresh coat: a new robot, or one just repainted. */
+/** Where a new robot's paint starts, in percent: full color (2026-11-07). */
+export const NEW_ROBOT_COAT = 100;
+
+/** A fresh coat: a robot just repainted. */
 export function freshCoat(): number {
   return FRESH_COAT;
+}
+
+/** A new robot's coat: a guest's robot, a registered player's first, or an extra one from the Bot Maker. */
+export function newRobotCoat(): number {
+  return NEW_ROBOT_COAT;
 }
 
 /** The cure after eating `carrots` carrots. A fully cured robot can still eat; it just stays at 100. */

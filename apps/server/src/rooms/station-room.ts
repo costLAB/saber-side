@@ -14,6 +14,7 @@ import {
   MESSAGE,
   type NewRobot,
   NOTICE,
+  newRobotCoat,
   nextGuestNumber,
   type Pilot,
   POSE,
@@ -379,7 +380,7 @@ export function defineStationRoom(deps: StationRoomDeps) {
           name: guestName(nextGuestNumber(names)),
           color: buildColor(auth.guest),
           build: auth.guest,
-          cure: freshCoat(),
+          cure: newRobotCoat(),
         });
       } else {
         const robot = deps.players.robot(auth.robot);
