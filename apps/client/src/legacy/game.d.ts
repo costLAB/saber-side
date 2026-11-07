@@ -1,5 +1,6 @@
 import type { RobotBuild } from '@saber-side/shared';
 import type * as THREE from 'three';
+import type { Tails } from '../app/tails';
 import type { Robot, RobotKit } from '../avatar/robot';
 import type { DrawTexFn } from '../render/kit';
 import type { ShopRowScene } from '../world/shop-row';
@@ -22,6 +23,8 @@ export declare const legacy: {
   world: { scene: THREE.Scene; bot: Robot; kit: RobotKit; drawTex: DrawTexFn };
   /** The plaza's shop spots, whose signs show who leased them. */
   shopRow: ShopRowScene;
+  /** Grabbing friends' tails, and shaking this robot's own free: idle until app/tails.ts is handed over. */
+  tail: Pick<Tails, 'near' | 'tryGrab' | 'holding' | 'letGo' | 'poseArm' | 'spun'>;
   /** Called every frame after the game updates and before it draws, with the frame time in seconds. */
   frameHooks: ((dt: number) => void)[];
 };

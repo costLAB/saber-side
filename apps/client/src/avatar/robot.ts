@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { makeCanvas } from '../render/textures';
 import { type BuiltArms, buildArms, type RobotArm } from './parts/arms';
 import { buildBody, buildMobility } from './parts/body';
+import type { CatTail } from './parts/cat-tail';
 import { buildHead } from './parts/head';
 import { bodyHatch, type Jaw, setJaw } from './parts/jaw';
 import { type BodyMounts, type CoatCure, type PartKit, partKit, type RobotKit } from './parts/kit';
@@ -12,6 +13,7 @@ import { type BodyMounts, type CoatCure, type PartKit, partKit, type RobotKit } 
 // were moved unchanged from the legacy game (where it was the one and only `bot`).
 
 export type { RobotArm } from './parts/arms';
+export type { CatTail } from './parts/cat-tail';
 export type { Jaw } from './parts/jaw';
 export type { CoatCure, RobotKit, RobotMaterials } from './parts/kit';
 
@@ -42,6 +44,8 @@ export interface Robot {
   coat: CoatCure;
   /** Empty on a robot with no arms. */
   arms: RobotArm[];
+  /** The cat body's tail, which the ragdoll moves (app/tails.ts). Only the cat body has one. */
+  tail?: CatTail;
   /** In the left fist (or in front of an armless body): whatever the robot holds is parented here, along +y. */
   grip: THREE.Group;
   swooshMat: THREE.MeshBasicMaterial;
@@ -174,6 +178,7 @@ export function buildRobot(
     jaw,
     coat: parts.cure,
     arms,
+    tail: body.tail,
     grip,
     swooshMat,
     swoosh,
@@ -223,6 +228,7 @@ export function disposeRobot(robot: Robot, shared: Iterable<THREE.Material>) {
   robot.root.traverse((o) => {
     const m = o as THREE.Mesh;
     if (m.isMesh) m.geometry.dispose();
+    (o as THREE.SkinnedMesh).skeleton?.dispose();
     const mat = (o as THREE.Mesh | THREE.Sprite).material;
     if (mat) for (const x of Array.isArray(mat) ? mat : [mat]) if (!keep.has(x)) materials.add(x);
   });

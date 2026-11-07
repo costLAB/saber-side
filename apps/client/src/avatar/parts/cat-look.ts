@@ -108,7 +108,10 @@ export function catLook(kit: PartKit, paint: string): CatLook {
         m = outlineMaterial(width);
         outlineMats.set(width, m);
       }
-      const hull = new THREE.Mesh(geometry, m);
+      // A skinned mesh's outline is skinned too (the caller binds it to the same bones).
+      const hull = (mesh as unknown as THREE.SkinnedMesh).isSkinnedMesh
+        ? new THREE.SkinnedMesh(geometry, m)
+        : new THREE.Mesh(geometry, m);
       hull.castShadow = false;
       hull.receiveShadow = false;
       mesh.add(hull);

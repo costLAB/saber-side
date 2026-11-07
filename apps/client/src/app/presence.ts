@@ -46,6 +46,8 @@ export interface Presence {
   frame(dt: number): void;
   /** How many other robots are on screen (for tests). */
   readonly count: number;
+  /** The other robots, by session id, with their names. */
+  others(): Iterable<{ id: string; name: string; robot: Robot }>;
 }
 
 /** One pose interval plus room for jitter. */
@@ -208,6 +210,7 @@ export function createPresence(world: PresenceWorld, now: () => number = () => p
       if (!drawn.isMesh && !(o as THREE.Sprite).isSprite) return;
       // Sprites all share one geometry inside three.js, so only meshes give theirs back.
       if (drawn.isMesh) drawn.geometry.dispose();
+      (o as THREE.SkinnedMesh).skeleton?.dispose();
       for (const m of Array.isArray(drawn.material) ? drawn.material : [drawn.material]) {
         if (!shared.has(m)) m.dispose();
       }
@@ -284,6 +287,9 @@ export function createPresence(world: PresenceWorld, now: () => number = () => p
     frame,
     get count() {
       return [...remotes.values()].filter((r) => r.robot.root.visible).length;
+    },
+    *others() {
+      for (const [id, r] of remotes) yield { id, name: r.name, robot: r.robot };
     },
   };
 }

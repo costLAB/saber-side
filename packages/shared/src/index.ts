@@ -1,4 +1,5 @@
 export * from './content/carrot-beds.ts';
+export * from './content/cat-tail.ts';
 export * from './content/characters.ts';
 export * from './content/places.ts';
 export * from './content/roadmap-hut.ts';
@@ -24,6 +25,8 @@ export * from './sim/paint-cure.ts';
 export * from './sim/selfie.ts';
 export * from './sim/ship.ts';
 export * from './sim/shops.ts';
+export * from './sim/tail-chain.ts';
+export * from './sim/tail-grab.ts';
 export * from './sim/vr-cockpit.ts';
 export * from './sim/vr-comfort.ts';
 export * from './sim/vr-hands.ts';
