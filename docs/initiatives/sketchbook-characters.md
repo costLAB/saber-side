@@ -24,6 +24,20 @@ takes paint. They're robots in costume, and each has a robot name that plays on 
 | --- | --- | --- | --- | --- |
 | ![Cat](sketchbook/cat.jpg) | ![Astronaut](sketchbook/astronaut.jpg) | ![Pumpkin](sketchbook/pumpkin.jpg) | ![Spider](sketchbook/spider.jpg) | ![Homemade](sketchbook/homemade.jpg) |
 
+### In the game
+
+Concept renders, one per drawing, built in three.js from the shared shapes this doc plans: one torso and one head
+for all five, each in its own skin, with its own features and hands. They're a look to aim for, not the final
+parts.
+
+![All five characters in the game](sketchbook/all-in-game.jpg)
+
+![Meowtron, the cat](sketchbook/cat-in-game.jpg)
+![Astrobolt, the astronaut](sketchbook/astronaut-in-game.jpg)
+![Patch, the pumpkin](sketchbook/pumpkin-in-game.jpg)
+![Spindle, the spider](sketchbook/spider-in-game.jpg)
+![Twiggs, the homemade robot](sketchbook/homemade-in-game.jpg)
+
 The cat's tail is labeled "able to grab and pull". That's a feature, not a look: [the tail](#the-cats-tail) has its own
 PR.
 
