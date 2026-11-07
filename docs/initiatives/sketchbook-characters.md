@@ -13,6 +13,11 @@ Five characters, drawn by the owner's son: a **cat**, an **astronaut**, a **pump
 
 ![The reference sheet](sketchbook/reference-sheet.jpg)
 
+The owner then made a close-up of Snatch. Where it differs from the sheet (a small closed mouth, orange bands on the
+arms, mitten paws), the close-up wins.
+
+![Snatch, close up](sketchbook/snatch.jpg)
+
 They're chunky cartoon robots: big heads on small bodies, **cel-shaded with thick black outlines**, a little scuffed.
 Every head is built by **one shape generator** with the same layout (the same vertices, texture map, and feature
 spots), and so is every torso; each character sets a few numbers (width, height, depth, how boxy, ribs) to get its
@@ -30,8 +35,8 @@ under its body (Spider Web walks on its four legs instead).
 
 ### In the game
 
-Concept renders built in three.js to match the reference sheet, the way this doc plans to build them: shared shape
-generators, toon materials on a three-tone ramp, and inverted-hull outlines. They're the look to aim for.
+Concept renders built in three.js to match the reference sheet (and Snatch's close-up), the way this doc plans to build
+them: shared shape generators, toon materials on a stepped ramp, and thick outlines. They're the look to aim for.
 
 ![All five characters in the game](sketchbook/characters.jpg)
 
@@ -50,6 +55,7 @@ By the owner, 2026-11-07.
 
 - **Five characters, from the drawings:** cat, astronaut, pumpkin, spider, and homemade.
 - **The reference sheet is the design.** Shapes, colors, faces, arms, and hands follow it as exactly as the game can.
+  For Snatch, the close-up refines it.
 - **Their names are the sheet's:** Snatch (cat), Astro (astronaut), Patch (pumpkin), Spider Web (spider), and Homemade
   Web (homemade).
 - **Same torso geometry, same head geometry,** as one layout per part: one generator, one texture map, the same
@@ -78,6 +84,10 @@ By the owner, 2026-11-07.
   colors, like the sheet.
 - **Thick black outlines** from an inverted hull: each part's mesh drawn again, pushed out along its normals, back
   faces only, in near-black. One shared outline material per thickness.
+- **Lines between parts.** The close-up also draws lines across a part: between an arm's bands, between a paw's
+  fingers. A hull can't draw those. Snatch's render draws every line from a part-ID pass instead: each part rendered
+  in a flat id color, and a line wherever the id changes (thick around the silhouette and between parts, thin between
+  bands). PR 1 picks one of the two, or a hull with the bands' lines drawn into the skin.
 - **Scuffs:** cream and orange skins carry specks and a few scratches, drawn into the skin texture.
 - **Glows are unlit,** not lights (D9): Patch's eyes, Spider Web's eye slits and chest slit, and Astro's chest buttons,
   with a soft sprite halo.
@@ -98,11 +108,11 @@ By the owner, 2026-11-07.
 - **Torsos keep the standard mounts** (the neck spot on top, shoulders, the hold point, a chest hatch), placed on each
   shape, so any head and any arms fit any torso, and a character's head and arms fit the old bodies too.
 - **The arms** are segmented: short capsules in two alternating colors, so the outline draws each joint. The hand on
-  the end changes per character: round C-shaped grabbers (Snatch, Astro), dark hooked claws (Patch), three-toed claw
-  feet (Spider Web). Homemade Web has a bundle of sticks instead.
+  the end changes per character: round mitten paws (Snatch), round C-shaped grabbers (Astro), dark hooked claws
+  (Patch), three-toed claw feet (Spider Web). Homemade Web has a bundle of sticks instead.
 - **The jaw:** the head's jaw is one cut in the shared shape (the lower front, below the face), the same for every
-  character. Each skin draws its own mouth on it: Snatch's and Patch's open grins. Homemade Web has no face, so its jaw
-  is the cap's dark underside. With no head, the torso's chest hatch is the mouth, as on every body.
+  character. Each skin draws its own mouth on it: Snatch's small closed one and Patch's open grin. Homemade Web has no
+  face, so its jaw is the cap's dark underside. With no head, the torso's chest hatch is the mouth, as on every body.
 
 ### Skins
 
@@ -118,7 +128,7 @@ By the owner, 2026-11-07.
 
 | | Head | Body | Arms and hands | Features |
 | --- | --- | --- | --- | --- |
-| **Snatch**, the cat | Wide gray head with tabby stripes and a cream lower face; huge yellow eyes with black pupils and white shines; an open grin with a tongue | A dark gray bell with a cream belly | Cream-and-tan striped arms, round cream C grabbers | Big pointed ears, pink inside with cream fluff; spiky fur tufts on the cheeks; a ringed tail (gray, orange, cream) curling up behind |
+| **Snatch**, the cat | Wide head, gray on top with cream tabby stripes, a gray V down to a pink nose, and a cream face; huge yellow eyes with big black pupils and white shines; a small closed cat mouth | A dark gray bell with a cream belly | Gray at the shoulder, then cream with an orange band; round cream mitten paws with curled fingers | Big pointed ears, pink inside with cream fluff; spiky gray fur tufts on the cheeks; a thick tail, gray with an orange ring, curling up behind its left paw |
 | **Astro**, the astronaut | A cream, round-cornered helmet with a big glossy navy visor and white shines | A small cream box with a slate chest panel of four lit orange squares | Cream-and-orange striped arms, round white C grabbers | Antenna with an orange ball, round ear discs with orange centers, a backpack |
 | **Patch**, the pumpkin | A wide ribbed pumpkin with glowing yellow eyes in orange sockets and an open grin with a tongue | A ribbed orange bell with a small chest panel of four dark buttons | Long tan striped arms, dark gray hooked three-finger claws | A brown stem |
 | **Spider Web**, the spider | A wide dark dome with panel seams, and two glowing orange slit eyes at its lower front corners | A small dark rounded box with a glowing orange slit and a little grille, on a short neck | Four legs: two thin ones from under the dome to the body's sides, two big ones out and down to three-toed claw feet | Glowing eyes and chest slit |
@@ -176,7 +186,7 @@ merges.
 
 | # | Status | Branch | PR title | What it adds | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Next | `feature/sketchbook-cat` | Turn the sketchbook cat into a robot | The head and torso shape generators, each character's shape numbers, the shared arm, feature anchors, and jaw; the small drive roller as a mobility part; skins with paint masks (the coat shader's `cure × mask`); `shared/content/characters.ts`; the Characters shelf with the drawing on each card. The toon material with outlines. Snatch: its skins, grabbers, ears, fur tufts, eyes, and a ringed tail that swishes (grabbing comes in PR 6). A close-up screenshot, painted and not, and every classic baseline unchanged. | `PROTOCOL_VERSION` bump |
+| 1 | Next | `feature/sketchbook-cat` | Turn the sketchbook cat into a robot | The head and torso shape generators, each character's shape numbers, the shared arm, feature anchors, and jaw; the small drive roller as a mobility part; skins with paint masks (the coat shader's `cure × mask`); `shared/content/characters.ts`; the Characters shelf with the drawing on each card. The toon material with outlines. Snatch: its skins, mitten paws, ears, fur tufts, eyes, and a ringed tail that swishes (grabbing comes in PR 6). A close-up screenshot, painted and not, and every classic baseline unchanged. | `PROTOCOL_VERSION` bump |
 | 2 | | `feature/sketchbook-astronaut` | Turn the sketchbook astronaut into a robot | Astro: the helmet and visor, the boxy body and chest panel, striped arms and grabbers, the antenna, ear discs, and backpack. A screenshot. | `PROTOCOL_VERSION` bump |
 | 3 | | `feature/sketchbook-pumpkin` | Turn the sketchbook pumpkin into a robot | Patch: the ribbed pumpkin head and body, glowing eyes, the stem, the chest panel, and hooked claws. A screenshot. | `PROTOCOL_VERSION` bump |
 | 4 | | `feature/sketchbook-spider` | Turn the sketchbook spider into a robot | Spider Web: the dark dome with glowing slit eyes, the box body on its neck, and four jointed legs with claw feet that step as it rolls. A screenshot. | `PROTOCOL_VERSION` bump |
