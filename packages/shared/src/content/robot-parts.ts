@@ -8,23 +8,29 @@ import { isRobotColor, ROBOT_COLORS } from '../roster.ts';
 export const PART_SLOTS = ['mobility', 'body', 'head', 'arms'] as const;
 export type PartSlot = (typeof PART_SLOTS)[number];
 
-/** Every part there is, by slot. The client draws each id (apps/client/src/avatar/parts). */
+/**
+ * Every part there is, by slot. The client draws each id (apps/client/src/avatar/parts). The `cat` parts are Snatch,
+ * from the sketchbook (content/characters.ts puts all three on at once).
+ */
 export const ROBOT_PARTS = {
   mobility: [{ id: 'wheel', name: 'Single wheel' }],
   body: [
     { id: 'ball', name: 'Rust ball' },
     { id: 'barrel', name: 'Barrel' },
     { id: 'crate', name: 'Crate' },
+    { id: 'cat', name: 'Snatch' },
   ],
   head: [
     { id: 'dome', name: 'Big eye' },
     { id: 'visor', name: 'Visor' },
     { id: 'stalk', name: 'Stalk eye' },
+    { id: 'cat', name: 'Snatch' },
   ],
   arms: [
     { id: 'grabber', name: 'Grabbers' },
     { id: 'pincer', name: 'Pincers' },
     { id: 'noodle', name: 'Noodles' },
+    { id: 'cat', name: 'Snatch' },
   ],
 } as const;
 

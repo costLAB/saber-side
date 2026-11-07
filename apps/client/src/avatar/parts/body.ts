@@ -1,5 +1,6 @@
 import type { PartPick } from '@saber-side/shared';
 import * as THREE from 'three';
+import { catBody } from './cat';
 import { type BodyMounts, Cyl, flatRing, onDrum, onSphere, type PartKit, Sph, TAU, zCyl } from './kit';
 
 // Mobility and bodies. The wheel is the one part every robot has: a drive ball in a fixed mount. Bodies sit on it and
@@ -56,6 +57,8 @@ export function buildBody(kit: PartKit, core: THREE.Group, pick: PartPick<'body'
       return barrel(kit, core, pick.paint);
     case 'crate':
       return crate(kit, core, pick.paint);
+    case 'cat':
+      return catBody(kit, core, pick.paint);
   }
 }
 

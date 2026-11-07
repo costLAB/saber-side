@@ -52,7 +52,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | **Done** (#29, #34, #36 to #38, #40 to #43, #44): VR on a Quest, from entering it to flying ships from the cockpit. The next frame-rate cuts are an open question |
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
-| [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Planned: next `feature/sketchbook-cat` |
+| [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Started: `feature/sketchbook-cat` in review |
 
 ### Build order
 
@@ -66,16 +66,16 @@ merges, mark it done in its initiative's table and drop its line here if it isn'
 planned branch is missing from this list.
 
 1. `fix/ring-sprites` (#31): Draw dust, sparks and glows on the ring floor again
-2. `feature/carrot-farmers`
-3. `feature/carrot-stand`
-4. `feature/carrot-farms`
-5. `feature/economy-tuning`
-6. `feature/jack-o-lantern-head`
-7. `feature/inventory`
-8. `feature/give-crystals`
-9. `foundation/server-held-items`
-10. `feature/give-items`
-11. `feature/sketchbook-cat`
+2. `feature/sketchbook-cat`
+3. `feature/carrot-farmers`
+4. `feature/carrot-stand`
+5. `feature/carrot-farms`
+6. `feature/economy-tuning`
+7. `feature/jack-o-lantern-head`
+8. `feature/inventory`
+9. `feature/give-crystals`
+10. `foundation/server-held-items`
+11. `feature/give-items`
 12. `feature/sketchbook-astronaut`
 13. `feature/sketchbook-pumpkin`
 14. `feature/sketchbook-spider`

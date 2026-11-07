@@ -1,12 +1,14 @@
 import type { Page } from '@playwright/test';
 import {
   CARROT_BEDS,
+  CHARACTERS,
   classicBuild,
   type Flight,
   PLANETS,
   type Planet,
   RING_DOCKS,
   ROADMAP_HUT,
+  wearCharacter,
 } from '@saber-side/shared';
 import { REAL_OFF } from '../src/render/ring/bend';
 import { advance, boot, expect, hold, snap, test } from './fixtures';
@@ -23,6 +25,8 @@ interface SaberDebug {
 const HEAD = { x: 470, y: 80, width: 340, height: 260 };
 /** The whole robot, in the close-up. */
 const ROBOT = { x: 400, y: 70, width: 480, height: 620 };
+/** The cat, face on in the Selfie. */
+const CAT = { x: 370, y: 0, width: 560, height: 640 };
 
 /** Stands the robot by the table with the carrot on it, and brings the camera in close on its face. */
 async function closeUp(page: Page) {
@@ -293,6 +297,50 @@ test('fully cured paint is exactly the color picked, with none of the skin showi
   expect(skin.range).toBeGreaterThan(20);
   expect(Math.max(...bare.pixels.map((p, i) => Math.abs(p - (skin.pixels[i] ?? 0))))).toBeLessThanOrEqual(1);
   expect(half.range).toBeLessThan(skin.range);
+  expect(errors).toEqual([]);
+});
+
+test('Snatch, the sketchbook cat: cel-shaded with outlines, and paint only on its fur', async ({
+  page,
+  errors,
+}, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await page.goto('/?debug');
+  await page.evaluate(() => document.fonts.ready);
+  await advance(page, 300);
+  await page.addStyleTag({ content: '#hint, #prompt { display: none !important; }' });
+  // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+  const saber = await page.evaluateHandle(() => (window as any).__saber);
+  const snatch = CHARACTERS.find((c) => c.id === 'snatch');
+  if (!snatch) throw new Error('no Snatch');
+  const cat = wearCharacter(classicBuild(), snatch);
+  await saber.evaluate((s, build) => s.legacy.setRobotBuild(build), cat);
+  // Its head has a jaw to eat with, like every head, so it needs no hatch on its body.
+  expect(
+    await saber.evaluate((s) => {
+      let o = s.bot.jaw.hinge;
+      while (o && o !== s.bot.head) o = o.parent;
+      return { inHead: o === s.bot.head, open: s.bot.jaw.open };
+    }),
+  ).toEqual({ inHead: true, open: 0.45 });
+
+  // Face on, through the Selfie, a step back so the ears fit.
+  await page.locator('#selfie').click();
+  await advance(page, 2000);
+  await page.locator('#stage canvas').click();
+  await hold(page, '-', 300);
+  await advance(page, 500);
+  await snap(page, 'snatch.png', CAT);
+  // Painted Grape: the fur takes it; the cream face and belly, the eyes, and the orange bands don't.
+  const grape = '#b39cf2';
+  await saber.evaluate((s, build) => s.legacy.setRobotBuild(build), {
+    ...cat,
+    body: { part: 'cat', paint: grape },
+    head: { part: 'cat', paint: grape },
+    arms: { part: 'cat', paint: grape },
+  });
+  await advance(page, 300);
+  await snap(page, 'snatch-grape.png', CAT);
   expect(errors).toEqual([]);
 });
 

@@ -101,6 +101,10 @@ test('plays straight away as a guest: builds a robot from parts and rolls it out
   await expect(sheet.getByLabel('Name')).toHaveCount(0);
   const slot = (name: string) => page.locator(`[data-slot=${name}]`);
   await expect(slot('mobility').locator('.chip')).toHaveText(['Single wheel']);
+  // One tap puts on all of Snatch, the sketchbook cat; any part can still be swapped after.
+  await sheet.getByRole('button', { name: 'Snatch' }).click();
+  for (const s of ['body', 'head', 'arms']) await expect(slot(s).getByRole('radio', { name: 'Snatch' })).toBeChecked();
+  await expect(slot('mobility').getByRole('radio', { name: 'Single wheel' })).toBeChecked();
   await slot('body').getByText('Barrel').click();
   await slot('body').locator('label[title="Sky"]').click();
   await slot('head').getByText('Visor').click();
