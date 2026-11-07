@@ -11,7 +11,15 @@ import {
   wrapD,
 } from '@saber-side/shared';
 import * as THREE from 'three';
-import { applyArmPose, buildRobot, openMouth, type Robot, type RobotArm, type RobotKit } from '../avatar/robot';
+import {
+  applyArmPose,
+  buildRobot,
+  openMouth,
+  type Robot,
+  type RobotArm,
+  type RobotKit,
+  setArmReach,
+} from '../avatar/robot';
 import type { DrawTexFn } from '../render/kit';
 import { textLabel } from '../render/label';
 import { bendMaterial } from '../render/ring/bend';
@@ -106,6 +114,7 @@ function readPose(bot: Robot): number[] {
   };
   bot.arms.forEach((arm, i) => {
     for (const k of ARM_POSE) v[`arm${i}${k}`] = arm.cur[k];
+    v[`arm${i}reach`] = arm.reach;
   });
   return POSE.map(([name]) => v[name] ?? 0);
 }
@@ -163,6 +172,9 @@ function applyPose(robot: Robot, v: number[]) {
   openMouth(robot, at('jaw'));
   robot.arms.forEach((arm: RobotArm, i) => {
     for (const k of ARM_POSE) arm.cur[k] = v[FIELD[`arm${i}${k}` as PoseField]] as number;
+    // long arms in VR (anything under 1, like a field not yet sent, is as built)
+    const reach = at(i ? 'arm1reach' : 'arm0reach');
+    setArmReach(arm, Math.max(reach || 1, 1));
     applyArmPose(arm);
   });
 }

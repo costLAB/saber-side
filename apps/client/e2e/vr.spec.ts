@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
 import type { Page } from '@playwright/test';
+import { ARM_LOCO } from '@saber-side/shared';
 import { advance, expect, test } from './fixtures';
 
 // VR on a Meta Quest, through IWER (Meta's WebXR emulation runtime): it stands in for a Quest 3 and its controllers,
@@ -118,14 +119,29 @@ interface XYZ {
   z: number;
 }
 
-/** A point beside the robot (in its core's frame, scene units), and where that is in the room. */
+/**
+ * Where your hand goes in the room for the robot's long arm to reach a point: in the robot's world (`toPlay` first),
+ * or already in the room.
+ */
+function handFor(page: Page, p: XYZ, from: 'world' | 'room' = 'world') {
+  return page.evaluate(
+    ([q, f]) => {
+      // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+      const { vr } = (window as any).__saber;
+      return vr.debug.handFor(f === 'world' ? vr.debug.toPlay(q) : q) as XYZ;
+    },
+    [p, from] as const,
+  );
+}
+
+/** A point beside the robot (in its core's frame, scene units), and where your hand goes for its hand to reach it. */
 function besideRobot(page: Page, local: XYZ) {
   return page.evaluate((p) => {
     // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
     const { bot, vr } = (window as any).__saber;
     bot.root.updateMatrixWorld(true);
     const world = bot.core.localToWorld(bot.core.position.clone().set(p.x, p.y, p.z));
-    return { world: { x: world.x, y: world.y, z: world.z }, room: vr.debug.toPlay(world) as XYZ };
+    return { world: { x: world.x, y: world.y, z: world.z }, room: vr.debug.handFor(vr.debug.toPlay(world)) as XYZ };
   }, local);
 }
 
@@ -144,10 +160,10 @@ function readBody(page: Page) {
       // biome-ignore lint/suspicious/noExplicitAny: three.js objects from the page
       arms: bot.arms.map((a: any) => ({ ...a.cur })) as Record<string, number>[],
       grips: grips as XYZ[],
-      /** How far each of the robot's grips is from your hand's grip, in the room (meters). */
+      /** How far each of the robot's grips is from where its long arm should put it, in the room (meters). */
       misses: grips.map((g: XYZ, i: number) => {
         const r = vr.debug.toPlay(g);
-        const h = vr.debug.hands[i].pos;
+        const h = vr.debug.hands[i].reach;
         return Math.hypot(r.x - h.x, r.y - h.y, r.z - h.z);
       }) as number[],
       head: { x: bot.head.rotation.x, y: bot.head.rotation.y } as { x: number; y: number },
@@ -193,6 +209,15 @@ async function parkAtTable(page: Page) {
 }
 
 const gap = (a: XYZ, b: XYZ) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+
+/** How long each of the robot's arms is, against how it was built (as friends are sent it). */
+function armReach(page: Page) {
+  return page.evaluate(
+    () =>
+      // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+      (window as any).__saber.bot.arms.map((a: { reach: number }) => a.reach) as number[],
+  );
+}
 
 test('the Enter VR button stays hidden without a headset', async ({ page, errors }, info) => {
   test.skip(info.project.name === 'ipad', 'one profile is enough');
@@ -275,6 +300,8 @@ test('a Quest player’s hands move the robot’s arms, and the headset turns it
   await enterVr(page);
   const before = await readBody(page);
   expect(before.tracked).toEqual([true, true]);
+  // in VR the robot's arms are long, and friends are sent how long
+  expect(await armReach(page)).toEqual([ARM_LOCO.armLength, ARM_LOCO.armLength]);
 
   // the right controller out in front of the robot's right shoulder (its right is -x), at chest height
   const ahead = await besideRobot(page, { x: -0.6, y: 0.1, z: 0.75 });
@@ -412,6 +439,8 @@ test('in VR you see only your robot’s arms, and the whole robot is still there
   await countDraws(page);
   await advance(page, 100);
   expect((await drawn(page)).body).toBeGreaterThan(0);
+  // and the arms are as built again
+  expect(await armReach(page)).toEqual([1, 1]);
   expect(errors).toEqual([]);
 });
 
@@ -472,7 +501,8 @@ test('Selfie in VR opens a mini-me that the stick and a hand turn', async ({ pag
 
   // a hand gripping it turns it with the hand, and the grip doesn't reach the game: the robot keeps the saber it
   // holds in its left hand (gripping thin air with the hand that holds it would drop it)
-  await place(page, 'left', open.at);
+  const onMini = await handFor(page, open.at, 'room');
+  await place(page, 'left', onMini);
   await advance(page, 100);
   const holding = (await readMini(page)).held;
   expect(holding).toBe(1);
@@ -480,7 +510,7 @@ test('Selfie in VR opens a mini-me that the stick and a hand turn', async ({ pag
   await advance(page, 100);
   // turn the hand a quarter turn to the left
   const a = Math.PI / 4;
-  await place(page, 'left', open.at, { x: 0, y: Math.sin(a), z: 0, w: Math.cos(a) });
+  await place(page, 'left', onMini, { x: 0, y: Math.sin(a), z: 0, w: Math.cos(a) });
   await advance(page, 100);
   const twisted = await readMini(page);
   expect(twisted.turn - spun.turn).toBeCloseTo(Math.PI / 2, 1);
@@ -512,10 +542,7 @@ test('grip near the saber picks it up in that hand, and the trigger switches it 
   const saber = await readItem(page, 'blue saber');
   expect(saber.state).toBe('loose');
   // reach for it with the right hand and squeeze
-  const room = await page.evaluate((p) => {
-    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
-    return (window as any).__saber.vr.debug.toPlay(p) as XYZ;
-  }, saber.at);
+  const room = await handFor(page, saber.at);
   await place(page, 'right', room);
   await advance(page, 200);
   await button(page, 'right', 'squeeze', 1);
@@ -571,9 +598,7 @@ test('a carrot brought up to your mouth gets eaten, and a blaster kicks', async 
   await bootDebug(page);
   await parkAtTable(page);
   await enterVr(page);
-  const toRoom = (p: XYZ) =>
-    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
-    page.evaluate((w) => (window as any).__saber.vr.debug.toPlay(w) as XYZ, p);
+  const toRoom = (p: XYZ) => handFor(page, p);
   const squeeze = async (hand: 'left' | 'right') => {
     await button(page, hand, 'squeeze', 1);
     await advance(page, 100);
@@ -647,10 +672,7 @@ test('tracked hands pose the arms, a fist grabs, and a pinch uses', async ({ pag
 
   // a fist near the saber picks it up
   const saber = await readItem(page, 'blue saber');
-  const room = await page.evaluate((p) => {
-    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
-    return (window as any).__saber.vr.debug.toPlay(p) as XYZ;
-  }, saber.at);
+  const room = await handFor(page, saber.at);
   await place(page, 'right', room);
   await advance(page, 200);
   const pose = (id: string) =>
@@ -719,34 +741,88 @@ async function sweep(page: Page, from: XYZ, to: XYZ, frames: number, ms = 14) {
   }
 }
 
-test('pushing off the floor with your hands moves the robot, flings it, and jumps', async ({ page, errors }, info) => {
+/** How far each hand's grip sits from its controller's own position, as the controllers are turned now (meters). */
+function gripOffsets(page: Page) {
+  return page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug and IWER test hooks
+    const { vr } = (window as any).__saber;
+    // biome-ignore lint/suspicious/noExplicitAny: IWER test hook
+    const quest = (window as any).__quest;
+    return (['left', 'right'] as const).map((side, i) => {
+      const c = quest.controllers[side].position;
+      const g = vr.debug.hands[i].pos;
+      return { x: g.x - c.x, y: g.y - c.y, z: g.z - c.z };
+    }) as XYZ[];
+  });
+}
+
+/**
+ * Moves both hands together a frame at a time, so the robot's long arms put them from one place to another in the room
+ * (each hand 0.3 m to its side of it). `grips` are the controllers' grip offsets (`gripOffsets`), which the stretch
+ * would make a few centimeters into a few more.
+ */
+async function reachSweep(page: Page, grips: XYZ[], from: XYZ, to: XYZ, frames: number, ms = 14) {
+  for (let i = 0; i <= frames; i++) {
+    const t = i / frames;
+    const at = (dx: number) => ({
+      x: from.x + (to.x - from.x) * t + dx,
+      y: from.y + (to.y - from.y) * t,
+      z: from.z + (to.z - from.z) * t,
+    });
+    for (const [k, side] of (['left', 'right'] as const).entries()) {
+      const h = await handFor(page, at(k ? 0.3 : -0.3), 'room');
+      const g = grips[k] as XYZ;
+      await place(page, side, { x: h.x - g.x, y: h.y - g.y, z: h.z - g.z });
+    }
+    await advance(page, ms);
+  }
+}
+
+test('long arms hold on to the floor: pull to move, push down to rise, let go to fling and jump', async ({
+  page,
+  errors,
+}, info) => {
   test.skip(info.project.name === 'ipad', 'one profile is enough');
   await withQuest(page);
   await bootDebug(page);
   await enterVr(page);
+  const { scale } = await readWalk(page);
+  // how high a robot's hand resting on the floor is, in your room (the robot on the floor)
+  const floor = ARM_LOCO.handRest / scale;
+  const grips = await gripOffsets(page);
+  const walk = (from: XYZ, to: XYZ, frames: number, ms?: number) => reachSweep(page, grips, from, to, frames, ms);
   // hands up at your sides: nothing moves
-  await sweep(page, { x: 0, y: 1.1, z: -0.3 }, { x: 0, y: 1.1, z: 0.2 }, 10);
+  await walk({ x: 0, y: 1.1, z: -0.5 }, { x: 0, y: 1.1, z: 0.2 }, 10);
   const start = await readWalk(page);
   await advance(page, 300);
   expect((await readWalk(page)).ahead).toBeCloseTo(start.ahead, 3);
 
-  // both hands down on the floor in front, pulled slowly back toward you: the robot goes forward by as much
-  await sweep(page, { x: 0, y: 0.25, z: -0.4 }, { x: 0, y: 0.25, z: -0.4 }, 2);
+  // both hands down on the floor in front, pulled slowly back toward you: the robot goes forward by as much, and its
+  // hands stay on the floor where they landed
+  const ahead = { x: 0, y: floor - 0.005, z: -0.6 };
+  await walk(ahead, ahead, 2);
   expect((await readWalk(page)).pulses).toContain('left:floorTouch');
   const down = await readWalk(page);
-  await sweep(page, { x: 0, y: 0.25, z: -0.4 }, { x: 0, y: 0.25, z: 0.1 }, 25, 40);
+  const landed = await readBody(page);
+  await walk(ahead, { ...ahead, z: 0.1 }, 25, 40);
   const pushed = await readWalk(page);
-  expect(pushed.ahead - down.ahead).toBeCloseTo(0.5 * pushed.scale, 1);
+  expect(pushed.ahead - down.ahead).toBeCloseTo(0.7 * scale, 1);
+  expect(pushed.y).toBeLessThan(0.05);
+  const after = await readBody(page);
+  for (const i of [0, 1]) {
+    expect(gap(after.grips[i] as XYZ, landed.grips[i] as XYZ)).toBeLessThan(0.1);
+    expect(after.grips[i]?.y).toBeCloseTo(ARM_LOCO.handRest, 1);
+  }
   // lifting the hands slowly leaves the robot where it is
-  await sweep(page, { x: 0, y: 0.25, z: 0.1 }, { x: 0, y: 1.1, z: 0.1 }, 1, 200);
+  await walk({ ...ahead, z: 0.1 }, { x: 0, y: 1.1, z: 0.1 }, 1, 200);
   const still = await readWalk(page);
   await advance(page, 500);
   expect((await readWalk(page)).ahead - still.ahead).toBeLessThan(0.05);
 
-  // a quick push and letting go flings it: it keeps going, then slows to a stop, and the vignette closes in meanwhile
-  await sweep(page, { x: 0, y: 0.25, z: -0.4 }, { x: 0, y: 0.25, z: -0.4 }, 2);
-  await sweep(page, { x: 0, y: 0.25, z: -0.4 }, { x: 0, y: 0.25, z: 0.1 }, 6);
-  await sweep(page, { x: 0, y: 1.1, z: 0.1 }, { x: 0, y: 1.1, z: 0.1 }, 1);
+  // a quick pull and letting go flings it: it keeps going, then slows to a stop, and the vignette closes in meanwhile
+  await walk(ahead, ahead, 2);
+  await walk(ahead, { ...ahead, z: 0.1 }, 6);
+  await walk({ x: 0, y: 1.1, z: 0.1 }, { x: 0, y: 1.1, z: 0.1 }, 1);
   const letGo = await readWalk(page);
   await advance(page, 100);
   expect((await readWalk(page)).vignette).toBeGreaterThan(0);
@@ -759,12 +835,29 @@ test('pushing off the floor with your hands moves the robot, flings it, and jump
   expect((await readWalk(page)).ahead).toBeCloseTo(stopped.ahead, 2);
   expect((await readWalk(page)).vignette).toBe(0);
 
-  // pushing down hard and letting go jumps
-  await sweep(page, { x: 0, y: 0.45, z: -0.3 }, { x: 0, y: 0.45, z: -0.3 }, 2);
-  await sweep(page, { x: 0, y: 0.45, z: -0.3 }, { x: 0, y: 0.15, z: -0.3 }, 6);
-  await sweep(page, { x: 0, y: 1.1, z: -0.3 }, { x: 0, y: 1.1, z: -0.3 }, 1);
-  await advance(page, 150);
-  expect((await readWalk(page)).y).toBeGreaterThan(0.3);
+  // the hands can't go through the floor: pushing them down into it lifts the robot instead, and they stay on it
+  const top = { x: 0, y: floor - 0.005, z: -0.5 };
+  const high = { x: 0, y: 1.1, z: -0.5 };
+  await walk(top, top, 2);
+  await walk(top, { ...top, y: floor - 0.3 }, 6);
+  const lifted = await readWalk(page);
+  expect(lifted.y).toBeCloseTo(0.3 * scale, 1);
+  for (const g of (await readBody(page)).grips) expect(g.y).toBeCloseTo(ARM_LOCO.handRest, 1);
+  // and letting go after a hard shove jumps: up, then back down to the floor
+  await walk(high, high, 1);
+  expect((await readWalk(page)).y).toBeGreaterThan(lifted.y + 0.1);
+  await advance(page, 1500);
+  expect((await readWalk(page)).y).toBe(0);
+
+  // pushing down further than its arms reach lifts it no higher than they hold it, still with its hands on the floor
+  await walk(top, top, 2);
+  await walk(top, { ...top, y: floor - 1.2 }, 18);
+  expect((await readWalk(page)).y).toBeLessThan(0.3 * scale + 0.5);
+  for (const g of (await readBody(page)).grips) expect(g.y).toBeCloseTo(ARM_LOCO.handRest, 1);
+  // letting go up there drops it back on the floor
+  await walk(high, high, 1);
+  await advance(page, 1500);
+  expect((await readWalk(page)).y).toBe(0);
   expect(errors).toEqual([]);
 });
 
@@ -848,7 +941,8 @@ async function turnWristToEyes(page: Page) {
     const hand = vr.debug.hands[0];
     const qin = new THREE.Quaternion(input.quaternion.x, input.quaternion.y, input.quaternion.z, input.quaternion.w);
     const tilt = qin.clone().invert().multiply(hand.quat);
-    const to = vr.debug.camera.position.clone().sub(hand.pos).normalize();
+    // the panel is on the robot's wrist, where its long arm puts your hand
+    const to = vr.debug.camera.position.clone().sub(hand.reach).normalize();
     const want = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), to);
     const next = want.multiply(tilt.invert());
     input.quaternion.set(next.x, next.y, next.z, next.w);
@@ -859,18 +953,21 @@ async function turnWristToEyes(page: Page) {
 async function pressWrist(page: Page, id: string) {
   const { at } = await readWrist(page, id);
   if (!at) throw new Error(`no ${id} button`);
-  // bring the right hand near, then nudge the controller so its fingertip (6 cm ahead of its grip) lands on the button
-  await place(page, 'right', { x: at.x, y: at.y, z: at.z + 0.15 }, { x: 0, y: 0, z: 0, w: 1 });
+  // bring the right hand near, then nudge the controller so its fingertip (6 cm ahead of the robot's grip, where its
+  // long arm puts your hand) lands on the button: the long arm's hand moves `stretch` times as far as yours
+  const near = await handFor(page, { x: at.x, y: at.y, z: at.z + 0.15 }, 'room');
+  await place(page, 'right', near, { x: 0, y: 0, z: 0, w: 1 });
   await advance(page, 40);
   const off = await page.evaluate((target) => {
     // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
     const { THREE, vr } = (window as any).__saber;
     const h = vr.debug.hands[1];
-    const tip = new THREE.Vector3(0, 0, -0.06).applyQuaternion(h.quat).add(h.pos);
-    return { x: target.x - tip.x, y: target.y - tip.y, z: target.z - tip.z };
+    const k = vr.debug.stretch;
+    const tip = new THREE.Vector3(0, 0, -0.06).applyQuaternion(h.quat).add(h.reach);
+    return { x: (target.x - tip.x) / k, y: (target.y - tip.y) / k, z: (target.z - tip.z) / k };
   }, at);
   // the controller where its fingertip is on the button, then away again (so the next press is fresh)
-  const on = { x: at.x + off.x, y: at.y + off.y, z: at.z + 0.15 + off.z };
+  const on = { x: near.x + off.x, y: near.y + off.y, z: near.z + off.z };
   await place(page, 'right', on);
   await advance(page, 60);
   await place(page, 'right', { x: on.x, y: on.y, z: on.z + 0.25 });
@@ -962,7 +1059,7 @@ test('a prompt is a sign beside what it’s about, and touching it does what it 
     // biome-ignore lint/suspicious/noExplicitAny: legacy item
     return items.find((i: any) => i.group.parent === bot.grip)?.name ?? null;
   });
-  await place(page, 'right', sign.room);
+  await place(page, 'right', await handFor(page, sign.room, 'room'));
   await advance(page, 200);
   const after = await page.evaluate(() => {
     // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game

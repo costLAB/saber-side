@@ -18,9 +18,10 @@ import { applyArmPose, type Robot, type RobotArm } from '../avatar/robot';
 
 // A Quest player's hands, as their robot's arms. Each frame the VR mode (app/vr.ts) hands over the controllers (or
 // tracked hands), and this:
-// - reaches the robot's arms for them through the IK in shared/sim/arm-ik.ts, so the robot's hands go where yours
-//   are, as near as its arms reach. The angles go in `RobotArm.cur`, which the pose messages already carry, so friends
-//   see the arms move;
+// - reaches the robot's arms for them through the IK in shared/sim/arm-ik.ts. The robot's arms are long
+//   (shared/sim/arm-locomotion.ts): its hands go where yours are, stretched out from your neck, as near as its arms
+//   reach, and never through the floor; a hand holding on to the floor stays where it holds. The angles go in
+//   `RobotArm.cur`, which the pose messages already carry, so friends see the arms move;
 // - turns the robot's head the way the headset turns, relative to its body (the pose's head angles);
 // - works out grabbing and using: grip (or a fist) and trigger (or a pinch), per hand, so a grab picks up what's near
 //   that hand, and the held item sits in that hand, pointing the way your hand does;
@@ -55,6 +56,9 @@ export interface HandFrame {
   /** The headset, in the play space (meters). */
   head: THREE.Vector3;
   headQ: THREE.Quaternion;
+  /** Your neck, and how far your hands stretch from it (shared/sim/arm-locomotion.ts). */
+  neck: THREE.Vector3;
+  stretch: number;
 }
 
 /** One hand, as read this frame. */
@@ -64,6 +68,8 @@ interface Hand {
   /** The grip, in the play space (meters), pointing along its -z. */
   pos: THREE.Vector3;
   quat: THREE.Quaternion;
+  /** Where the robot's long arm puts it: stretched out from your neck (play space, meters). */
+  reach: THREE.Vector3;
   grab: boolean;
   use: boolean;
   /** The use button (or pinch) went down this frame. */
@@ -114,6 +120,7 @@ export function createVrHands(bot: Robot) {
     tracked: false,
     pos: new THREE.Vector3(),
     quat: new THREE.Quaternion(),
+    reach: new THREE.Vector3(),
     grab: false,
     use: false,
     usedNow: false,
@@ -143,29 +150,30 @@ export function createVrHands(bot: Robot) {
   /** Play space → the robot root's frame (scene units), and its turn; set by the VR mode for each use. */
   const toRoot = new THREE.Matrix4();
   const turnRoot = new THREE.Quaternion();
+  /**
+   * On the floor, also set by the VR mode: where each hand holds on to the floor (in the robot's world), and how low
+   * a hand can go in the root's frame (resting on the floor). Null off the floor.
+   */
+  const ground: { holds: readonly ({ x: number; y: number; z: number } | null)[]; floor: number | null } = {
+    holds: [],
+    floor: null,
+  };
 
   const v = new THREE.Vector3();
   const v2 = new THREE.Vector3();
   const q = new THREE.Quaternion();
   const q2 = new THREE.Quaternion();
   const e = new THREE.Euler(0, 0, 0, 'YXZ');
-  const shapes = new WeakMap<RobotArm, ArmShape>();
-
-  /** An arm's size, read once off its joints (the robot's parts differ). */
+  /** An arm's size, read off its joints (the robot's parts differ, and long arms are longer). */
   function shapeOf(arm: RobotArm): ArmShape {
-    let s = shapes.get(arm);
-    if (!s) {
-      const p = arm.shoulder.position;
-      s = {
-        s: arm.s,
-        shoulder: { x: p.x, y: p.y, z: p.z },
-        upper: arm.elbow.position.length(),
-        fore: arm.wrist.position.length(),
-        hand: Math.abs(bot.grip.position.y) * arm.wrist.scale.y,
-      };
-      shapes.set(arm, s);
-    }
-    return s;
+    const p = arm.shoulder.position;
+    return {
+      s: arm.s,
+      shoulder: { x: p.x, y: p.y, z: p.z },
+      upper: arm.elbow.position.length(),
+      fore: arm.wrist.position.length(),
+      hand: Math.abs(bot.grip.position.y) * arm.wrist.scale.y,
+    };
   }
 
   /** Where the robot's grip is on an arm (in the robot's world). */
@@ -203,6 +211,7 @@ export function createVrHands(bot: Robot) {
       const o = pose.transform.orientation;
       h.pos.set(p.x, p.y, p.z);
       h.quat.set(o.x, o.y, o.z, o.w);
+      h.reach.copy(h.pos).sub(f.neck).multiplyScalar(f.stretch).add(f.neck);
       h.bare = !!src.hand;
       h.pad = src.hand ? null : (src.gamepad as unknown as Gamepad);
       const was = { grab: h.grab, use: h.use };
@@ -244,6 +253,7 @@ export function createVrHands(bot: Robot) {
     pulse,
     toRoot,
     turnRoot,
+    ground,
 
     /**
      * Reads this frame's hands, and says which actions they press: `held` while down, and `fresh` when a hand closes
@@ -278,8 +288,15 @@ export function createVrHands(bot: Robot) {
       const i = bot.arms.indexOf(arm);
       const h = hands[i];
       if (!h?.tracked) return false;
-      // your grip, from the play space to the robot's core (the arms' frame)
-      v.copy(h.pos).applyMatrix4(toRoot);
+      // where the robot's hand goes, in the root's frame: where it holds on to the floor, or else your stretched hand,
+      // never through the floor
+      const hold = ground.holds[i];
+      if (hold) bot.root.worldToLocal(v.set(hold.x, hold.y, hold.z));
+      else {
+        v.copy(h.reach).applyMatrix4(toRoot);
+        if (ground.floor !== null) v.y = Math.max(v.y, ground.floor);
+      }
+      // and on to the robot's core (the arms' frame)
       bot.core.worldToLocal(bot.root.localToWorld(v));
       bot.core.getWorldQuaternion(q2).invert();
       bot.root.getWorldQuaternion(q);
