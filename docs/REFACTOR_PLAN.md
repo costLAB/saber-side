@@ -36,6 +36,7 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **VR movement, first person, and Selfie (2026-11-04).** Walking in VR is arm-push locomotion on the floor. In first person, Quest players see only their robot's hands and arms; everyone else sees the whole robot, and a **Selfie** button on every device shows you your own (a small live "mini-me" in VR, an orbiting camera on iPad and Mac). Ships in VR are flown from the cockpit by grabbing a joystick and throttle. All in the [Quest VR initiative](initiatives/quest-vr.md).
 - **Swimming in zero gravity (2026-11-04).** Robots swim through zero-g with a breaststroke through the air (a swim move on iPad and Mac), in the hub, on spacewalks outside the station, and later in the Refinery Ring. The details and the PRs are in the initiative [Swimming in zero gravity](initiatives/zero-g-swimming.md).
 - **Inventory v1 (2026-11-04).** One place that shows what a player owns, starting with the **jack-o-lantern head**, bought for Cyber Crystals. Players can give held items (still shared toys) and Cyber Crystals to friends. The details and the PRs are in the initiative [Inventory v1](initiatives/inventory.md).
+- **Sketchbook characters (2026-11-07).** Five characters drawn by the owner's son (a cat, an astronaut, a pumpkin, a spider, and a homemade robot) become special builds in the Bot Maker. Every character shares **one torso geometry and one head geometry**; **skins** tell them apart (the cat's fur, the astronaut's suit, the pumpkin's overalls), with **features** on top (ears, an antenna, a stem, a tail). The cat's tail can **grab and pull**. The details and the PRs are in the initiative [Sketchbook characters](initiatives/sketchbook-characters.md).
 - **Mining Cyber Ore (2026-11-01).** Cyber Crystals are mined, like cryptocurrency (in spirit only: it's play money in the ledger). A registered player's wallet fills by mining **Cyber Ore** on a **distant planet** with an **ore hauler**, a vehicle that both mines the ore and flies it back to the **Refinery Ring**, a separate ring in space dedicated to refining ore into crystals. This is the second economic thread, next to carrots, and replaces the earlier ore drifting in the hub and the Refinery next to the Depot. The details and the PRs are in the initiative [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md).
 
 ## Initiatives
@@ -51,6 +52,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | **Done** (#29, #34, #36 to #38, #40 to #43, #44): VR on a Quest, from entering it to flying ships from the cockpit. The next frame-rate cuts are an open question |
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
+| [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Planned: next `feature/sketchbook-cat` |
 
 ### Build order
 
@@ -73,24 +75,30 @@ planned branch is missing from this list.
 8. `feature/give-crystals`
 9. `foundation/server-held-items`
 10. `feature/give-items`
-11. `feature/zero-g-swim-stroke`
-12. `feature/vr-swimming`
-13. `feature/spacewalks`
-14. `feature/more-paint-colors`
-15. `foundation/seven-part-slots`
-16. `feature/more-robot-parts`
-17. `feature/parts-catalog`
-18. `feature/robot-thrusters`
-19. `feature/robot-tires`
-20. `feature/ore-planet`
-21. `feature/refinery-ring`
-22. `feature/ore-hauler`
-23. `feature/ore-mining`
-24. `feature/ore-refining`
-25. `feature/refinery-ring-interior`
-26. `feature/refinery-ring-swimming`
-27. `feature/ore-economy-tuning`
-28. `feature/talking-robots`
+11. `feature/sketchbook-cat`
+12. `feature/sketchbook-astronaut`
+13. `feature/sketchbook-pumpkin`
+14. `feature/sketchbook-spider`
+15. `feature/sketchbook-homemade`
+16. `feature/cat-tail-grab`
+17. `feature/zero-g-swim-stroke`
+18. `feature/vr-swimming`
+19. `feature/spacewalks`
+20. `feature/more-paint-colors`
+21. `foundation/seven-part-slots`
+22. `feature/more-robot-parts`
+23. `feature/parts-catalog`
+24. `feature/robot-thrusters`
+25. `feature/robot-tires`
+26. `feature/ore-planet`
+27. `feature/refinery-ring`
+28. `feature/ore-hauler`
+29. `feature/ore-mining`
+30. `feature/ore-refining`
+31. `feature/refinery-ring-interior`
+32. `feature/refinery-ring-swimming`
+33. `feature/ore-economy-tuning`
+34. `feature/talking-robots`
 
 ### Not split into PRs yet
 

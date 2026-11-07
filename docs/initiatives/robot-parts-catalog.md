@@ -92,6 +92,9 @@ A cute pumpkin, not a scary one:
 A first batch, so every catalog has a real choice. Parts are procedural like everything else: each is a builder in
 `avatar/parts/`, and adding a variant is mostly a catalog entry.
 
+The [sketchbook characters](sketchbook-characters.md) add five more heads, bodies, and arms (a cat, an astronaut, a
+pumpkin, a spider, and a homemade robot), all sharing one head shape and one torso shape with different skins.
+
 | Catalog | New parts |
 | --- | --- |
 | Mobility | (tires and treads come in their own PR, below) |
