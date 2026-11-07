@@ -152,13 +152,14 @@ export function buildShopRow(kit: ShopRowKit): ShopRowScene {
     signs.set(spot.id, draw);
 
     // solid walls with the doorway left open, the kiosk, and the counter
+    const top = height;
     colliders.push(
-      { x: back - T / 2, z, hw: T / 2 + 0.05, hd: width / 2 },
-      { x: cx, z: z0 + T / 2, hw: depth / 2, hd: T / 2 + 0.05 },
-      { x: cx, z: z1 - T / 2, hw: depth / 2, hd: T / 2 + 0.05 },
-      ...[-1, 1].map((s) => ({ x: front + T / 2, z: z + s * (dz + jamb), hw: T / 2 + 0.05, hd: jamb })),
-      { x: kx, z: kz, hw: 0.5, hd: 0.65 },
-      { x: back - 2.2, z, hw: 0.6, hd: width * 0.3 },
+      { x: back - T / 2, z, hw: T / 2 + 0.05, hd: width / 2, top },
+      { x: cx, z: z0 + T / 2, hw: depth / 2, hd: T / 2 + 0.05, top },
+      { x: cx, z: z1 - T / 2, hw: depth / 2, hd: T / 2 + 0.05, top },
+      ...[-1, 1].map((s) => ({ x: front + T / 2, z: z + s * (dz + jamb), hw: T / 2 + 0.05, hd: jamb, top })),
+      { x: kx, z: kz, hw: 0.5, hd: 0.65, top: 1.2 },
+      { x: back - 2.2, z, hw: 0.6, hd: width * 0.3, top: 1.1 },
     );
   }
 

@@ -90,11 +90,12 @@ export function buildRoadmapHut(kit: BotMakerKit): { root: THREE.Group; collider
   });
   box(kit.lamp, cx, H.height - 0.3, H.z, 0.3, 0.06, H.width - 2);
 
+  const top = H.height;
   const colliders: Collider[] = [
-    { x: H.back + T / 2, z: H.z, hw: T / 2 + 0.05, hd: H.width / 2 },
-    { x: cx, z: z0 + T / 2, hw: depth / 2, hd: T / 2 + 0.05 },
-    { x: cx, z: z1 - T / 2, hw: depth / 2, hd: T / 2 + 0.05 },
-    ...[-1, 1].map((s) => ({ x: H.front - T / 2, z: H.z + s * (dz + jamb), hw: T / 2 + 0.05, hd: jamb })),
+    { x: H.back + T / 2, z: H.z, hw: T / 2 + 0.05, hd: H.width / 2, top },
+    { x: cx, z: z0 + T / 2, hw: depth / 2, hd: T / 2 + 0.05, top },
+    { x: cx, z: z1 - T / 2, hw: depth / 2, hd: T / 2 + 0.05, top },
+    ...[-1, 1].map((s) => ({ x: H.front - T / 2, z: H.z + s * (dz + jamb), hw: T / 2 + 0.05, hd: jamb, top })),
   ];
   return { root, colliders };
 }

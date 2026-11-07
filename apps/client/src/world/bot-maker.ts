@@ -9,8 +9,11 @@ import type { GlowFn, MakeSignFn } from '../render/kit';
 // It lives on the floor strip and is bent onto the ring with everything else, so its materials are plain ones the
 // legacy game's bend pass patches.
 
-/** A flat-space obstacle, as the legacy game's `colliders` holds them. */
-export type Collider = { x: number; z: number; hw: number; hd: number };
+/**
+ * A flat-space obstacle, as the legacy game's `colliders` holds them, and how tall it is: a VR robot can climb it and
+ * stand on top (shared/sim/solids.ts).
+ */
+export type Collider = { x: number; z: number; hw: number; hd: number; top?: number };
 
 export interface BotMakerKit {
   makeSign: MakeSignFn;
@@ -144,14 +147,21 @@ export function buildBotMaker(kit: BotMakerKit): { root: THREE.Group; colliders:
   for (const x of [B.back + 3, cx + 1.5, B.front - 2]) box(kit.lamp, x, B.height - 0.15, B.z, 0.4, 0.08, B.width - 3);
 
   // solid walls, with the doorway left open
+  const top = B.height;
   const colliders: Collider[] = [
-    { x: B.back + T / 2, z: B.z, hw: T / 2 + 0.05, hd: B.width / 2 },
-    { x: cx, z: z0 + T / 2, hw: depth / 2, hd: T / 2 + 0.05 },
-    { x: cx, z: z1 - T / 2, hw: depth / 2, hd: T / 2 + 0.05 },
-    ...[-1, 1].map((s) => ({ x: B.front - T / 2, z: B.z + s * (dz + jamb), hw: T / 2 + 0.05, hd: jamb })),
+    { x: B.back + T / 2, z: B.z, hw: T / 2 + 0.05, hd: B.width / 2, top },
+    { x: cx, z: z0 + T / 2, hw: depth / 2, hd: T / 2 + 0.05, top },
+    { x: cx, z: z1 - T / 2, hw: depth / 2, hd: T / 2 + 0.05, top },
+    ...[-1, 1].map((s) => ({ x: B.front - T / 2, z: B.z + s * (dz + jamb), hw: T / 2 + 0.05, hd: jamb, top })),
     // the shelves and the gantry legs
-    ...[-1, 1].map((s) => ({ x: cx + 1, z: B.z + s * (B.width / 2 - T - 0.6), hw: (depth - 5) / 2, hd: 0.6 })),
-    ...[-1, 1].map((s) => ({ x: gx, z: B.z + s * 3.4, hw: 0.3, hd: 0.3 })),
+    ...[-1, 1].map((s) => ({
+      x: cx + 1,
+      z: B.z + s * (B.width / 2 - T - 0.6),
+      hw: (depth - 5) / 2,
+      hd: 0.6,
+      top: 3.96,
+    })),
+    ...[-1, 1].map((s) => ({ x: gx, z: B.z + s * 3.4, hw: 0.3, hd: 0.3, top: 7.5 })),
   ];
   return { root, colliders };
 }

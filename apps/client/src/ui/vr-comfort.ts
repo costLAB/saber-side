@@ -40,7 +40,7 @@ export function comfortPanel(comfort: Comfort) {
   <span><label><input type="radio" name="vr-turning" value="snap"${comfort.turning === 'snap' ? ' checked' : ''}> snap</label><label><input type="radio" name="vr-turning" value="smooth"${comfort.turning === 'smooth' ? ' checked' : ''}> smooth</label></span>
   <span class="opt">Vignette</span><span>${vignette}</span>
   <label class="wide"><input type="checkbox" name="vr-seated"${comfort.seated ? ' checked' : ''}> Seated</label>
-  <label class="wide"><input type="checkbox" name="vr-arms"${comfort.armWalking ? ' checked' : ''}> Push off the floor with your hands</label>
+  <label class="wide"><input type="checkbox" name="vr-arms"${comfort.armWalking ? ' checked' : ''}> Move with your arms, Gorilla Tag style (off: the left stick drives)</label>
 </div>`;
   box.addEventListener('change', (e) => {
     const t = e.target as HTMLInputElement;

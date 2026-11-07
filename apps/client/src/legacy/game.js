@@ -161,7 +161,7 @@ const LIFTS = [0, 1, 2, 3].map(k => {
   return { k, th, z: wrapD(-th * R_IN), u: new V3(0, -Math.cos(th), -Math.sin(th)), q: new THREE.Quaternion().setFromAxisAngle(X_AXIS, th) };
 });
 const nearLift = p => LIFTS.find(L => Math.hypot(p.x, wrapD(p.z - L.z)) < 6);
-const colliders = [];   // flat-space obstacles: boxes { x, z, hw, hd } or circles { x, z, r }
+const colliders = [];   // flat-space obstacles: boxes { x, z, hw, hd } or circles { x, z, r }, with a `top` if a VR robot can climb it (shared/sim/solids.ts)
 const spinners = [];    // things that turn on their own every frame
 const signJobs = [];    // canvas signs to redraw once the display font arrives
 const css = hex => '#' + new THREE.Color(hex).getHexString();
@@ -313,7 +313,7 @@ const PROPS = {
   carrots(f, n, z, w, h, s, R) {
     const cx = f + n * 3.5;
     part('wood', UNIT.box, W.wood, cx, 1, z, 1.8, 2, w * 0.6);
-    colliders.push({ x: cx, z, hw: 1, hd: w * 0.3 });
+    colliders.push({ x: cx, z, hw: 1, hd: w * 0.3, top: 2 });
     for (let i = 0; i < 26; i++) part('carrotI', UNIT.cone, M.carrot, cx + (R() - 0.5) * 1.3, 2.2 + R() * 0.2, z + (R() - 0.5) * w * 0.55, 0.28, 1, 0.28, undefined, 0, R() * TAU, Math.PI / 2);
     part('carrotI', UNIT.cone, M.carrot, f + n * 1, h + 3.2, z, 1.6, 6.5, 1.6, undefined, 0.5, 0, Math.PI / 2 + 0.4 * s);
     part('leafI', UNIT.cone, M.leaf, f + n * 1 - 3.2 * s, h + 3.2 + 1.4, z, 0.9, 2.4, 0.9, undefined, 0, 0, -0.9 * s);
@@ -373,7 +373,7 @@ function buildShop(z, s, w, T, R) {
   const sign = new THREE.Mesh(SIGN_GEO, T.signMat); sign.position.set(f + n * 0.27, sy, z); sign.rotation.y = -s * Math.PI / 2; scene.add(sign);
   part('steel', UNIT.box, W.steel, cx + s * (R() - 0.3) * depth * 0.3, h + 1.2, z + (R() - 0.5) * w * 0.4, 2.2, 1.4, 2.6);
   part('steelCyl', UNIT.cyl, W.steel, cx + s * depth * 0.3, h + 1, z - w * 0.3, 0.7, 1.4, 0.7);
-  colliders.push({ x: cx, z, hw: depth / 2 + 0.1, hd: w / 2 + 0.1 });
+  colliders.push({ x: cx, z, hw: depth / 2 + 0.1, hd: w / 2 + 0.1, top: h + 0.6 });
   PROPS[T.prop](f, n, z, w, h, s, R);
 }
 const RESERVED = [[-36, 36], [CIRC / 4 - 20, CIRC / 4 + 20], [-CIRC / 4 - 14, -CIRC / 4 + 14]];
@@ -396,7 +396,7 @@ for (const s of [-1, 1]) for (let z = -CIRC / 2 + 8; z < CIRC / 2; z += 16) {
   part('lampPost', UNIT.cyl, W.steel, s * 23, 2.6, z, 0.28, 5.2, 0.28);
   part('lampArm', UNIT.box, W.steel, s * 22.4, 5.1, z, 1.3, 0.14, 0.14);
   part('lampHead', UNIT.sph, W.glowWarm, s * 21.8, 4.95, z, 0.55, 0.4, 0.55);
-  colliders.push({ x: s * 23, z, r: 0.3 });
+  colliders.push({ x: s * 23, z, r: 0.3, top: 5.2 });
   if (Math.round(z / 16) % 3 === 0 && !reserved(z - 3, z + 3)) {
     part('wood', UNIT.box, W.wood, s * 20.6, 0.55, z + 6, 0.7, 0.12, 2.6);
     part('wood', UNIT.box, W.wood, s * 20.95, 0.9, z + 6, 0.12, 0.6, 2.6);
@@ -407,13 +407,13 @@ for (let z = -CIRC / 2 + 30; z < CIRC / 2 - 20; z += 64) {
   if (LIFTS.some(L => Math.abs(wrapD(z - L.z)) < 14)) continue;
   part('stone', UNIT.box, W.stone, 0, 0.5, z, 3, 1, 8);
   for (const dz of [-2.5, 0, 2.5]) part('bush', UNIT.ico, W.leaf, 0, 1.6, z + dz, 2.2, 2, 2.2, 0x5a9a3f);
-  colliders.push({ x: 0, z, hw: 1.6, hd: 4.1 });
+  colliders.push({ x: 0, z, hw: 1.6, hd: 4.1, top: 1 });
 }
 
 // ---- welcome arch over the start plaza ----
 {
   const z = -36;
-  for (const s of [-1, 1]) { part('trim', UNIT.box, W.paint, s * 20, 6.5, z, 1.6, 13, 1.6, 0x2f3a40); colliders.push({ x: s * 20, z, hw: 0.9, hd: 0.9 }); }
+  for (const s of [-1, 1]) { part('trim', UNIT.box, W.paint, s * 20, 6.5, z, 1.6, 13, 1.6, 0x2f3a40); colliders.push({ x: s * 20, z, hw: 0.9, hd: 0.9, top: 13 }); }
   part('trim', UNIT.box, W.paint, 0, 13.3, z, 42, 2.6, 1.6, 0x2f3a40);
   const mat = makeSign(1024, 128, 'RING SEVEN', `POP. 1 ROBOT · ${RPM.toFixed(2)} RPM · 1 G`, 0x2f3a40, 0xd0702c, 70);
   for (const side of [1, -1]) {
@@ -436,7 +436,7 @@ const landmarkZones = [];  // keep trees out: [x, z, radius]
   const jets = [];
   for (let i = 0; i < 18; i++) { const sp = glow(0xcfe9ff, 0.7, 0.6); sp.material.blending = THREE.NormalBlending; g.add(sp); jets.push({ sp, a: i / 18 * TAU, k: i / 18 }); }
   spinners.push((dt, t) => { for (const j of jets) { const q = (t * 0.7 + j.k) % 1; j.sp.position.set(Math.cos(j.a) * (0.6 + q * 2.4), 6.4 + q * 1.2 - q * q * 3.4, Math.sin(j.a) * (0.6 + q * 2.4)); j.sp.material.opacity = 0.7 * (1 - q); } });
-  colliders.push({ x: 0, z, r: 7.3 });
+  colliders.push({ x: 0, z, r: 7.3, top: 1 });
 }
 // ferris wheel on the far side of the ring, overhead from the start
 {
@@ -474,7 +474,7 @@ const landmarkZones = [];  // keep trees out: [x, z, radius]
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 6, 8), W.steel); mast.position.y = 48.9; g.add(mast);
   const beacon = new THREE.Mesh(UNIT.sph, W.redLight); beacon.scale.setScalar(0.8); beacon.position.y = 52; g.add(beacon);
   spinners.push((dt, t) => { beacon.visible = (t % 1.6) < 0.5; });
-  colliders.push({ x, z, r: 3 });
+  colliders.push({ x, z, r: 3, top: 41.5 });
   landmarkZones.push([x, z, 10]);
 }
 // greenhouse dome
@@ -515,7 +515,7 @@ landmarkZones.push([ROADMAP_HUT.clearing.x, ROADMAP_HUT.clearing.z, ROADMAP_HUT.
     part('trunk', UNIT.cyl, W.bark, x, hgt / 2, zz, 0.6, hgt, 0.6);
     if (R() < 0.3) part('conifer', UNIT.cone, W.leaf, x, hgt + 2.6, zz, 4, 7 + R() * 3, 4, 0x2f6a3a);
     else part('canopy', UNIT.ico, W.leaf, x, hgt + 2, zz, 5 + R() * 2.5, 4.5 + R() * 2, 5 + R() * 2.5, fall ? 0xd9862e : greens[R() * greens.length | 0]);
-    colliders.push({ x, z: zz, r: 0.5 });
+    colliders.push({ x, z: zz, r: 0.5, top: hgt });
   }
 }
 // farm silos and barns out by the end caps
@@ -525,12 +525,12 @@ landmarkZones.push([ROADMAP_HUT.clearing.x, ROADMAP_HUT.clearing.z, ROADMAP_HUT.
     const zz = z + R() * 30;
     part('silo', UNIT.cyl, W.paint, s * 152, 7, zz, 7, 14, 7, 0xcfc8bb);
     part('siloDome', UNIT.sph, W.steel, s * 152, 14, zz, 7, 4, 7);
-    colliders.push({ x: s * 152, z: zz, r: 3.7 });
+    colliders.push({ x: s * 152, z: zz, r: 3.7, top: 14 });
     const bz = zz + 22;
     part('barn', UNIT.box, W.paint, s * 140, 3.5, bz, 10, 7, 14, 0x9b3328);
     for (const k of [-1, 1]) part('barnRoof', UNIT.box, W.paint, s * 140 + k * 2.6, 8.1, bz, 6.4, 0.3, 14.6, 0x3b3330, 0, 0, -k * 0.6);
     part('door', UNIT.box, W.door, s * 140 - s * 5.05, 2.4, bz, 0.2, 4.6, 4);
-    colliders.push({ x: s * 140, z: bz, hw: 5.1, hd: 7.1 });
+    colliders.push({ x: s * 140, z: bz, hw: 5.1, hd: 7.1, top: 7 });
   }
 }
 flushParts();
@@ -614,8 +614,10 @@ function makeBlob(size) {
 }
 bot.blob = makeBlob(2.6);
 
-function collideWorld(p, rad) {
+// `y`: how high the robot is, so it passes over (and stands on) what it's climbed above; only VR robots climb
+function collideWorld(p, rad, y = 0) {
   for (const c of colliders) {
+    if (c.top !== undefined && y >= c.top - 0.05) continue;
     const dx = p.x - c.x; if (Math.abs(dx) > 30) continue;
     const dz = wrapD(p.z - c.z); if (Math.abs(dz) > 30) continue;
     if (c.r !== undefined) {
@@ -1045,7 +1047,7 @@ function update(dt, t) {
   if (Math.abs(p.x) > HALF_L - 3) { p.x = Math.sign(p.x) * (HALF_L - 3); st.vel *= 0.6; }
   // keep z on one lap of the ring so numbers stay small; the camera rides along
   if (p.z > CIRC / 2) { p.z -= CIRC; camPos.z -= CIRC; } else if (p.z < -CIRC / 2) { p.z += CIRC; camPos.z += CIRC; }
-  collideWorld(p, 0.95);
+  collideWorld(p, 0.95, vr.presenting ? st.y : 0);
   { // the weapon table is solid
     const tx = clamp(p.x, TABLE.x - TABLE.w / 2, TABLE.x + TABLE.w / 2), tz = clamp(p.z, TABLE.z - TABLE.d / 2, TABLE.z + TABLE.d / 2);
     const dx = p.x - tx, dz = p.z - tz, d = Math.hypot(dx, dz);
@@ -1063,12 +1065,15 @@ function update(dt, t) {
     st.crouch -= dt;
     if (st.crouch <= 0) { st.vy = JUMP_V; st.grounded = false; st.syV += 7; dustBurst(p.x, p.z, 8, 1.6); }
   }
+  // in VR the robot can stand on what it climbs (or on its hands); flat, the ground is always the floor (app/vr.ts)
+  const ground = vr.groundAt(p.x, p.z, st.y);
+  if (st.grounded && st.y > ground) st.grounded = false;   // off the edge of something
   if (!st.grounded) {
     st.vy -= G * (spinning && st.vy < 0 ? 0.35 : 1) * dt;
     st.y += st.vy * dt;
-    if (st.y <= 0) {
+    if (st.y <= ground) {
       const impact = -st.vy;
-      st.y = 0; st.vy = 0; st.grounded = true; st.land = 0.28;
+      st.y = ground; st.vy = 0; st.grounded = true; st.land = 0.28;
       st.syV -= impact * 0.45;
       dustBurst(p.x, p.z, 10 + impact | 0, 1.2 + impact * 0.18);
       if (!reduceMotion) st.shake += impact * 0.012;
@@ -1620,7 +1625,9 @@ legacy.drivingOnFloor = () => (st.mode === 'floor' && st.rollout <= 0 ? bot.root
 legacy.releaseKeys = () => { for (const k in keys) keys[k] = false; };
 
 // ---- VR on a Meta Quest (app/vr.ts) ----
-const vr = createVrMode({ renderer, camera, bot, st, keys, press, prompt: () => ({ text: promptText, hint: promptHint, at: promptAt, action: promptAction }), drawTex, kit: robotKit, ships });
+// what a VR robot's hands can climb and its wheel stand on: the obstacles with a top, and the weapon table
+const climbable = [colliders, [{ x: TABLE.x, z: TABLE.z, hw: TABLE.w / 2, hd: TABLE.d / 2, top: TABLE.top }]];
+const vr = createVrMode({ renderer, camera, bot, st, keys, press, prompt: () => ({ text: promptText, hint: promptHint, at: promptAt, action: promptAction }), drawTex, kit: robotKit, ships, solids: climbable, gravity: G });
 const selfie = createSelfie({ keys, pressed, canvas: renderer.domElement, button: document.getElementById('selfie'), resetCam, vr });
 legacy.leaveVr = vr.leave;
 

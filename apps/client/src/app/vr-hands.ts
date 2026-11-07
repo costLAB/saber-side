@@ -20,7 +20,7 @@ import { applyArmPose, type Robot, type RobotArm } from '../avatar/robot';
 // tracked hands), and this:
 // - reaches the robot's arms for them through the IK in shared/sim/arm-ik.ts. The robot's arms are long
 //   (shared/sim/arm-locomotion.ts): its hands go where yours are, stretched out from your neck, as near as its arms
-//   reach, and never through the floor; a hand holding on to the floor stays where it holds. The angles go in
+//   reach, and never into anything solid; a hand holding on stays where it holds. The angles go in
 //   `RobotArm.cur`, which the pose messages already carry, so friends see the arms move;
 // - turns the robot's head the way the headset turns, relative to its body (the pose's head angles);
 // - works out grabbing and using: grip (or a fist) and trigger (or a pinch), per hand, so a grab picks up what's near
@@ -151,13 +151,10 @@ export function createVrHands(bot: Robot) {
   const toRoot = new THREE.Matrix4();
   const turnRoot = new THREE.Quaternion();
   /**
-   * On the floor, also set by the VR mode: where each hand holds on to the floor (in the robot's world), and how low
-   * a hand can go in the root's frame (resting on the floor). Null off the floor.
+   * Set by the VR mode: where the robot's hand on each side goes (in the robot's world), when that's not simply your
+   * stretched hand: on the floor, where it holds on, or where it reaches without going into anything solid.
    */
-  const ground: { holds: readonly ({ x: number; y: number; z: number } | null)[]; floor: number | null } = {
-    holds: [],
-    floor: null,
-  };
+  const ground: { aim: ((i: number) => { x: number; y: number; z: number } | null) | null } = { aim: null };
 
   const v = new THREE.Vector3();
   const v2 = new THREE.Vector3();
@@ -288,14 +285,11 @@ export function createVrHands(bot: Robot) {
       const i = bot.arms.indexOf(arm);
       const h = hands[i];
       if (!h?.tracked) return false;
-      // where the robot's hand goes, in the root's frame: where it holds on to the floor, or else your stretched hand,
-      // never through the floor
-      const hold = ground.holds[i];
-      if (hold) bot.root.worldToLocal(v.set(hold.x, hold.y, hold.z));
-      else {
-        v.copy(h.reach).applyMatrix4(toRoot);
-        if (ground.floor !== null) v.y = Math.max(v.y, ground.floor);
-      }
+      // where the robot's hand goes, in the root's frame: where the VR mode aims it (holding on, or kept out of
+      // anything solid), or else your stretched hand
+      const aim = ground.aim?.(i);
+      if (aim) bot.root.worldToLocal(v.set(aim.x, aim.y, aim.z));
+      else v.copy(h.reach).applyMatrix4(toRoot);
       // and on to the robot's core (the arms' frame)
       bot.core.worldToLocal(bot.root.localToWorld(v));
       bot.core.getWorldQuaternion(q2).invert();

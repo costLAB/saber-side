@@ -73,14 +73,15 @@ export function buildRobotRegistry(kit: BotMakerKit): { root: THREE.Group; colli
   box(kit.lamp, cx, R.height - 0.8, R.z, 0.4, 0.08, R.width - 3);
 
   // solid walls, with the doorway left open
+  const top = R.height;
   const colliders: Collider[] = [
-    { x: R.back + T / 2, z: R.z, hw: T / 2 + 0.05, hd: R.width / 2 },
-    { x: cx, z: z0 + T / 2, hw: depth / 2, hd: T / 2 + 0.05 },
-    { x: cx, z: z1 - T / 2, hw: depth / 2, hd: T / 2 + 0.05 },
-    ...[-1, 1].map((s) => ({ x: R.front - T / 2, z: R.z + s * (dz + jamb), hw: T / 2 + 0.05, hd: jamb })),
+    { x: R.back + T / 2, z: R.z, hw: T / 2 + 0.05, hd: R.width / 2, top },
+    { x: cx, z: z0 + T / 2, hw: depth / 2, hd: T / 2 + 0.05, top },
+    { x: cx, z: z1 - T / 2, hw: depth / 2, hd: T / 2 + 0.05, top },
+    ...[-1, 1].map((s) => ({ x: R.front - T / 2, z: R.z + s * (dz + jamb), hw: T / 2 + 0.05, hd: jamb, top })),
     // the kiosk and the counter
-    { x: kx, z: R.z, hw: 0.5, hd: 0.75 },
-    { x: R.back + 1.1, z: R.z, hw: 0.65, hd: (R.width - 3) / 2 },
+    { x: kx, z: R.z, hw: 0.5, hd: 0.75, top: 1.2 },
+    { x: R.back + 1.1, z: R.z, hw: 0.65, hd: (R.width - 3) / 2, top: 1.1 },
   ];
   return { root, colliders };
 }

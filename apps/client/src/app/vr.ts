@@ -7,22 +7,27 @@ import {
   bendPoint,
   bendUp,
   glide,
+  groundUnder,
   headYaw,
   MIN_HEAD_HEIGHT,
   newArmLoco,
+  pushOut,
   R_IN,
   rigScale,
   rigToStrip,
   SELFIE,
   SIGN_REACH,
+  type Solid,
   STICK_DEADZONE,
   shortArm,
   smoothTurn,
   snapTurn,
+  solidsTouch,
   stickHeading,
   turnToward,
   VR_STEER_RATE,
   vignetteAmount,
+  vrGravity,
   wrapAngle,
 } from '@saber-side/shared';
 import * as THREE from 'three';
@@ -95,6 +100,10 @@ export interface VrGame {
   kit: RobotKit;
   /** The ships (app/flight.ts): the one being flown, for the cockpit, and its controls. */
   ships: Pick<FlightMode, 'cockpit' | 'setVrControls' | 'state'>;
+  /** What a robot's hands can climb and its wheel stand on, on the floor strip (shared/sim/solids.ts). */
+  solids: readonly (readonly Solid[])[];
+  /** The legacy game's gravity (scene units per second per second). */
+  gravity: number;
 }
 
 export interface VrMode {
@@ -104,6 +113,11 @@ export interface VrMode {
   draw(scene: THREE.Scene, flatCamera: THREE.Camera): void;
   /** Ends the VR session, if there is one, and goes back to the flat page. */
   leave(): void;
+  /**
+   * How high the ground is under the robot at (x, z), for a robot `y` high: in VR, the top of what it climbed onto,
+   * or its own height while your hands hold it up. Flat, it's always the floor (0).
+   */
+  groundAt(x: number, z: number, y: number): number;
   /** Poses one of the robot's arms from your hand, in VR. Returns false when the legacy animation should pose it. */
   poseArm(arm: RobotArm): boolean;
   /** Turns the robot's head the way yours turns, in VR (after the legacy animation has turned it). */
@@ -139,6 +153,8 @@ export interface VrMode {
     holds: readonly ({ x: number; y: number; z: number } | null)[];
     /** How far your hands stretch from your neck. */
     stretch: number;
+    /** What the robot's hands can climb and its wheel stand on. */
+    solids: readonly (readonly Solid[])[];
   };
 }
 
@@ -155,8 +171,10 @@ const BUTTONS: { hand: 'left' | 'right' | 'either'; index: number; action: strin
 const RECENTER = { hand: 'left', index: 5 } as const;
 /** Pressing the right stick in opens the Selfie's mini-me (until the wrist panel has a button for it). */
 const SELFIE_BUTTON = { hand: 'right', index: 3 } as const;
-/** Let go of the floor less than this high (scene units), and the robot just settles back on its wheel. */
+/** Let go less than this high above the ground (scene units), and the robot just settles back on its wheel. */
 const LANDED = 0.05;
+/** A robot stands on a top this much narrower than itself, so long as its middle is over it (a wall, a post). */
+const STAND_MARGIN = 0.3;
 
 const ORIGIN = new THREE.Vector3();
 const X_AXIS = new THREE.Vector3(1, 0, 0);
@@ -377,12 +395,15 @@ export function createVrMode(game: VrGame): VrMode {
     return { now, lx, ly, rx, ry, recenter, selfie };
   }
 
-  /** Lets go of the floor, and stops any glide. A robot your hands held up off the floor falls. */
+  /** Lets go of everything, and stops any glide. A robot your hands held up falls (the legacy game sees it's in the air). */
   function letGo() {
     loco = newArmLoco();
     glideV = { x: 0, z: 0 };
-    if (st.y > 0 && st.grounded) st.grounded = false;
   }
+
+  /** What's solid for the robot's hands, and how high the ground is under its wheel. */
+  const touch = solidsTouch(game.solids, ARM_LOCO.handRest);
+  const groundBelow = (x: number, z: number, y: number) => groundUnder(x, z, y, game.solids, STAND_MARGIN);
 
   /** Where a point in your room (meters) is on the floor strip, with the robot standing under your head. */
   function roomToStrip(p: THREE.Vector3) {
@@ -415,9 +436,10 @@ export function createVrMode(game: VrGame): VrMode {
   }
 
   /**
-   * Arm locomotion on the floor (shared/sim/arm-locomotion.ts), Gorilla Tag style: your stretched hands can't go
-   * through the floor, so a hand that reaches it holds on, and the robot moves against it (forward as you pull back,
-   * up as you push down). Letting go flings it on, and letting go while it's rising fast jumps.
+   * Arm locomotion on the floor (shared/sim/arm-locomotion.ts), the way Gorilla Tag does it: your stretched hands
+   * can't go into anything solid, so a hand that touches the floor, a wall, a tree, or a tabletop holds on, and the
+   * robot moves against it (forward as you pull back, up as you pull down a wall or push down on the floor). Letting go
+   * flies it on at the speed your hands were moving it, and it falls with Earth's gravity for your body until it lands.
    */
   function armWalk(dt: number) {
     if (!comfort.armWalking) {
@@ -425,30 +447,34 @@ export function createVrMode(game: VrGame): VrMode {
       return;
     }
     const pts = hands.hands.map((_, i) => handOnStrip(i));
-    const step = armLocoStep(loco, pts, scale, dt);
+    const step = armLocoStep(loco, pts, touch, scale, dt);
     loco = step.state;
     step.touched.forEach((t, i) => {
       if (t) hands.pulse(i, 'floorTouch');
     });
     const p = bot.root.position;
     if (step.holding) {
-      // your hands hold the robot up: no falling while they do (the legacy game's gravity waits for the floor)
+      // your hands hold the robot: it goes where they put it, never below the ground under it, and doesn't fall
+      // while they hold it (`groundAt` tells the legacy game it's standing on them)
       glideV = { x: 0, z: 0 };
+      const ground = groundBelow(p.x, p.z, st.y);
       p.x += step.move.x;
       p.z += step.move.z;
-      st.y += step.move.y;
+      st.y = Math.max(ground, st.y + step.move.y);
       st.vy = 0;
       st.grounded = true;
       return;
     }
-    if (step.fling) glideV = step.fling;
-    if (step.jump !== undefined) {
-      st.vy = step.jump;
-      st.grounded = false;
-    } else if (step.fling && st.y > 0) {
-      // let go up off the floor: a little way just settles, any higher falls
-      if (st.y < LANDED) st.y = 0;
-      else st.grounded = false;
+    if (step.fling) {
+      glideV = { x: step.fling.x, z: step.fling.z };
+      if (step.fling.y > 0) {
+        st.vy = step.fling.y;
+        st.grounded = false;
+      } else {
+        // let go just above the ground: it settles there (any higher, and the legacy game sees it fall)
+        const ground = groundBelow(p.x, p.z, st.y);
+        if (st.y - ground < LANDED) st.y = ground;
+      }
     }
     p.x += glideV.x * dt;
     p.z += glideV.z * dt;
@@ -616,8 +642,12 @@ export function createVrMode(game: VrGame): VrMode {
         bot.root.position.z += step.z;
       }
       armWalk(dt);
-      // the left stick drives toward where you're looking: the robot turns to face the stick, then rolls
-      const to = stickHeading(view + yaw, input.lx, input.ly);
+      // up in the air, gravity is Earth's for your body, as in Gorilla Tag (the legacy game pulls with its own, so
+      // this makes up the difference)
+      if (!st.grounded) st.vy += (game.gravity - vrGravity(scale)) * dt;
+      // only with arm walking off does the left stick drive (toward where you're looking: the robot turns to face the
+      // stick, then rolls). With it on, as in Gorilla Tag, your arms are the only way to get about
+      const to = comfort.armWalking ? undefined : stickHeading(view + yaw, input.lx, input.ly);
       if (to !== undefined) {
         st.yaw = turnToward(st.yaw, to, VR_STEER_RATE * dt);
         if (Math.abs(wrapAngle(to - st.yaw)) < Math.PI / 2) input.now.add('up');
@@ -662,10 +692,16 @@ export function createVrMode(game: VrGame): VrMode {
       .makeRotationY(turn)
       .multiply(m.makeScale(scale, scale, scale))
       .multiply(m2.makeTranslation(-base.x, 0, -base.z));
-    // on the floor, the hands rest on it (and hold on where they push); elsewhere there's no floor to stop them
-    hands.ground.holds = floor ? loco.hold : [];
-    hands.ground.floor = floor ? ARM_LOCO.handRest - bot.root.position.y : null;
   }
+
+  // on the floor, each robot hand goes where it holds on, or where your hand reaches without going into anything
+  hands.ground.aim = (i) => {
+    if (!session || st.mode !== 'floor') return null;
+    const held = loco.hold[i];
+    if (held) return held.at;
+    const t = handOnStrip(i);
+    return t ? pushOut(t, touch) : null;
+  };
 
   function poseArm(arm: RobotArm): boolean {
     // the arms are long while your hands pose them, and as built while the legacy animation does
@@ -786,6 +822,12 @@ export function createVrMode(game: VrGame): VrMode {
     poseHead,
     poseGrip,
     grabHand: () => (driving() && !signGrab ? hands.grabHand() : null),
+    groundAt(x: number, z: number, y: number) {
+      if (!session || st.mode !== 'floor') return 0;
+      // your hands hold the robot up where it is
+      if (loco.hold[0] || loco.hold[1]) return y;
+      return groundBelow(x, z, y);
+    },
     leave() {
       session?.end().catch(() => {});
     },
@@ -843,11 +885,12 @@ export function createVrMode(game: VrGame): VrMode {
         return shortArm(p, neck, stretch);
       },
       get holds() {
-        return loco.hold;
+        return loco.hold.map((h) => h?.at ?? null);
       },
       get stretch() {
         return stretch;
       },
+      solids: game.solids,
     } as VrMode['debug'],
   };
 }

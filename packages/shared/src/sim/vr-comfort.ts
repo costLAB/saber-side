@@ -1,23 +1,27 @@
 import { clamp, smooth } from '../math.ts';
 import { STICK_DEADZONE, wrapAngle } from './vr-rig.ts';
 
-// VR comfort settings (docs/initiatives/quest-vr.md, PR 5): how the right stick turns you, how strongly the view
-// closes in while you move, seated mode, and whether your arms walk you along the floor. They're set on the flat page
+// VR comfort settings (docs/initiatives/quest-vr.md, PRs 5 and 10): how the right stick turns you, how strongly the
+// view closes in while you move (not at all to start with, as in Gorilla Tag), seated mode, and whether your arms walk
+// you along the floor or the left stick drives. They're set on the flat page
 // for now (ui/vr-comfort.ts), and on the wrist panel once it exists, and kept in the browser.
 
 export type Turning = 'snap' | 'smooth';
 
 export interface Comfort {
   turning: Turning;
-  /** How strongly the edges of the view darken while you move or turn: 0 (never) to 1. */
+  /** How strongly the edges of the view darken while you move or turn: 0 (never, as in Gorilla Tag) to 1. */
   vignette: number;
   /** Sitting down: stepping and leaning don't move the robot, and your hands find the floor at your lap. */
   seated: boolean;
-  /** Pushing off the floor with your hands moves the robot (shared/sim/arm-locomotion.ts). */
+  /**
+   * Your arms walk the robot, Gorilla Tag style, and the left stick doesn't (shared/sim/arm-locomotion.ts). Off, the
+   * left stick drives it instead, and your hands push nothing.
+   */
   armWalking: boolean;
 }
 
-export const DEFAULT_COMFORT: Comfort = { turning: 'snap', vignette: 0.5, seated: false, armWalking: true };
+export const DEFAULT_COMFORT: Comfort = { turning: 'snap', vignette: 0, seated: false, armWalking: true };
 
 /** The vignette strengths the settings offer. */
 export const VIGNETTE_STEPS = { off: 0, low: 0.5, high: 1 } as const;
