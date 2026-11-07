@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | **Done**: all ten PRs are in (#29, #34, #36, #37, #38, #40, #41, #42, #43, #44). A Quest player can step into VR, move with the sticks or by pushing off the floor, use their hands, read the HUD on their wrist, ride the lifts, fly ships from the cockpit, and take a Selfie. Left open: the frame budget's next cuts, and the manual checks on a real Quest (open questions below). |
+| **Status** | In progress: the first ten PRs are in (#29, #34, #36, #37, #38, #40, #41, #42, #43, #44). A Quest player can step into VR, move with the sticks or by pushing off the floor, use their hands, read the HUD on their wrist, ride the lifts, fly ships from the cockpit, and take a Selfie. PR 10 (long arms whose hands hold on to the floor, Gorilla Tag style) is in review. Left open: the frame budget's next cuts, and the manual checks on a real Quest (open questions below). |
 | **Phase** | P4, Meta Quest VR ([plan, section 8](../REFACTOR_PLAN.md#p4-meta-quest-vr-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid puts on a Quest, opens the bookmarked game in Quest Browser, picks their robot, taps **Enter VR**, and rolls around the ring in first person with friends on iPads, picking up sabers and blasters, riding a lift, and floating in the hub, at a steady frame rate and without feeling sick. |
@@ -40,12 +40,12 @@ settings come in later PRs, as the table below says.
 
 | Action | Touch controllers (PR 1, PR 2) | Hand tracking (PR 2, and later) |
 | --- | --- | --- |
-| Drive | Left stick: the robot turns to the way you push, measured from where you're looking, and rolls. Or put your hands on the floor and push off (PR 5) | Push off the floor with your hands (PR 5) |
+| Drive | Left stick: the robot turns to the way you push, measured from where you're looking, and rolls. Or reach down with its long arms, put its hands on the floor, and pull yourself along or fling yourself off, Gorilla Tag style (PRs 5 and 10) | The robot's hands on the floor, the same way (PRs 5 and 10) |
 | Turn | Right stick: a 45° snap turn per push, or smooth turning with the comfort setting (PR 5) | Turn your body |
 | Look | Your head (and the robot's head turns with it) | Your head |
-| The robot's arms | Your hands: its hands go where yours are, as near as its arms reach. Squeezing grip and trigger curls its fingers | Your hands, and your fingers curl its fingers |
+| The robot's arms | Your hands: in VR its arms are long, and its hands go where yours are, stretched out from your neck (PR 10), never through the floor. Squeezing grip and trigger curls its fingers | Your hands, and your fingers curl its fingers |
 | Step or lean | Walk around your room: the robot comes with you | The same |
-| Jump | A or X, or push down hard on the floor and let go (PR 5) | Push down hard and let go (PR 5) |
+| Jump | A or X, or shove the robot's hands down into the floor and let go (PRs 5 and 10) | Shove down and let go (PRs 5 and 10) |
 | Spin attack | B | (none) |
 | Pick up, swap, drop; ride a lift; board a ship | Grip, as G does on a keyboard, but with the hand that grips: it picks up what's near that hand, and gripping again with that hand drops it (thrown, if your hand is swinging). The other hand's grip doesn't drop it | Make a fist near the item |
 | Use: switch a saber off and on, fire a blaster, bite a carrot | Trigger, as F does. Bring a carrot up to your mouth to bite it | Pinch. The carrot works the same way |
@@ -97,6 +97,12 @@ moves exactly like everyone else's.
   - **On an iPad or Mac:** the camera pulls back and orbits your robot, and you spin it around.
 - **Ships in VR are flown from the cockpit, with grabbable controls.** You sit in the cockpit in first person and fly
   by grabbing a joystick and a throttle with your hands, like a real ship. This answers open question 1.
+
+### From the owner (2026-11-07)
+
+- **Long arms, and hands that collide with the floor,** so you can run, jump, and the rest, just like Gorilla Tag.
+  The robot's arms are long in VR, its hands can't go through the floor, and a hand on the floor holds on while you
+  move. That's PR 10, built on PR 5's arm locomotion.
 
 ### Proposed here, for the owner to confirm
 
@@ -184,6 +190,8 @@ Floor content is simulated on a flat strip (x across, z around, y up) and bent o
   robot's grip lands on yours and its hand points the way your hand does (PR 2):
   - Your left hand drives the robot's left arm, and your right its right, measured from the robot's shoulders in its
     own frame, at the rig's scale.
+  - **Long arms (PR 10):** in VR the robot's arms are 1.8 times as long as built, and your hands stretch out from your
+    neck to match (see Arm locomotion below), so the robot's hands reach where yours do, and further.
   - Out of reach, the arm stretches straight toward your hand, so its hand goes as near as it can. The elbow points
     down, out, and a little back; if the wrist can't bend far enough for the way your hand points, the elbow swings
     round, and failing that the hand points the nearest way it can, so the grip still lands on yours.
@@ -202,21 +210,40 @@ Floor content is simulated on a flat strip (x across, z around, y up) and bent o
 - **Friends see it with no protocol change:** presence (`app/presence.ts`) sends the arm and head angles as drawn,
   and VR writes them where the animation does. What a robot holds isn't sent yet (P3's server-authoritative pickup).
 
-### Arm locomotion (PR 5)
+### Arm locomotion (PRs 5 and 10)
 
-The owner's "walking in VR", on the ring floor only (the hub is the zero-g swimming initiative's). The rules are in
+The owner's "walking in VR", on the ring floor only (the hub is the zero-g swimming initiative's), Gorilla Tag style:
+long arms whose hands can't go through the floor (owner decision, 2026-11-07). The rules are in
 `shared/sim/arm-locomotion.ts`, and `app/vr.ts` applies them each frame on the floor.
 
-- **The floor for your hands** is a third of your eye height (measured when you enter VR or press Y), so a kid and a
-  grown-up both reach it by bending a little. Seated, it's just over half your eye height, about your lap. A hand has
-  to rise a little past it to let go, so it doesn't flicker. Touching down buzzes that hand.
-- **Pushing:** while a hand is down, the robot moves against it, as if the hand held on to the floor. Two hands down
-  average their pushes. A hand that jumps more than 30 cm in one frame lost tracking, and doesn't push.
-- **Flinging:** when the last hand lets go, the robot carries on at the speed you were pushing (smoothed, capped at
-  3 m/s of your room, about the robot's top driving speed), and glides to a stop.
-- **Jumping:** pushing down fast and letting go jumps, 2.5 times your push's speed at the rig's scale, so a good shove
-  is a hop about as high as A's.
+- **Long arms (PR 10):** your hands are stretched out from your neck (15% of your eye height below your eyes) to 1.6
+  times as far, or 2.4 times seated, so a hand at about knee height (your lap, seated) puts the robot's hand on the
+  floor. Hands near your neck barely move; hands held out reach a long way. The robot's arms are drawn 1.8 times as
+  long to reach them (`setArmReach` in `avatar/parts/arms.ts`): the joints and the parts on each bone spread out, and
+  the bone segments stretch, so nothing new is built. They grow long in about a tenth of a second when your hands take
+  over, and go back to as built whenever the legacy animation poses them (spinning, a lost controller, leaving VR).
+  Everything you touch in the world, you touch with the robot's long arms: items, signs, the wrist panel, and the
+  mini-me. Eating still goes by your real hand at your real mouth, and so does the cockpit.
+- **Friends see the long arms:** the pose carries how long each arm is (`arm0reach` and `arm1reach`, protocol 13),
+  so a Quest player's robot has long arms on every screen, with its hands on the floor where the player put them.
+- **Hands can't go through the floor:** a robot's hand rests on the floor with its grip 0.12 above it. A hand that
+  reaches it touches down (a buzz) and holds on where it landed; the robot's arm keeps reaching for that spot. A
+  stretched hand is kept within the long arm's reach of its shoulder, so a hand only holds on where the arm reaches,
+  and pushing down further than the arms reach lifts the robot no higher.
+- **Pulling:** while a hand holds on, the robot moves so the hand stays put: pull back to go forward, push down to rise
+  off the floor (your hands hold the robot up while they're down). Two hands average their pulls. The floor only
+  pushes up: a hand rising a little (2 cm, stretched) doesn't drag the robot down, and rising more lets go. A hand that
+  ends up 40 cm (stretched) from where it holds lost tracking, or the robot couldn't follow it (a wall): it lets go.
+- **Flinging:** when the last hand lets go, the robot carries on at the speed it was being pulled (its average over
+  the last tenth of a second, so a hand slowing at the end of a stroke doesn't spoil it, capped at 9 scene units a
+  second, a little over its top driving speed). Up in the air it keeps that speed; rolling on the
+  floor it glides to a stop.
+- **Jumping:** letting go while the robot is rising faster than 2 a second jumps, 1.5 times as fast, up to 14 a
+  second (a third more than the jump button). So a hard shove down into the floor is a hop, and a big one is a leap.
+  Let go of the floor just above it and the robot settles; any higher and it falls.
 - The robot doesn't turn to face where it's pushed, so friends see it slide; the stick still turns and drives it.
+- **As built in PR 5,** before long arms: your hands found the floor at a third of your eye height, in the air above
+  the robot's floor, and pushed the robot only across it.
 
 **Comfort settings** (`shared/sim/vr-comfort.ts`), kept in the browser, and set on the flat page for now: a small
 **VR comfort** panel above Enter VR, shown only on a device that can run VR (`ui/vr-comfort.ts`). The wrist panel
@@ -373,12 +400,14 @@ as each one merges.
 | 7 | **Done** (#42) | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and sit in its cockpit in first person. Fly by grabbing the joystick and throttle with your hands (`shared/sim/vr-cockpit.ts`), fire with the joystick's trigger, a vignette on fast turns, and haptics. | none |
 | 8 | **Done** (#36) | `feature/vr-hide-own-body` | Show only your robot's hands and arms in VR | Hides your own robot's body and wheel (its head is already hidden) while the headset draws, leaving the hands, arms, and held items. Friends still see all of it. | none |
 | 9 | **Done** (#37) | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
+| 10 | In review | `feature/vr-long-arms` | Give Quest players long arms that run and jump off the floor | The owner's Gorilla Tag ask (2026-11-07): the robot's arms are long in VR, your hands stretch out to match, and its hands can't go through the floor. A hand on the floor holds on: pull to run, shove down to rise and jump, let go to fling, with momentum in the air. Friends see the long arms. Rules in `shared/sim/arm-locomotion.ts`. | protocol 13 (`arm0reach`, `arm1reach` pose fields) |
 
 Handing items to friends needs P3's server-authoritative pickup and drop, which isn't done yet. When it lands, a Quest
 player hands things over the same way: let go of the item in a friend's grabber.
 
 The protocol column assumes nothing in this initiative changes what the server sees. If one does (a "playing in VR"
-flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number when it merges.
+flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number when it merges. PR 10 does: friends are
+sent how long each arm is.
 
 ## Tests
 
@@ -386,8 +415,11 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
   head-to-strip steps, the rig scale, and snap turns. The arm IK (`shared/sim/arm-ik.ts`, from PR 2): reaching,
   pointing the hand, out of reach, too close, the elbow's direction, the two arms mirrored, the wrist's limits, and
   no flips while the hand moves smoothly. The hand rules (`shared/sim/vr-hands.ts`, PR 2): curl, fist, pinch, and the
-  mouth. Arm locomotion (`shared/sim/arm-locomotion.ts`, PR 5): where the floor is, pushing, two hands, ignoring a
-  hand that loses tracking, letting go only past the slack, the fling cap, the glide to a stop, and the jump. Comfort
+  mouth. Arm locomotion (`shared/sim/arm-locomotion.ts`, PRs 5 and 10): stretching your hands from your neck and
+  back, where they reach the floor standing and seated, holding on where a hand lands, pulling, two hands, rising as a
+  hand pushes down, letting go only past the slack without dragging the body down, a hand that loses tracking, the
+  fling cap, the glide that slows on the floor but not in the air, the jump and its cap, and a jump that still comes
+  when the hand pauses at the bottom. Comfort
   (`shared/sim/vr-comfort.ts`, PR 5): reading saved settings, smooth turning, and the vignette.
 - **E2E with IWER** (Meta's WebXR emulation runtime, an emulated Quest 3 injected into the page in Playwright,
   `e2e/vr.spec.ts`):
@@ -409,6 +441,10 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
   - Hands down on the floor and pulled back move the robot forward by as much (at the rig's scale), with a buzz on
     touching down; lifting them slowly leaves it there; a quick push and letting go flings it, with the vignette
     closing in, and it glides to a stop; pushing down hard and letting go jumps. (PR 5)
+  - The robot's arms are long in VR and as built again after; its hands stay on the floor where they landed while
+    they pull it along; pushing them down into the floor lifts the robot instead of going through, and a hard shove
+    and letting go jumps; pushing further down than the arms reach lifts it no higher, with its hands still on the
+    floor. (PR 10)
   - The comfort panel shows on a VR device's flat page and saves its settings; seated, leaning doesn't move the robot;
     smooth turning turns the view a little each frame; with arm walking off, hands on the floor push nothing. (PR 5)
   - The wrist panel shows only when the back of your wrist faces you, with where you are, what you hold, and the
@@ -460,12 +496,15 @@ flag on a player's seat, say), bump `PROTOCOL_VERSION` to the next free number w
    - The mini-me hangs still in your room where you opened it, rather than following your head.
    - It doesn't copy what your robot holds.
    - The flat Selfie lets you grab and use (to light a saber for the picture) but not drive, jump, or spin.
-5. **Arm locomotion, as built in PR 5** (all numbers in `shared/sim/arm-locomotion.ts`, easy to tune after a try):
-   - Your hands find the floor at a third of your eye height (about knee height), not the real floor, so nobody has
-     to touch the ground. Is that too high or too low?
-   - Contact alone pushes: no grip button needed, the same as with tracked hands.
-   - The fling is capped at 3 m/s of your room, and a push down jumps 2.5 times as fast as you pushed.
+5. **Arm locomotion, as built in PRs 5 and 10** (all numbers in `shared/sim/arm-locomotion.ts`, easy to tune after a
+   try):
+   - Your hands stretch 1.6 times as far from your neck (2.4 seated), so they reach the floor at about knee height
+     (your lap, seated). Too far, or not far enough? The robot's arms are 1.8 times as long as built.
+   - Contact alone holds on: no grip button needed, the same as with tracked hands.
+   - The fling is capped at 9 scene units a second, and a jump at 14; letting go rising faster than 2 jumps, 1.5 times
+     as fast. Flings keep their speed in the air.
    - The robot slides without turning to face where you push it.
+   - Your hands only hold on to the floor, not walls, tables, or the lift doors. Climbing could come later.
    - The comfort settings sit on the flat page above Enter VR, and on the wrist panel's comfort page (PR 3). The
      vignette is on at low by default.
 6. **Wrist panel and signs, as built in PR 3:**

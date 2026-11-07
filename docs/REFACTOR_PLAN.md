@@ -34,6 +34,7 @@ All three platforms play together in **one shared station**, with up to **10 pla
 - **Carrot-first economy, and paint that cures (2026-11-01).** A robot's paint is a see-through coat that cures 1 percentage point per carrot eaten, from 10% to the chosen color at full opacity. Robots eat through a jaw that opens on the panel seam below the eye. Economy v1 starts with carrots: carrot stands, the **Farmers** who sell carrots wholesale, and farms players can buy. The details and the PRs are in the initiative [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md).
 - **Robot parts catalogs (2026-11-01).** Robots are built from seven kinds of parts, each with its own catalog at the Bot Maker: **mobility** (the giant drive sphere today, tires later), **body coverings** (over the ball or the tires), **heads** (including a cute **jack-o-lantern**), **arms**, **voice** (voice boxes and microphones, for talking to other players), **eyes**, and **thrusters** (for moving in zero gravity). More parts, more colors, and everything costs Cyber Crystals. The details and the PRs are in the initiative [Robot parts catalogs](initiatives/robot-parts-catalog.md).
 - **VR movement, first person, and Selfie (2026-11-04).** Walking in VR is arm-push locomotion on the floor. In first person, Quest players see only their robot's hands and arms; everyone else sees the whole robot, and a **Selfie** button on every device shows you your own (a small live "mini-me" in VR, an orbiting camera on iPad and Mac). Ships in VR are flown from the cockpit by grabbing a joystick and throttle. All in the [Quest VR initiative](initiatives/quest-vr.md).
+- **Long arms in VR (2026-11-07).** Just like Gorilla Tag: in VR the robot's arms are long and its hands collide with the floor, so Quest players run, jump, and fling themselves around by pushing off it. Friends see the long arms too. It's PR 10 of the [Quest VR initiative](initiatives/quest-vr.md).
 - **Swimming in zero gravity (2026-11-04).** Robots swim through zero-g with a breaststroke through the air (a swim move on iPad and Mac), in the hub, on spacewalks outside the station, and later in the Refinery Ring. The details and the PRs are in the initiative [Swimming in zero gravity](initiatives/zero-g-swimming.md).
 - **Inventory v1 (2026-11-04).** One place that shows what a player owns, starting with the **jack-o-lantern head**, bought for Cyber Crystals. Players can give held items (still shared toys) and Cyber Crystals to friends. The details and the PRs are in the initiative [Inventory v1](initiatives/inventory.md).
 - **Sketchbook characters (2026-11-07).** Five characters drawn by the owner's son (a cat, an astronaut, a pumpkin, a spider, and a homemade robot) become special builds in the Bot Maker. An owner's reference sheet is the design: **Snatch**, **Astro**, **Patch**, **Spider Web**, and **Homemade Web**, cel-shaded with thick outlines. Every character shares **one torso layout and one head layout**, shaped per character; **skins** tell them apart, with **features** on top (ears, an antenna, a stem, a tail). The cat's tail can **grab and pull**. The details and the PRs are in the initiative [Sketchbook characters](initiatives/sketchbook-characters.md).
@@ -49,7 +50,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 (#13), the robot mouth (#27), paint cure (#28), and the first shop (#32) done, next `feature/carrot-farmers` |
 | [Robot parts catalogs](initiatives/robot-parts-catalog.md) | P3 (parts), P5 (prices) | Planned: next `feature/jack-o-lantern-head` (also Inventory v1's first step) |
 | [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md) | P5 | Planned: next `feature/ore-planet` |
-| [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | **Done** (#29, #34, #36 to #38, #40 to #43, #44): VR on a Quest, from entering it to flying ships from the cockpit. The next frame-rate cuts are an open question |
+| [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | In progress: the first ten PRs are done (#29, #34, #36 to #38, #40 to #43, #44), from entering VR to flying ships from the cockpit, and `feature/vr-long-arms` (long arms that run and jump off the floor, Gorilla Tag style) is in review. The next frame-rate cuts are an open question |
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
 | [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Planned: next `feature/sketchbook-cat` |
@@ -66,39 +67,40 @@ merges, mark it done in its initiative's table and drop its line here if it isn'
 planned branch is missing from this list.
 
 1. `fix/ring-sprites` (#31): Draw dust, sparks and glows on the ring floor again
-2. `feature/carrot-farmers`
-3. `feature/carrot-stand`
-4. `feature/carrot-farms`
-5. `feature/economy-tuning`
-6. `feature/jack-o-lantern-head`
-7. `feature/inventory`
-8. `feature/give-crystals`
-9. `foundation/server-held-items`
-10. `feature/give-items`
-11. `feature/sketchbook-cat`
-12. `feature/sketchbook-astronaut`
-13. `feature/sketchbook-pumpkin`
-14. `feature/sketchbook-spider`
-15. `feature/sketchbook-homemade`
-16. `feature/cat-tail-grab`
-17. `feature/zero-g-swim-stroke`
-18. `feature/vr-swimming`
-19. `feature/spacewalks`
-20. `feature/more-paint-colors`
-21. `foundation/seven-part-slots`
-22. `feature/more-robot-parts`
-23. `feature/parts-catalog`
-24. `feature/robot-thrusters`
-25. `feature/robot-tires`
-26. `feature/ore-planet`
-27. `feature/refinery-ring`
-28. `feature/ore-hauler`
-29. `feature/ore-mining`
-30. `feature/ore-refining`
-31. `feature/refinery-ring-interior`
-32. `feature/refinery-ring-swimming`
-33. `feature/ore-economy-tuning`
-34. `feature/talking-robots`
+2. `feature/vr-long-arms`
+3. `feature/carrot-farmers`
+4. `feature/carrot-stand`
+5. `feature/carrot-farms`
+6. `feature/economy-tuning`
+7. `feature/jack-o-lantern-head`
+8. `feature/inventory`
+9. `feature/give-crystals`
+10. `foundation/server-held-items`
+11. `feature/give-items`
+12. `feature/sketchbook-cat`
+13. `feature/sketchbook-astronaut`
+14. `feature/sketchbook-pumpkin`
+15. `feature/sketchbook-spider`
+16. `feature/sketchbook-homemade`
+17. `feature/cat-tail-grab`
+18. `feature/zero-g-swim-stroke`
+19. `feature/vr-swimming`
+20. `feature/spacewalks`
+21. `feature/more-paint-colors`
+22. `foundation/seven-part-slots`
+23. `feature/more-robot-parts`
+24. `feature/parts-catalog`
+25. `feature/robot-thrusters`
+26. `feature/robot-tires`
+27. `feature/ore-planet`
+28. `feature/refinery-ring`
+29. `feature/ore-hauler`
+30. `feature/ore-mining`
+31. `feature/ore-refining`
+32. `feature/refinery-ring-interior`
+33. `feature/refinery-ring-swimming`
+34. `feature/ore-economy-tuning`
+35. `feature/talking-robots`
 
 ### Not split into PRs yet
 
@@ -418,7 +420,7 @@ Where today's code goes:
 
 - **Session:** `immersive-vr` with `local-floor`, and `hand-tracking` as optional. The Enter VR button shows only when it's supported.
 - **Rig placement:** the rig sits at the bend frame of the player's strip position, so "up" follows the floor around the ring. Room-scale motion is converted back to strip coordinates every tick.
-- **Locomotion:**
+  - **Arm locomotion** in the Gorilla Tag style. The robot's arms are long in VR, and its hands can't go through the floor: a hand on it holds on, pulling moves the body the opposite way, and releasing carries the body's speed forward (capped).
   - **Arm locomotion** in the Gorilla Tag style. Hands are sphere colliders. Pushing a surface moves the body the opposite way, and releasing carries the hand's velocity forward (capped).
   - **The zero-g hub** uses the same mechanic with no gravity, and thrusters (a robot part) make flying it fun.
   - **Comfort options:** thumbstick smooth locomotion, snap turn, vignette, seated mode.
