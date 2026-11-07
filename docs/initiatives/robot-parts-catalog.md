@@ -93,7 +93,7 @@ A first batch, so every catalog has a real choice. Parts are procedural like eve
 `avatar/parts/`, and adding a variant is mostly a catalog entry.
 
 The [sketchbook characters](sketchbook-characters.md) add five more heads, bodies, and arms (a cat, an astronaut, a
-pumpkin, a spider, and a homemade robot), all sharing one head shape and one torso shape with different skins.
+pumpkin, a spider, and a homemade robot), each built from one shared head layout and one torso layout, with its own skin.
 
 | Catalog | New parts |
 | --- | --- |
