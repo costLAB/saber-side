@@ -180,7 +180,7 @@ Changes to the paint cure after it shipped, from the owner's decisions.
 | # | Status | Branch | PR title | What it changes | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
 | 2a | **Done** (#33) | `feature/solid-cured-paint` | Make fully cured paint the exact color you picked | The coat blends from the bare skin to the flat paint (`mix(skin, paint, cure)`) instead of multiplying the skin, so at 100% a painted part is exactly the color picked: the hex converted to linear, one satin non-metallic finish on every part, and the skin's bump flattened. The `boost` for dark skins is gone. With `paintCure` off, every coat is drawn at 100%, so every painted robot changes look. An e2e check reads back a painted panel's pixels. | none |
-| 2b | **Done** | `feature/full-color-new-robots` | Start new robots in full color | A new robot (a guest's, a player's first, or an extra from the Bot Maker) starts at 100% (`newRobotCoat` in `sim/paint-cure.ts`). New paint on an existing robot still starts a fresh coat at 10%. Robots already saved keep their cure. | none |
+| 2b | **Done** (#48) | `feature/full-color-new-robots` | Start new robots in full color | A new robot (a guest's, a player's first, or an extra from the Bot Maker) starts at 100% (`newRobotCoat` in `sim/paint-cure.ts`). New paint on an existing robot still starts a fresh coat at 10%. Robots already saved keep their cure. | none |
 
 ## Tests
 
