@@ -50,7 +50,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Building the carrot and Cyber Crystal economy](initiatives/carrot-economy.md) | P5 (first slice) | In progress: step 0 (#13), the robot mouth (#27), paint cure (#28), and the first shop (#32) done, next `feature/carrot-farmers` |
 | [Robot parts catalogs](initiatives/robot-parts-catalog.md) | P3 (parts), P5 (prices) | Planned: next `feature/jack-o-lantern-head` (also Inventory v1's first step) |
 | [Mining Cyber Ore and refining it into Cyber Crystals](initiatives/cyber-ore-mining.md) | P5 | Planned: next `feature/ore-planet` |
-| [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | In progress: the first ten PRs are done (#29, #34, #36 to #38, #40 to #43, #44), from entering VR to flying ships from the cockpit, and `feature/vr-long-arms` (long arms that run and jump off the floor, Gorilla Tag style) is in review. The next frame-rate cuts are an open question |
+| [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | In progress: the first ten PRs are done (#29, #34, #36 to #38, #40 to #43, #44), from entering VR to flying ships from the cockpit, and `feature/vr-long-arms` (#45: long arms that run and jump off the floor, Gorilla Tag style) is in review. The next frame-rate cuts are an open question |
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
 | [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Planned: next `feature/sketchbook-cat` |

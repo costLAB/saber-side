@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | In progress: the first ten PRs are in (#29, #34, #36, #37, #38, #40, #41, #42, #43, #44). A Quest player can step into VR, move with the sticks or by pushing off the floor, use their hands, read the HUD on their wrist, ride the lifts, fly ships from the cockpit, and take a Selfie. PR 10 (long arms whose hands hold on to the floor, Gorilla Tag style) is in review. Left open: the frame budget's next cuts, and the manual checks on a real Quest (open questions below). |
+| **Status** | In progress: the first ten PRs are in (#29, #34, #36, #37, #38, #40, #41, #42, #43, #44). A Quest player can step into VR, move with the sticks or by pushing off the floor, use their hands, read the HUD on their wrist, ride the lifts, fly ships from the cockpit, and take a Selfie. PR 10 (long arms whose hands hold on to the floor, Gorilla Tag style) is in review (#45). Left open: the frame budget's next cuts, and the manual checks on a real Quest (open questions below). |
 | **Phase** | P4, Meta Quest VR ([plan, section 8](../REFACTOR_PLAN.md#p4-meta-quest-vr-l)) |
 | **Started** | 2026-11-01 |
 | **Done when** | A kid puts on a Quest, opens the bookmarked game in Quest Browser, picks their robot, taps **Enter VR**, and rolls around the ring in first person with friends on iPads, picking up sabers and blasters, riding a lift, and floating in the hub, at a steady frame rate and without feeling sick. |
@@ -400,7 +400,7 @@ as each one merges.
 | 7 | **Done** (#42) | `feature/vr-ships` | Fly ships from the cockpit in VR | Board a ship and sit in its cockpit in first person. Fly by grabbing the joystick and throttle with your hands (`shared/sim/vr-cockpit.ts`), fire with the joystick's trigger, a vignette on fast turns, and haptics. | none |
 | 8 | **Done** (#36) | `feature/vr-hide-own-body` | Show only your robot's hands and arms in VR | Hides your own robot's body and wheel (its head is already hidden) while the headset draws, leaving the hands, arms, and held items. Friends still see all of it. | none |
 | 9 | **Done** (#37) | `feature/selfie-view` | Let players take a look at their own robot | The **Selfie** button on every device: the mini-me in VR (grab or stick to spin it), and an orbiting camera on iPad and Mac. | none |
-| 10 | In review | `feature/vr-long-arms` | Give Quest players long arms that run and jump off the floor | The owner's Gorilla Tag ask (2026-11-07): the robot's arms are long in VR, your hands stretch out to match, and its hands can't go through the floor. A hand on the floor holds on: pull to run, shove down to rise and jump, let go to fling, with momentum in the air. Friends see the long arms. Rules in `shared/sim/arm-locomotion.ts`. | protocol 13 (`arm0reach`, `arm1reach` pose fields) |
+| 10 | In review (#45) | `feature/vr-long-arms` | Give Quest players long arms that run and jump off the floor | The owner's Gorilla Tag ask (2026-11-07): the robot's arms are long in VR, your hands stretch out to match, and its hands can't go through the floor. A hand on the floor holds on: pull to run, shove down to rise and jump, let go to fling, with momentum in the air. Friends see the long arms. Rules in `shared/sim/arm-locomotion.ts`. | protocol 13 (`arm0reach`, `arm1reach` pose fields) |
 
 Handing items to friends needs P3's server-authoritative pickup and drop, which isn't done yet. When it lands, a Quest
 player hands things over the same way: let go of the item in a friend's grabber.
