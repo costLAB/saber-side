@@ -10,13 +10,18 @@
 Five characters, drawn by the owner's son: a **cat**, an **astronaut**, a **pumpkin**, a **spider**, and a
 **homemade** robot. Each one becomes a **special build** in the Bot Maker: a robot dressed up as the drawing.
 
-The trick is that they share their shapes. Every character has **the same torso** and **the same head**: one
-geometry each, built once. What tells them apart is the **skin** (the cat's fur, the astronaut's suit, the pumpkin's
-overalls) and a few small **features** stuck on top (ears, an antenna, a stem, a tail). So five characters cost two
-meshes, five sets of textures, and a handful of little add-ons.
+**Each one is shaped like its drawing, not like today's robot:** a big head sitting right on a small body, no neck,
+and no giant drive ball. The cat and the pumpkin have huge wide heads, the astronaut a wide round-cornered helmet on a
+boxy suit, the spider a tall head under a round cap, and the homemade robot an oval head sunk into a wooden pail.
 
-They're still robots. Each rolls on the drive sphere like every robot on Ring Seven, eats carrots through a jaw, and
-takes paint. They're robots in costume, and each has a robot name that plays on what it is.
+They still share their shapes, in the way that counts for code. Every head is built by **one shape generator** with
+the same layout (the same vertices, texture map, and feature spots), and so is every torso. A character sets a few
+numbers (width, height, depth, how boxy, how tapered) to match its drawing. What else tells them apart is the
+**skin** (the cat's fur, the astronaut's suit, the pumpkin's overalls) and a few small **features** stuck on top
+(ears, an antenna, a stem, a tail).
+
+They're still robots. Each rolls on a small drive roller tucked under its body, eats carrots through a jaw, and takes
+paint. They're robots in costume, and each has a robot name that plays on what it is.
 
 ## The drawings
 
@@ -26,9 +31,9 @@ takes paint. They're robots in costume, and each has a robot name that plays on 
 
 ### In the game
 
-Concept renders, one per drawing, built in three.js from the shared shapes this doc plans: one torso and one head
-for all five, each in its own skin, with its own features and hands. They're a look to aim for, not the final
-parts.
+Concept renders, one per drawing, built in three.js the way this doc plans: one head generator and one torso
+generator for all five, each set to its drawing's proportions, in its own skin, with its own features and hands.
+They're a look to aim for, not the final parts.
 
 ![All five characters in the game](sketchbook/all-in-game.jpg)
 
@@ -47,6 +52,9 @@ By the owner, 2026-11-07.
 
 - **Five characters, from the drawings:** cat, astronaut, pumpkin, spider, and homemade.
 - **Same torso geometry, same head geometry.** Every character's torso is one shared shape, and every head is another.
+- **Shaped like the drawings, not like today's robot (2026-11-07).** Each character's head and body take the
+  proportions and shapes of its drawing. So the sharing is one layout per part (one generator, one texture map, the
+  same feature spots), with each character's own shape numbers.
 - **Skins tell them apart:** the cat has a cat's body, the astronaut a space suit, the pumpkin overalls.
 - **Features on top:** ears, antennas, stems, and the like, added to the shared shapes.
 - **They're a catalog** of skins and avatars in the Bot Maker, and each one is a quirky play on robots.
@@ -57,8 +65,8 @@ By the owner, 2026-11-07.
 - **The robot names:** Meowtron (cat), Astrobolt (astronaut), Patch (pumpkin), Spindle (spider), and Twiggs (homemade).
   The catalog card shows the drawing's own word under the name: "Meowtron, the cat".
 - **Characters are parts, so kids can mix them.** Each character is a torso, a head, and arms, one in each of the
-  `body`, `head`, and `arms` slots. Since the shapes are shared, every head fits every torso: a pumpkin head on a space
-  suit just works. A character is a **preset build** on the Characters shelf, and one tap puts on all three parts.
+  `body`, `head`, and `arms` slots. Every torso has its neck spot on top and every head sits on it, so every head fits
+  every torso: a pumpkin head on a space suit just works. A character is a **preset build** on the Characters shelf, and one tap puts on all three parts.
 - **Arms too.** The drawings give each character its own hands (paws, mittens, fingers, claws, twigs), so the arms are
   a shared shape with a skin and a hand of their own, like the torso and head.
 - **Paint colors the main skin, not the details.** A painted cat is an orange cat with the same white belly, dark eyes,
@@ -71,15 +79,29 @@ By the owner, 2026-11-07.
 
 ### The shared shapes
 
-Built once each and reused by every character, so the GPU holds one copy of each, however many robots wear them.
+- **One generator per part.** Heads and torsos are superellipsoids: a ball that can be stretched wide or tall, made
+  boxier, or tapered, from five numbers. Every head comes out with the same vertices, texture map, and feature spots,
+  and so does every torso, so skins and features work the same on all of them. Each character's shape is built once
+  and shared by every robot wearing it.
+- **The proportions come from the drawings,** in meters, with today's robot about 3.3 m tall for scale:
 
-- **The torso:** an egg-shaped shell over the top of the drive sphere, a little narrower at the shoulders, like the
-  round bellies in the drawings. It has the rust ball's mounts (neck height, shoulders, and the hold point), so any
-  head and any arms fit it, and a character's head and arms fit the old bodies too.
-- **The head:** big and round, a little wider than tall (about 0.85 by 0.75), since every drawing gives its character
-  a big round head. It sits on the same short neck as the big-eye dome.
+  | | Head (wide × tall × deep) | Torso (wide × tall × deep) | Shape notes |
+  | --- | --- | --- | --- |
+  | Meowtron | 2.36 × 1.6 × 1.84 | 1.2 × 1.2 × 1.1 | The head is twice the body's width |
+  | Astrobolt | 2.2 × 1.44 × 1.8, round-cornered | 1.2 × 1.1 × 1.0, boxy | A helmet with flat-ish sides on a box |
+  | Patch | 2.5 × 1.64 × 2.0 | 1.0 × 1.24 × 0.92 | The widest head; a narrow body |
+  | Spindle | 1.2 × 1.6 × 1.16, tall | 0.96 × 0.84 × 0.92 | A tall oval head on a small round body |
+  | Twiggs | 1.72 × 1.24 × 1.52 | 1.7 × 1.2 × 1.6, flat top and bottom | The head sinks into a pail as wide as it is |
+
+- **No neck.** The head sits right on the torso, sunk into it a little, like the drawings.
+- **The roller.** Characters don't sit on the giant drive sphere. Their mobility is a small drive roller (about 0.6 m
+  across) mostly hidden under the body, so the robot is still a robot that rolls. It moves like the sphere; only the
+  look and the collision size change.
+- **Torsos keep the standard mounts** (the neck spot on top, shoulders, the hold point, a chest hatch), placed on each
+  shape, so any head and any arms fit any torso, and a character's head and arms fit the old bodies too.
 - **The arms:** a soft, round-ended tube from the shoulder that hangs and swings like the noodle arms, with a **hand**
-  on the end. The hand changes per character: there are five hands, and the arm is one shape.
+  on the end. The hand and the arm's length change per character: the cat's are stubby, the spider's arch out to the
+  floor, and Twiggs's are sticks held straight out.
 - **The jaw:** the head's jaw is one cut in the shared shape (the lower front, below the face), the same for every
   character. Each skin draws its own mouth on it: the cat's little "ω", the pumpkin's grin, the astronaut's chin plate.
   If there's no head, the torso's chest hatch is the mouth, as on every body.
@@ -113,8 +135,7 @@ does (a painted cat's ears match its fur) unless noted.
 | Control box | torso `front` | A box on the chest with a checkerboard of buttons, a few lit. Never painted |
 | Stem | head `top` | A short, thick, slightly bent green stem. Never painted |
 | Overall straps | torso `front` | Two straps over the shoulders, a bib, and two round buttons. The denim takes paint, buttons don't |
-| Spider cap | head `top` | A flat, round cap, like the one in the drawing |
-| Spider legs | torso `sides` | Three short folded legs on each side that tap as it rolls, so it has eight limbs with its arms |
+| Spider cap | head `top` | A round dome cap with a rolled rim, like the one in the drawing |
 | Twine | torso, arms | Rope bands tied round the torso and the wrists, with loose ends |
 
 ### The characters
@@ -124,7 +145,7 @@ does (a painted cat's ears match its fur) unless noted.
 | **Meowtron**, the cat | Soft gray fur, two huge dark eyes ringed in black with white shines, a small nose and a "ω" mouth | Gray fur with a pale oval belly | Paws with three toe lines | Ears, whiskers, tail |
 | **Astrobolt**, the astronaut | A white helmet with a big glossy black visor, streaked with reflections; the chin plate is the jaw | A white space suit with seams and a utility belt | Puffy mittens | Antenna, ear bolts, control box |
 | **Patch**, the pumpkin | Pumpkin orange with darker ribs running down from the top, two round eyes, a square nose, and a little grin | Blue denim overalls over a plain shirt | Gloves with four fingers | Stem, overall straps |
-| **Spindle**, the spider | Deep purple, a cluster of eight shiny eyes (two big, six small), and two little fangs on the jaw | Purple with a paler hourglass on the back | Long, thin, jointed fingers, three hooked claws | Spider cap, spider legs |
+| **Spindle**, the spider | Deep purple, a cluster of eight shiny eyes (two big, six small), and two little fangs on the jaw | Purple with a paler hourglass on the back | Four thin hooked claws at the end of long arching arms | Spider cap |
 | **Twiggs**, the homemade robot | Wooden staves, as if nailed together in a garage: two bottle-cap eyes and a marker-drawn smile | Wooden staves round like a barrel, with nail heads | Two sticks bound with twine, and twig fingers | Twine |
 
 Twiggs's drawing has no face, so the bottle caps and the marker smile are a guess. The spider's eyes are too: its
@@ -183,10 +204,10 @@ merges.
 
 | # | Status | Branch | PR title | What it adds | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Next | `feature/sketchbook-cat` | Turn the sketchbook cat into a robot | The shared torso, head, and arm shapes with their feature anchors and jaw; skins with paint masks (the coat shader's `cure × mask`); `shared/content/characters.ts`; the Characters shelf with the drawing on each card. Meowtron: its skins, paws, ears, whiskers, and a tail that swishes (grabbing comes in PR 6). A close-up screenshot, painted and not, and every classic baseline unchanged. | `PROTOCOL_VERSION` bump |
+| 1 | Next | `feature/sketchbook-cat` | Turn the sketchbook cat into a robot | The head and torso shape generators, each character's shape numbers, the shared arm, feature anchors, and jaw; the small drive roller as a mobility part; skins with paint masks (the coat shader's `cure × mask`); `shared/content/characters.ts`; the Characters shelf with the drawing on each card. Meowtron: its skins, paws, ears, whiskers, and a tail that swishes (grabbing comes in PR 6). A close-up screenshot, painted and not, and every classic baseline unchanged. | `PROTOCOL_VERSION` bump |
 | 2 | | `feature/sketchbook-astronaut` | Turn the sketchbook astronaut into a robot | Astrobolt: the helmet and visor, the space suit, mittens, the antenna, ear bolts, and the control box. A screenshot. | `PROTOCOL_VERSION` bump |
 | 3 | | `feature/sketchbook-pumpkin` | Turn the sketchbook pumpkin into a robot | Patch: the pumpkin skin and face, the stem, the overalls with straps and buttons, and gloves. A screenshot. | `PROTOCOL_VERSION` bump |
-| 4 | | `feature/sketchbook-spider` | Turn the sketchbook spider into a robot | Spindle: the purple skin and eight eyes, the cap, the long hooked arms, and the six little legs that tap as it rolls. A screenshot. | `PROTOCOL_VERSION` bump |
+| 4 | | `feature/sketchbook-spider` | Turn the sketchbook spider into a robot | Spindle: the purple skin and eight eyes, the cap, and the two long arms that arch out to hooked claws on the floor. A screenshot. | `PROTOCOL_VERSION` bump |
 | 5 | | `feature/sketchbook-homemade` | Turn the sketchbook homemade robot into a robot | Twiggs: the wooden staves, bottle-cap eyes and marker smile, the stick arms, and twine. A screenshot sheet of all five characters, and of a few mixed builds. | `PROTOCOL_VERSION` bump |
 | 6 | | `feature/cat-tail-grab` | Let the cat's tail grab and pull things | The tail as a third hand: whip out, grab a held item up to 2.5 m away, pull it in. A `tail` pose field, a second held slot, and the server checking the reach. Needs `foundation/server-held-items`. | `PROTOCOL_VERSION` bump |
 
@@ -215,7 +236,7 @@ PRs 1 to 5 don't need anything else and can merge any time, in any order after P
 | --- | --- |
 | The paint mask changes the coat shader, and with it every painted robot | Parts without a mask take the old path (a define, not a uniform), so their shader is byte-identical, and the baselines prove it |
 | Features add draw calls to every robot | Each feature is a few small meshes; merge a robot's static ones per material after it's built, as the parts catalog plans. Watch Quest frame time with 10 characters |
-| Thin whiskers and spider legs shimmer in VR | Whiskers are thin flat strips with alpha-to-coverage, not lines; check them in the VR close-up |
+| Thin whiskers and claws shimmer in VR | Whiskers are thin flat strips with alpha-to-coverage, not lines; check them in the VR close-up |
 | The tail's 2.5 m reach feels like stealing | It can't take what's held or for sale, and the server checks the reach |
 | A guessed face (Twiggs, Spindle) isn't what the artist meant | Show the son the screenshots before each PR merges, and change the skin, not the shape |
 
