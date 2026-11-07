@@ -16,8 +16,8 @@ import type { ShopStatus } from './sim/shops.ts';
 // 7 = the Cyber Crystal wallet; 8 = several robots per player; 9 = renaming your robot at the Bot Maker;
 // 10 = robots open their mouths to eat (the `jaw` pose field); 11 = paint that cures (each robot's `cure`, and the
 // station's `paintCure` setting); 12 = shops (leasing a spot, the station's `shops`); 13 = Snatch, the sketchbook
-// cat (the `cat` head, body, and arms).
-export const PROTOCOL_VERSION = 13;
+// cat (the `cat` head, body, and arms); 14 = grabbing a friend's tail (`grabTail`, and each seat's `tailHeldBy`).
+export const PROTOCOL_VERSION = 14;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';
@@ -120,6 +120,12 @@ export type AboardView = {
   build: string;
   /** How cured the robot's paint is, in percent, so everyone draws its coat the same (sim/paint-cure.ts). */
   cure: number;
+  /** Who holds this robot's tail (their session id), or empty. Everyone pins the tail to that robot's hand. */
+  tailHeldBy: string;
+  /** Which point of the tail they hold (1 to the tip, sim/tail-grab.ts). */
+  tailSegment: number;
+  /** Which of their hands holds it: 0 the left arm's, 1 the right's. */
+  tailHand: number;
 } & { [K in PoseField]: K extends 'shown' ? boolean : number };
 
 /** A leased spot, as everyone aboard sees it (keyed by spot id in StationView.shops). Vacant spots aren't listed. */
@@ -167,7 +173,27 @@ export const MESSAGE = {
   lease: 'lease',
   /** At their shop's kiosk, pay the rent owed to reopen a shop closed for repairs. */
   payRent: 'payRent',
+  /** Grab another robot's tail with a hand (a TailGrab). Answered with NOTICE.tail only when refused. */
+  grabTail: 'grabTail',
+  /** Let go of the tail this seat holds. */
+  letGoTail: 'letGoTail',
+  /** Shake this seat's own tail free of whoever holds it (the cat's spin attack). */
+  shakeTail: 'shakeTail',
 } as const;
+
+/** What `grabTail` carries: whose tail (their session id), which point of it, and which hand. */
+export interface TailGrab {
+  target: string;
+  segment: number;
+  hand: number;
+}
+
+/** The station's answer to a refused `grabTail`, sent to that seat alone (NOTICE.tail). */
+export interface TailAnswer {
+  ok: false;
+  target: string;
+  error: string;
+}
 
 /** What `lease` carries: the spot, and the shop's name. */
 export interface Lease {
@@ -234,6 +260,8 @@ export const NOTICE = {
   botMaker: 'botMaker',
   /** To one seat: how its `lease` or `payRent` went (a ShopAnswer). */
   shop: 'shop',
+  /** To one seat: its `grabTail` was refused (a TailAnswer). A grab that goes through shows on the target's seat. */
+  tail: 'tail',
 } as const;
 
 /** A registered player's Cyber Crystal balance, in shards. It's theirs alone: other players never see it. */

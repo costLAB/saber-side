@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CAT, CAT_SCALE, catLook, INK } from './cat-look';
 import { catSkins } from './cat-skins';
-import { buildCatTail } from './cat-tail';
+import { buildCatTail, type CatTail } from './cat-tail';
 import { splitFaces, withFaces } from './jaw';
 import type { BodyMounts, PartKit } from './kit';
 
@@ -325,6 +325,8 @@ const onBody = (x: number, y: number, z: number): [number, number, number] => [
 
 export interface BuiltCatBody {
   mounts: BodyMounts;
+  /** The tail, for the ragdoll to move (app/tails.ts). */
+  tail: CatTail;
 }
 
 export function catBody(kit: PartKit, core: THREE.Group, paint: string): BuiltCatBody {
@@ -334,7 +336,8 @@ export function catBody(kit: PartKit, core: THREE.Group, paint: string): BuiltCa
   body.scale.setScalar(CAT_SCALE);
   core.add(body);
   body.add(look.ink(kit.mesh(bellGeometry(), look.skin(CAT.bodyFur, catSkins(kit).body)), INK.thick));
-  body.add(buildCatTail(look).group);
+  const tail = buildCatTail(look);
+  body.add(tail.group);
   // The mouth hatch, for a robot with no head, sits high on the chest above the belly.
   const mouthY = 1.06;
   return {
@@ -344,6 +347,7 @@ export function catBody(kit: PartKit, core: THREE.Group, paint: string): BuiltCa
       hold: onBody(0, 0.5, 1.15),
       mouth: { position: onBody(0, mouthY, 0.67 * BODY_DEPTH), lat: 0.45, lon: 0, w: 0.3, h: 0.2 },
     },
+    tail,
   };
 }
 

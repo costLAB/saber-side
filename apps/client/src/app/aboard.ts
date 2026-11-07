@@ -21,6 +21,7 @@ import {
   SPOTS,
   type StationView,
   spotById,
+  type TailAnswer,
   type WalletNotice,
   walletText,
 } from '@saber-side/shared';
@@ -33,6 +34,7 @@ import { type StatusLine, showStationStatus, showWho, type Who } from '../ui/sta
 import { device } from './device';
 import { onDoorway } from './doorways';
 import { createPresence } from './presence';
+import type { Tails } from './tails';
 
 /**
  * Coming aboard (docs/initiatives/players-and-robots.md): **Play** builds a robot and comes aboard as a guest, with
@@ -44,7 +46,7 @@ import { createPresence } from './presence';
  * A guest's build is kept for as long as the page is open, so a restart brings the same robot back (as a new guest).
  * The device remembers the last username, never the PIN. The game stays playable behind all of this.
  */
-export function comeAboard(server: string, statusEl: HTMLElement) {
+export function comeAboard(server: string, statusEl: HTMLElement, tails?: Tails) {
   const walletEl = document.getElementById('wallet');
   const whoEl = document.getElementById('who') ?? document.createElement('span');
   // Other players' robots, kept in step with the station while this device is aboard.
@@ -325,6 +327,8 @@ export function comeAboard(server: string, statusEl: HTMLElement) {
         room = joined;
         if (debug) Object.assign(window, { __room: joined });
         presence.attach(joined);
+        tails?.attach(joined ? { room: joined, others: () => presence.others() } : undefined);
+        joined?.onMessage(NOTICE.tail, (answer: TailAnswer) => tails?.refused(answer));
         joined?.onStateChange(() => {
           presence.sync();
           // The paint readout follows the robot's cure, and the station's setting.

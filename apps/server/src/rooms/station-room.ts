@@ -8,6 +8,8 @@ import {
   freshCoat,
   type Garage,
   guestName,
+  hasHands,
+  hasTail,
   JOIN_REFUSED,
   type JoinRequest,
   type Lease,
@@ -24,6 +26,7 @@ import {
   ROBOTS_PER_PLAYER,
   type RobotBuild,
   readPose,
+  refuseTailGrab,
   repainted,
   robotPrice,
   SHARDS_PER_CC,
@@ -31,6 +34,10 @@ import {
   type SignIn,
   STATION_CAPACITY,
   type StationSettings,
+  type TailAnswer,
+  type TailGrab,
+  type TailSeat,
+  tailGripBreaks,
   type WalletNotice,
 } from '@saber-side/shared';
 import { type Ledger, playerAccount, SYSTEM } from '../ledger.ts';
@@ -60,6 +67,10 @@ export const Aboard = schema(
     build: t.string(),
     /** How cured its paint is, in percent. A guest's is held only here, until they register. */
     cure: t.uint8(),
+    /** Who holds this robot's tail (a session id), or empty; which point of it, and with which hand. */
+    tailHeldBy: t.string(),
+    tailSegment: t.uint8(),
+    tailHand: t.uint8(),
     ...Object.fromEntries(POSE.map(([name, kind]) => [name, POSE_FIELD[kind]()])),
   },
   'Aboard',
@@ -209,7 +220,33 @@ export function defineStationRoom(deps: StationRoomDeps) {
         POSE.forEach(([name, kind], i) => {
           aboard[name] = kind === 'flag' ? (pose[i] as number) > 0.5 : pose[i];
         });
+        // A tail held across too wide a gap lets go, for everyone at once.
+        this.#checkGrips(client.sessionId);
       });
+      // Grabbing a friend's tail (sim/tail-grab.ts): checked against the poses here, then shown on the target's seat.
+      this.onMessage(MESSAGE.grabTail, (client, msg: unknown) => {
+        const m = (msg && typeof msg === 'object' ? msg : {}) as Partial<Record<keyof TailGrab, unknown>>;
+        const target = typeof m.target === 'string' ? m.target : '';
+        const grabber = this.#tailSeat(client.sessionId);
+        if (!grabber) return;
+        const error = refuseTailGrab(grabber, this.#tailSeat(target), {
+          segment: Number(m.segment),
+          hand: Number(m.hand),
+        });
+        if (error) {
+          const reply: TailAnswer = { ok: false, target, error };
+          client.send(NOTICE.tail, reply);
+          return;
+        }
+        const held = this.state.players.get(target);
+        if (!held) return;
+        held.tailHeldBy = client.sessionId;
+        held.tailSegment = Number(m.segment);
+        held.tailHand = Number(m.hand);
+      });
+      this.onMessage(MESSAGE.letGoTail, (client) => this.#letGoTails((a) => a.tailHeldBy === client.sessionId));
+      // The cat shakes its own tail free (its spin attack). Its body is its own to move (D7).
+      this.onMessage(MESSAGE.shakeTail, (client) => this.#letGoTails((_, id) => id === client.sessionId));
       // New parts and paint from the Bot Maker. A guest's live only here; a player's robot is saved.
       this.onMessage(MESSAGE.rebuild, (client, msg: unknown) => {
         const aboard = this.state.players.get(client.sessionId);
@@ -221,12 +258,14 @@ export function defineStationRoom(deps: StationRoomDeps) {
           const before = cleanRobotBuild(parseJson(aboard.build));
           const cure = before && !repainted(before, build) ? aboard.cure : freshCoat();
           show(aboard, { name: aboard.name, color: buildColor(build), build, cure });
+          this.#checkGrips(client.sessionId);
           return;
         }
         const result = deps.players.rebuild(aboard.robot, msg);
         if (result.ok) {
           show(aboard, result.value);
           sendPlayer(client, aboard.player);
+          this.#checkGrips(client.sessionId);
         }
       });
       // The Robot Registry. A guest registers: their robot (as built) is saved under a new player, and the seat becomes
@@ -371,6 +410,9 @@ export function defineStationRoom(deps: StationRoomDeps) {
     override onJoin(client: Client) {
       const auth = client.auth as Auth;
       const aboard = new Aboard();
+      aboard.tailHeldBy = '';
+      aboard.tailSegment = 0;
+      aboard.tailHand = 0;
       if ('guest' in auth) {
         const names = [...this.state.players.values()].filter((a) => !a.player).map((a) => a.name);
         aboard.player = '';
@@ -411,6 +453,8 @@ export function defineStationRoom(deps: StationRoomDeps) {
       // The time up to now counts for their shop; from now on it's closed.
       this.#sinceSettled += this.#countOpenTime();
       this.state.players.delete(client.sessionId);
+      // Whatever tail they held is let go.
+      this.#letGoTails((a) => a.tailHeldBy === client.sessionId);
       this.#countAboard();
       this.#showShops();
     }
@@ -445,6 +489,51 @@ export function defineStationRoom(deps: StationRoomDeps) {
       }
       // The matchmaker reads the room's listing, which catches up with the unlock a moment later.
       await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    /** A seat as the tail rules see it (sim/tail-grab.ts). */
+    #tailSeat(sessionId: string): TailSeat | undefined {
+      const a = this.state.players.get(sessionId);
+      if (!a) return undefined;
+      let holding = '';
+      this.state.players.forEach((other, id) => {
+        if (other.tailHeldBy === sessionId) holding = id;
+      });
+      const pose = a as unknown as Record<string, number | boolean>;
+      return {
+        id: sessionId,
+        build: cleanRobotBuild(parseJson(a.build)),
+        px: Number(pose.px),
+        py: Number(pose.py),
+        pz: Number(pose.pz),
+        shown: !!pose.shown,
+        holding,
+        heldBy: a.tailHeldBy,
+      };
+    }
+
+    /**
+     * Lets go of every tail grip this seat is part of that can't hold any more: pulled too far apart, out of sight,
+     * the cat's tail gone in a rebuild, or the grabber's arms gone.
+     */
+    #checkGrips(sessionId: string) {
+      this.#letGoTails((a, id) => {
+        if (!a.tailHeldBy || (id !== sessionId && a.tailHeldBy !== sessionId)) return false;
+        const cat = this.#tailSeat(id);
+        const grabber = this.#tailSeat(a.tailHeldBy);
+        return !cat || !grabber || !hasTail(cat.build) || !hasHands(grabber.build) || tailGripBreaks(grabber, cat);
+      });
+    }
+
+    /** Lets go of every held tail that matches (by the held seat and its id). */
+    #letGoTails(match: (held: Aboard, id: string) => boolean) {
+      this.state.players.forEach((a, id) => {
+        if (a.tailHeldBy && match(a, id)) {
+          a.tailHeldBy = '';
+          a.tailSegment = 0;
+          a.tailHand = 0;
+        }
+      });
     }
 
     /** Lets go of every seat held for reconnection that matches. */

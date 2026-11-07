@@ -2,6 +2,7 @@ import { Client } from '@colyseus/sdk';
 import type { Page } from '@playwright/test';
 import {
   BOT_MAKER,
+  CHARACTERS,
   classicBuild,
   MESSAGE,
   POSE,
@@ -12,8 +13,9 @@ import {
   type Spot,
   STATION_ROOM,
   type StationView,
+  wearCharacter,
 } from '@saber-side/shared';
-import { advance, boot, expect, hold, test } from './fixtures';
+import { advance, boot, expect, hold, snap, test } from './fixtures';
 import { OWNER_KEY, STATION_PORT } from './ports';
 
 // Coming aboard the station through the arrival screen, against a real station server (started by
@@ -71,6 +73,9 @@ async function driveInto(page: Page, building: { front: number; z: number }) {
   await advance(page, 100);
   await hold(page, 'ArrowUp', 2000);
 }
+
+/** The robot and the friend's tail it holds, in the camera behind it. */
+const HELD_TAIL = { x: 440, y: 140, width: 600, height: 400 };
 
 /** The owner panel's API on the throwaway station. */
 const owner = { Authorization: `Bearer ${OWNER_KEY}` };
@@ -443,6 +448,99 @@ test("sees another player's robot, and sends its own", async ({ page, errors }, 
     ).toBe(0);
   } finally {
     if (bot.connection.isOpen) await bot.leave();
+  }
+  expect(errors).toEqual([]);
+});
+
+test("grabs a friend's cat by the tail: it hangs from the robot's hand, and swings back when let go", async ({
+  page,
+  errors,
+}, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await online(page);
+  await page.goto('/?debug');
+  await playAsGuest(page);
+  // Let it finish rolling out of the Bot Maker, then stand it on open floor on the promenade, the camera behind it.
+  await advance(page, 6000);
+  await page.evaluate(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+    const s = (window as any).__saber;
+    s.bot.root.position.set(3, 0, 6);
+    s.st.yaw = 0;
+    s.st.camOrbit = 0;
+  });
+  await advance(page, 2000);
+  const me = await page.evaluate(() => (window as unknown as { __room: { sessionId: string } }).__room.sessionId);
+  const here = await saber<number[]>(page, '[s.bot.root.position.x, s.bot.root.position.z, s.st.yaw]');
+  const [x, z, yaw] = here as [number, number, number];
+
+  // The friend is a bot wearing Snatch, a few steps off this robot's right (its free hand's side), facing the other way
+  // so its tail curls toward us.
+  const snatch = CHARACTERS.find((c) => c.id === 'snatch');
+  if (!snatch) throw new Error('no Snatch');
+  const cat = await new Client(STATION).join<StationView>(STATION_ROOM, {
+    protocol: PROTOCOL_VERSION,
+    guest: { build: wearCharacter(classicBuild(), snatch) },
+  });
+  try {
+    const at: Record<string, number> = {
+      px: x - Math.cos(yaw) * 2.8,
+      pz: z + Math.sin(yaw) * 2.8,
+      qy: Math.sin((yaw + Math.PI) / 2),
+      qw: Math.cos((yaw + Math.PI) / 2),
+      squashX: 1,
+      squashY: 1,
+      shown: 1,
+    };
+    cat.send(
+      MESSAGE.pose,
+      POSE.map(([name]) => at[name] ?? 0),
+    );
+    const catName = await (async () => {
+      await expect.poll(() => cat.state.players?.get(cat.sessionId)?.name, { timeout: 10_000 }).toMatch(/^Bot \d+$/);
+      return cat.state.players?.get(cat.sessionId)?.name as string;
+    })();
+    await eventually(page, () =>
+      page.evaluate(() => (window as unknown as { __presence: { count: number } }).__presence.count),
+    ).toBeGreaterThanOrEqual(1);
+    // Within reach, the prompt offers its tail.
+    await eventually(page, () => page.locator('#prompt').textContent()).toContain(`Grab ${catName}'s tail`);
+
+    // Grab: the station puts the hold on the cat's seat, for everyone aboard.
+    await hold(page, 'g', 100);
+    const heldBy = () => cat.state.players?.get(cat.sessionId)?.tailHeldBy;
+    await eventually(page, async () => heldBy()).toBe(me);
+    await expect(page.locator('#prompt')).toHaveText(/Let go of the tail/);
+    // The tail's held point is in this robot's right hand, and the rest of it hangs from there.
+    await advance(page, 3000);
+    const gap = await page.evaluate((id) => {
+      // biome-ignore lint/suspicious/noExplicitAny: debug hooks exposed by the game
+      const w = window as any;
+      const chain = w.__tails.debug.chains().get(id);
+      const room = w.__room;
+      const seat = room.state.players.get(id);
+      const s = w.__saber;
+      const arm = s.bot.arms[seat.tailHand];
+      const g = s.bot.grip.position;
+      const hand = arm.wrist.localToWorld(new s.THREE.Vector3(-g.x, g.y, g.z));
+      const k = seat.tailSegment * 3;
+      return {
+        hand: seat.tailHand,
+        d: Math.hypot(chain.pos[k] - hand.x, chain.pos[k + 1] - hand.y, chain.pos[k + 2] - hand.z),
+      };
+    }, cat.sessionId);
+    expect(gap.hand).toBe(1);
+    expect(gap.d).toBeLessThan(0.01);
+    // A step back, to see both robots and the tail between them.
+    await hold(page, '-', 250);
+    await advance(page, 1500);
+    await snap(page, 'held-tail.png', HELD_TAIL);
+
+    // Grab again to let go: it's free, and swings back toward its curl.
+    await hold(page, 'g', 100);
+    await eventually(page, async () => heldBy()).toBe('');
+  } finally {
+    if (cat.connection.isOpen) await cat.leave();
   }
   expect(errors).toEqual([]);
 });

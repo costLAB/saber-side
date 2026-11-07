@@ -47,7 +47,9 @@ import { makeCanvas, textureKit, wrapX } from '../render/textures';
 import { dot } from '../render/kit';
 
 /** Hooks the new modules call into (see app/aboard.ts). Filled in below, once the scene exists. */
-export const legacy = { robotKit: null, setRobotBuild(_build) {}, rollOutOfBotMaker() {}, drivingOnFloor() { return null; }, releaseKeys() {}, leaveVr() {}, world: null, shopRow: null, frameHooks: [] };
+export const legacy = { robotKit: null, setRobotBuild(_build) {}, rollOutOfBotMaker() {}, drivingOnFloor() { return null; }, releaseKeys() {}, leaveVr() {}, world: null, shopRow: null, frameHooks: [],
+  // grabbing friends' tails (app/tails.ts); idle until main.ts hands it over
+  tail: { near() { return null; }, tryGrab() { return false; }, holding() { return false; }, letGo() {}, poseArm() { return false; }, spun() {} } };
 
 (() => {
 const V3 = THREE.Vector3;
@@ -989,11 +991,14 @@ let promptAt = null, promptAction = '';
 const promptPos = new V3();
 function updatePrompt(p, override, hintOnly) {
   const lift = override === undefined ? nearLift(p) : null, near = override === undefined && !lift ? nearestItem(p) : null;
-  const spinHere = override === undefined && !lift && !near && st.mode === 'floor' && harvest.ripeNear(p);
+  // a friend's tail to grab (app/tails.ts), or the one this robot holds to let go of
+  const tailName = override === undefined && !lift && !near && st.mode === 'floor' ? legacy.tail.near() : null;
+  const tailHeld = override === undefined && !lift && !near && !tailName && st.mode === 'floor' && legacy.tail.holding();
+  const spinHere = override === undefined && !lift && !near && !tailName && !tailHeld && st.mode === 'floor' && harvest.ripeNear(p);
   if (st.mode === 'floor' && lift) { promptAt = { x: 0, y: 6.2, z: lift.z }; promptAction = 'grab'; }
   else if (st.mode === 'floor' && near) { near.group.getWorldPosition(promptPos); promptAt = { x: promptPos.x, y: promptPos.y + 1.3, z: promptPos.z }; promptAction = 'grab'; }
-  else { promptAt = null; promptAction = spinHere ? 'spin' : override !== undefined && !hintOnly ? 'grab' : ''; }
-  const txt = override !== undefined ? override : lift ? `Ride lift ${lift.k + 1} up to the hub` : near ? `${held ? 'Swap for' : 'Pick up'} the ${near.name}` : spinHere ? 'Spin to kick up carrots' : '';
+  else { promptAt = null; promptAction = spinHere ? 'spin' : tailName || tailHeld || (override !== undefined && !hintOnly) ? 'grab' : ''; }
+  const txt = override !== undefined ? override : lift ? `Ride lift ${lift.k + 1} up to the hub` : near ? `${held ? 'Swap for' : 'Pick up'} the ${near.name}` : tailName ? `Grab ${tailName}'s tail` : tailHeld ? 'Let go of the tail' : spinHere ? 'Spin to kick up carrots' : '';
   if (txt === promptText) return;
   promptText = txt; promptHint = !!hintOnly;
   const cap = spinHere ? (isTouch ? 'SPIN' : 'X') : isTouch ? 'GRAB' : 'G';
@@ -1003,6 +1008,7 @@ function updatePrompt(p, override, hintOnly) {
 
 function startSpin() {
   st.spin = 0;
+  legacy.tail.spun();   // a cat shakes its tail free of whoever holds it
   if (st.mode === 'floor' && st.grounded) harvest.spin(bot.root.position);   // in a carrot bed, kick some up
   if (!st.grounded) st.vy = Math.max(st.vy, 4);
 }
@@ -1115,6 +1121,7 @@ function update(dt, t) {
   const isSpin = st.spin >= 0;
   for (const A of bot.arms) {
     if (vr.poseArm(A)) continue;   // in VR, your hands pose the arms (app/vr-hands.ts)
+    if (legacy.tail.poseArm(A, dt)) continue;   // the hand holding a friend's tail reaches for it (app/tails.ts)
     const s = A.s;
     let ab = 0.36 + 0.035 * Math.sin(t * 1.7 + s), sw = 0.06 * Math.sin(t * 1.3 + s * 1.1), el = 0.45 + 0.05 * Math.sin(t * 1.7), ez = 0, wr = 0.1, wz = 0, curl = 0.3;
     // rolling: pump the arms opposite each other
@@ -1163,7 +1170,8 @@ function update(dt, t) {
     const hand = vr.grabHand();   // in VR: the hand that gripped picks up what's near it, and only lets go of its own
     const near = nearestItem(p, hand);
     if (near) { dropHeld(); hold(near); st.reach = 0.35; }
-    else if (!hand || hand.holding) dropHeld();
+    else if (legacy.tail.holding() && !(hand && hand.holding)) legacy.tail.letGo();   // let go of a friend's tail first
+    else if (!legacy.tail.tryGrab(hand) && (!hand || hand.holding)) dropHeld();   // or grab one (app/tails.ts)
   }
   if (held) {
     if (held.kind === 'saber' && pressed.use) held.target = held.target ? 0 : 1;

@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | Started: Snatch is in the game (#46); next is `feature/sketchbook-astronaut` |
+| **Status** | Started: Snatch is in the game (#46); `feature/grabbable-cat-tail` (#47) is in review; next is `feature/sketchbook-astronaut` |
 | **Phase** | P3 (the characters), P5 (prices, with the [parts catalog](robot-parts-catalog.md)) |
 | **Started** | 2026-11-07 |
 | **Done when** | A kid walks into the Bot Maker, opens the Characters shelf, taps Snatch, and rolls out as a gray robot cat with huge yellow eyes, pointed ears, and a ringed tail. They swap its head for Patch's pumpkin, then reach out with the cat's tail, grab a saber off the floor two meters away, and pull it into their grabber, while a friend on an iPad sees exactly that robot. |
@@ -46,8 +46,8 @@ them: shared shape generators, toon materials on a stepped ramp, and thick outli
 ![Spider Web, the spider](sketchbook/spider-in-game.jpg)
 ![Homemade Web, the homemade robot](sketchbook/homemade-in-game.jpg)
 
-The cat's tail is labeled "able to grab and pull". That's a feature, not a look: [the tail](#the-cats-tail) has its own
-PR.
+The cat's tail is labeled "able to grab and pull". That's a feature, not a look: [the tail](#the-cats-tail) has PRs of its
+own.
 
 ## Decisions
 
@@ -167,17 +167,75 @@ part, so a Snatch with Patch's glowing eyes is a pick away.
 - **What it can't grab:** items another robot is holding, and anything for sale in a shop (it doesn't steal).
 - **The server decides,** like every pickup: the tail's grab is the same `pickup` the hand sends, with a longer reach,
   so it waits for `foundation/server-held-items`.
-- **The swish:** the tail is a chain of segments driven by a little spring, so it sways as the robot rolls, flicks on
-  a turn, and curls when it stops. The swish is cosmetic and comes from the seeded `mulberry` stream, never
-  `Math.random`.
+- **The swish is a ragdoll** (PR 7): the tail is a chain of points with physics, so it trails as the robot rolls,
+  flicks on a turn, flies up on a jump, swings out in a spin attack, and curls back into its rest pose when it stops.
+  It's cosmetic, worked out on every client from the robot's pose, with no randomness at all.
+- **Whipping out is a pin** (PR 6): the ragdoll can pin any point of the chain to a spot in the world. A friend's
+  hand pins it in PR 7; PR 6 whips the tail out by pinning its tip to the item and moving that pin out and back, so
+  the rest of the tail follows through the same physics.
 - **Rates in config:** reach, how fast it whips out and pulls back, and how long between grabs.
+
+#### The ragdoll
+
+`shared/sim/tail-chain.ts`, plain numbers with no scene, so it's unit-tested:
+
+- **Verlet on a fixed step** (1/60 s, at most 4 steps a frame, so a slow Quest frame lets the tail lag rather than
+  cost more). Nine points, the rest pose's spline points (`shared/content/cat-tail.ts`), in the world.
+- **Muscle:** each point is pulled toward where the rest pose puts it, stiffly at the root and softly at the tip. A
+  free tail's muscle carries its own weight, so a still robot settles into exactly the rest pose (the screenshots of
+  Snatch at rest are the same picture as before). A held tail goes limp, so it hangs under gravity from its root to
+  the hand, and the rest dangles past the hand. Let go, its muscle comes back over half a second or so and it swings
+  home.
+- **Each step** keeps every segment its length, bends no joint more than 0.75 rad past its bend at rest, keeps out of
+  the body (a ball round the bell, never pushing a point further out than it rests), and stays above the floor.
+  Gravity is along the robot's own up, so it's right on the ring floor and in the hub.
+- **A teleport** (a lift ride, a respawn) puts it back at rest instead of whipping it across the station, and a robot
+  not posed yet is left alone until it is.
+- **Drawn by bones:** the ringed tube is built once along the rest pose and skinned to one bone per point, outlines
+  and all, so the tail bends without rebuilding geometry. `app/tails.ts` steps every cat on screen; cats more than 60
+  units away keep their rest pose unsimulated.
+
+#### Friends grab the tail
+
+Proposed here (PR 7), for the owner to confirm. A friend's robot can grab Snatch's tail with its hand.
+
+- **The same grab:** **G** (or **Grab** on an iPad, the grip in VR) with no item near reaches for the nearest point
+  of a friend's tail, and the prompt says "Grab Bot 3's tail". On an iPad or Mac the free right hand takes it, so a
+  saber stays in the left; in VR, the hand that gripped. Grab again to let go.
+- **The server decides** (D7: each client owns its own robot). The grabber's client sends `grabTail` (whose tail,
+  which point, which hand). The station checks it against the poses it holds (`shared/sim/tail-grab.ts`): the target
+  wears the cat body, the grabber has arms, the two stand within 4.5 units, the tail is free, and the grabber holds no
+  other tail. It then puts `tailHeldBy`, `tailSegment`, and `tailHand` on the cat's seat, and every client pins that
+  point of the chain to that robot's hand. A refused grab gets a `tail` notice; the grabber's own screen shows the
+  grab at once and drops it if refused.
+- **One hand per tail,** first come: a second robot's grab is refused while someone holds it.
+- **The station lets go** when the grabber lets go, when either one leaves or goes out of sight, when the cat
+  rebuilds without its body or the grabber without arms, and when they're pulled more than 7 units apart.
+- **What it does to the cat** (each one an open question below):
+  - **a gentle tug:** past the tail's slack, the cat's own client drifts it toward the hand, at most a third of its
+    top speed, so it can still drive away, slowly;
+  - **a stretch limit:** pulled more than 7 units apart, the grip breaks, decided by the station so it's the same for
+    everyone;
+  - **a spin attack shakes it free:** the cat's client sends `shakeTail` when it spins, and the station lets go.
+
+#### How PR 6 and PR 7 fit
+
+- **PR 7 comes first,** because it needs nothing else: friends grab the tail, which proves the ragdoll and its pins.
+  It doesn't touch held items, so it doesn't wait for `foundation/server-held-items`.
+- **PR 6 builds on it:** the whip out and pull back are a pin on the tip moving along a path, and an item held in the
+  tail rides on the tip's bone. Its `tail` pose field (out, holding, idle) sits next to PR 7's seat fields, and its
+  reach rule goes in `tail-grab.ts` next to PR 7's.
+- **One tail, two jobs:** a tail a friend holds can't whip out (PR 6 refuses), and a tail that's out or holding an
+  item can still be grabbed by a friend, which drops nothing: the item stays on the tip.
 
 ### Protocol
 
 - **Every new part id needs a `PROTOCOL_VERSION` bump:** an older client's `cleanRobotBuild` refuses an id it doesn't
   know, so it couldn't draw a friend's robot. Each character's PR bumps it once.
-- **The tail** adds a `tail` field to the pose (out, holding, or idle) so friends see it reach, and a second held slot
-  for what it holds. One more bump.
+- **Grabbing the tail** (PR 7) adds `grabTail`, `letGoTail`, and `shakeTail`, a `tail` notice for refusals, and
+  `tailHeldBy`, `tailSegment`, and `tailHand` on each seat: `PROTOCOL_VERSION` 14.
+- **The tail** (PR 6) adds a `tail` field to the pose (out, holding, or idle) so friends see it reach, and a second held
+  slot for what it holds. One more bump.
 - **No database change** for the characters: they're parts in `robots.build_json`. Prices come with the parts
   catalog's `owned_parts`.
 
@@ -193,9 +251,11 @@ merges.
 | 3 | | `feature/sketchbook-pumpkin` | Turn the sketchbook pumpkin into a robot | Patch: the ribbed pumpkin head and body, glowing eyes, the stem, the chest panel, and hooked claws. A screenshot. | `PROTOCOL_VERSION` bump |
 | 4 | | `feature/sketchbook-spider` | Turn the sketchbook spider into a robot | Spider Web: the dark dome with glowing slit eyes, the box body on its neck, and four jointed legs with claw feet that step as it rolls. A screenshot. | `PROTOCOL_VERSION` bump |
 | 5 | | `feature/sketchbook-homemade` | Turn the sketchbook homemade robot into a robot | Homemade Web: the striped mushroom cap and bell, the peg, the stick bundle with rope, rings, and the red tag. A screenshot sheet of all five characters, and of a few mixed builds. | `PROTOCOL_VERSION` bump |
-| 6 | | `feature/cat-tail-grab` | Let the cat's tail grab and pull things | The tail as a third hand: whip out, grab a held item up to 2.5 m away, pull it in. A `tail` pose field, a second held slot, and the server checking the reach. Needs `foundation/server-held-items`. | `PROTOCOL_VERSION` bump |
+| 6 | | `feature/cat-tail-grab` | Let the cat's tail grab and pull things | The tail as a third hand: whip out, grab a held item up to 2.5 m away, pull it in, all by moving a pin on PR 7's ragdoll. A `tail` pose field, a second held slot, and the server checking the reach. Needs `foundation/server-held-items` and PR 7. | `PROTOCOL_VERSION` bump |
+| 7 | In review (#47) | `feature/grabbable-cat-tail` | Let friends grab Snatch's ragdoll tail | The tail as a ragdoll (`shared/sim/tail-chain.ts`: verlet, length and bend limits, gravity, the body and floor, settling into the rest pose), drawn by bones. Friends grab it with the item grab: `grabTail` checked by the station (`shared/sim/tail-grab.ts`), the hold on the cat's seat, the chain pinned to the grabber's hand on every client. A gentle tug on the cat, a stretch limit, and a spin attack to shake free. Unit, server, and e2e tests, and a screenshot of a held tail. | `PROTOCOL_VERSION` 14 |
 
-PRs 1 to 5 don't need anything else and can merge any time, in any order after PR 1. PR 6 needs the
+PRs 1 to 5 don't need anything else and can merge any time, in any order after PR 1. PR 7 needs only PR 1. PR 6 needs
+PR 7 and the
 [inventory initiative](inventory.md)'s `foundation/server-held-items`. Prices come with the parts catalog's
 `feature/parts-catalog`, which lists the characters' parts with the rest.
 
@@ -205,14 +265,24 @@ PRs 1 to 5 don't need anything else and can merge any time, in any order after P
   - `cleanRobotBuild` with every character part, and with mixed builds (Snatch's head on Homemade Web's body).
   - Every character in `characters.ts` names parts that exist, in the right slots.
   - The tail's reach rule: in range, out of range, held by someone else, for sale in a shop.
+  - The ragdoll (PR 7): it holds the rest pose when still, trails and settles back, keeps its lengths and bend limits
+    through a spin attack, stays out of the body and above the floor, hangs from a hand and swings back when let go,
+    snaps to rest after a teleport, waits for a robot with no pose yet, and gives the same tail for the same moves.
+  - Grabbing a friend's tail (PR 7): in reach (across the ring's seam too), out of reach, no tail, yourself, no arms,
+    one hand per tail and one tail per hand, which points and hands, and when the grip breaks.
 - **Server:**
   - A tail grab past the reach is refused; two robots grabbing the same item, one with a tail, give it to one only.
+  - Friends' grabs (PR 7): everyone sees who holds the tail; one past the reach is refused; two robots grabbing one
+    tail at once, one gets it; it lets go when pulled apart, when the cat spins free, when the grabber leaves, and when
+    the cat rebuilds without its body.
 - **E2E:**
   - A screenshot of each character in its original skin, one fully painted (the details stay unpainted), and the
     classic robot unchanged.
   - Picking a character on the shelf puts on all three parts (DOM-checked through the builder), and swapping one head
     leaves the rest.
   - The cat's tail pulling a carrot into its paw.
+  - A friend's cat grabbed by the tail (PR 7): the prompt offers it, the station shows the hold, the held point sits
+    in the robot's right hand, a screenshot of it, and grab again lets go.
 
 ## Risks
 
@@ -224,6 +294,8 @@ PRs 1 to 5 don't need anything else and can merge any time, in any order after P
 | The tail's 2.5 m reach feels like stealing | It can't take what's held or for sale, and the server checks the reach |
 | Outlines double the draw calls of every character | One outline mesh per merged static group, not per part; drop outlines on far-away robots |
 | Toon characters look out of place in the station | They're meant to stand out; check them next to the classic robot in the plaza screenshot |
+| Skinned tails and their physics cost frame time with several cats on a Quest | Nine points and a few cheap passes per cat; bones, not rebuilt geometry; cats past 60 units aren't simulated. Watch Quest frame time with 10 cats |
+| Grabbing a tail feels mean | The cat can always drive off (the tug is gentle), shake free with a spin, or pull out of reach; see the open questions |
 | A build drifts from the reference sheet | Each PR's screenshot goes next to the sheet in review, and the son sees it before it merges |
 
 ## Open questions
@@ -231,5 +303,13 @@ PRs 1 to 5 don't need anything else and can merge any time, in any order after P
 - **The credit on the cards:** "Drawn by" whom? A first name, a nickname, or just "From the sketchbook"?
 - **Can the tail pull friends?** Towing a friend's robot (with their OK) is fun, but each player's client owns their own
   robot (D7), so it needs a "let them pull you" step. Left out of PR 6.
+- **A held tail and the cat (PR 7):** each is built as proposed; which should stay?
+  - **The tug:** should a held tail slow the cat and drag it toward the hand at all? At most a third of its top speed
+    now. Stronger, weaker, or none?
+  - **The stretch limit:** the grip breaks at 7 units apart. Shorter, so a cat gets away more easily, or longer?
+  - **Shaking free:** a spin attack frees the tail. Should it also knock the grabber's hand away, or cost the cat
+    anything? Should the cat be able to say "don't grab my tail" in its settings?
+- **Two hands on one tail?** A tug of war (two friends each holding a point) would be fun. PR 7 allows one at a time.
+- **Grabbing back:** should a cat be able to grab a friend's tail with its own tail (PR 6), or only with its hands?
 - **More characters later?** If the sketchbook keeps growing, a new character is a skin, some features, and a hand.
   Should kids be able to submit drawings from inside the game, or does the owner add them?
