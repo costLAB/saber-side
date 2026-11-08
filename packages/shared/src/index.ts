@@ -24,6 +24,7 @@ export * from './sim/paint-cure.ts';
 export * from './sim/selfie.ts';
 export * from './sim/ship.ts';
 export * from './sim/shops.ts';
+export * from './sim/solids.ts';
 export * from './sim/vr-cockpit.ts';
 export * from './sim/vr-comfort.ts';
 export * from './sim/vr-hands.ts';

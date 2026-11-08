@@ -357,11 +357,14 @@ export function catArm(kit: PartKit, shoulder: THREE.Group, s: number, paint: st
   const cream = look.toon(CAT.armCream);
   const orange = look.toon(CAT.orange);
   const ink = INK.thick * 0.6;
+  /** The bands, which stretch with the arm when VR makes it long (parts/arms.ts). */
+  const bands: THREE.Object3D[] = [];
   /** A band of the arm, from y0 down to y1 in its joint's frame. */
   const band = (parent: THREE.Object3D, y0: number, y1: number, r: number, mat: THREE.Material) => {
     const m = look.ink(mesh(new THREE.CapsuleGeometry(r, y0 - y1, 6, 16), mat), ink);
     m.position.y = (y0 + y1) / 2;
     parent.add(m);
+    bands.push(m);
   };
   band(shoulder, 0.02, -0.15, 0.14, fur);
   band(shoulder, -0.15, -0.33, 0.125, cream);
@@ -395,7 +398,7 @@ export function catArm(kit: PartKit, shoulder: THREE.Group, s: number, paint: st
   const tip = look.ink(mesh(ellipsoid(0.07, 0.09, 0.07, 16, 12), cream), INK.thin);
   tip.position.y = -0.04;
   thumb.add(tip);
-  return { elbow, wrist, fingers, thumb };
+  return { elbow, wrist, fingers, thumb, bands };
 }
 
 /** Where a cat paw holds things, in its wrist's frame. */

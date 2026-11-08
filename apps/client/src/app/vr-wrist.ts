@@ -16,7 +16,7 @@ import type { DrawTexFn } from '../render/kit';
 //
 // - The main page: where you are, the station's status, who you're playing as and your wallet, what you're holding,
 //   the frame rate with `?perf`, and Selfie, Comfort, and Exit VR.
-// - The comfort page: turning, the vignette, seated mode, pushing off with your hands, Recenter, and Back.
+// - The comfort page: turning, the vignette, seated mode, moving with your arms or the stick, Recenter, and Back.
 //
 // It's a canvas texture, redrawn only when its text changes. The rules (facing, touching, pressing) are in
 // shared/sim/vr-wrist.ts.
@@ -132,7 +132,7 @@ export function createWristPanel(drawTex: DrawTexFn, comfort: Comfort, saveComfo
         },
         {
           id: 'arms',
-          label: `Arm walk: ${comfort.armWalking ? 'on' : 'off'}`,
+          label: `Move: ${comfort.armWalking ? 'arms' : 'stick'}`,
           rect: { u: 0.52, v: 0.42, w: 0.43, h: 0.17 },
           on: comfort.armWalking,
         },

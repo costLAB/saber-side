@@ -41,6 +41,9 @@ export const POSE = [
   ['shown', 'flag'],
   // how far the mouth is open (0 shut to 1 wide), for eating (sim/eating.ts)
   ['jaw', 'scale'],
+  // how long each arm is, against how it was built (1): a Quest player's robot has long arms (sim/arm-locomotion.ts)
+  ['arm0reach', 'scale'],
+  ['arm1reach', 'scale'],
 ] as const satisfies readonly (readonly [string, PoseKind])[];
 
 export type PoseField = (typeof POSE)[number][0];

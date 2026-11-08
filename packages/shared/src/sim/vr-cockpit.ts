@@ -1,6 +1,6 @@
 import { clamp, lerp } from '../math.ts';
-import type { Point } from './arm-locomotion.ts';
 import { BOOST, BRAKE_SPACE, BRAKE_SURFACE, CRUISE_SPACE, CRUISE_SURFACE } from './ship.ts';
+import type { Point } from './solids.ts';
 import { wrapAngle } from './vr-rig.ts';
 
 // Flying a ship from the cockpit in VR (docs/initiatives/quest-vr.md, PR 7): you sit in the pilot's seat, and fly by

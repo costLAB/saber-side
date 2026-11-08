@@ -12,6 +12,7 @@ import { type BodyMounts, type CoatCure, type PartKit, partKit, type RobotKit } 
 // were moved unchanged from the legacy game (where it was the one and only `bot`).
 
 export type { RobotArm } from './parts/arms';
+export { setArmReach } from './parts/arms';
 export type { Jaw } from './parts/jaw';
 export type { CoatCure, RobotKit, RobotMaterials } from './parts/kit';
 

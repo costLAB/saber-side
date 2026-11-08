@@ -16,6 +16,25 @@ export interface RobotArm {
   wrist: THREE.Group;
   fingers: { root: THREE.Group; joint: THREE.Group; spread: number }[];
   thumb: THREE.Group;
+  /** How long the arm is against how it was built (1). VR gives a player's own robot long arms (`setArmReach`). */
+  reach: number;
+  /** Everything along the upper arm and forearm, as built, for lengthening the arm. */
+  bones: ArmBone[];
+}
+
+/**
+ * Something on an arm's upper arm or forearm, as built: where it sat (`y`, down the bone from the joint above), and
+ * how long the bone it's on is. The next joint and the parts on the bone spread out along the longer bone; a segment
+ * (`len`, its built length, and `sy`, its own scale) stretches so its ends keep their gaps to the joints; and a band
+ * (one of several stacked along the bone, like the cat's) stretches with the bone, so the stack stays joined.
+ */
+export interface ArmBone {
+  obj: THREE.Object3D;
+  y: number;
+  bone: number;
+  len?: number;
+  sy?: number;
+  band?: boolean;
 }
 
 export interface BuiltArms {
@@ -42,7 +61,9 @@ export function buildArms(kit: PartKit, core: THREE.Group, pick: PartPick<'arms'
     const shoulder = new THREE.Group();
     shoulder.position.set(s * at.shoulder[0], at.shoulder[1], at.shoulder[2]);
     core.add(shoulder);
-    return { s, cur, shoulder, ...arm(kit, limb, shoulder, s) };
+    const { segments = [], bands = [], ...joints }: Joints = arm(kit, limb, shoulder, s);
+    const bones = armBones(shoulder, joints.elbow, joints.wrist, segments, bands);
+    return { s, cur, shoulder, ...joints, reach: 1, bones };
   });
   const grip = new THREE.Group();
   const [gx, gy, gz] = GRIP[pick.part];
@@ -51,10 +72,68 @@ export function buildArms(kit: PartKit, core: THREE.Group, pick: PartPick<'arms'
   return { arms, grip };
 }
 
+/** Lists what lengthening an arm moves: the shoulder's and the elbow's parts, down to the next joint. */
+function armBones(
+  shoulder: THREE.Group,
+  elbow: THREE.Group,
+  wrist: THREE.Group,
+  segments: THREE.Mesh[],
+  bands: THREE.Object3D[],
+): ArmBone[] {
+  const out: ArmBone[] = [];
+  for (const [joint, next] of [
+    [shoulder, elbow],
+    [elbow, wrist],
+  ] as const) {
+    const bone = Math.abs(next.position.y);
+    for (const obj of joint.children) {
+      if (obj.position.y === 0) continue; // on the joint itself (its ball): stays put
+      if (bands.includes(obj)) {
+        out.push({ obj, y: obj.position.y, bone, sy: obj.scale.y, band: true });
+        continue;
+      }
+      const seg = segments.find((m) => m === obj);
+      const len = (seg?.geometry as { parameters?: { height?: number } } | undefined)?.parameters?.height;
+      out.push(
+        seg && len
+          ? { obj, y: obj.position.y, bone, len: len * seg.scale.y, sy: seg.scale.y }
+          : { obj, y: obj.position.y, bone },
+      );
+    }
+  }
+  return out;
+}
+
+/** Makes an arm `reach` times as long as it was built (1 puts it back). Nothing is added or rebuilt, just moved. */
+export function setArmReach(arm: RobotArm, reach: number) {
+  if (arm.reach === reach) return;
+  arm.reach = reach;
+  const k = reach - 1;
+  for (const b of arm.bones) {
+    if (b.band && b.sy !== undefined) {
+      // a band stretches with its bone, so the stack stays joined
+      b.obj.position.y = b.y * reach;
+      b.obj.scale.y = b.sy * reach;
+    } else if (b.len === undefined || b.sy === undefined) b.obj.position.y = b.y * reach;
+    else {
+      // the segment's top keeps its gap to the joint above, and its bottom its gap to the next joint
+      b.obj.position.y = b.y - (k * b.bone) / 2;
+      b.obj.scale.y = b.sy * (1 + (k * b.bone) / b.len);
+    }
+  }
+}
+
 /** Where each kind of hand holds things, in its wrist's frame. */
 const GRIP = { grabber: [0, -0.24, 0.05], pincer: [0, -0.26, 0.05], noodle: [0, -0.12, 0.1], cat: CAT_GRIP } as const;
 
-type Joints = Omit<RobotArm, 's' | 'cur' | 'shoulder'>;
+/**
+ * What each kind of arm builds: its joints, and what stretches when the arm is lengthened: its bone segments, or the
+ * bands stacked along its bones.
+ */
+type Joints = Omit<RobotArm, 's' | 'cur' | 'shoulder' | 'reach' | 'bones'> & {
+  segments?: THREE.Mesh[];
+  bands?: THREE.Object3D[];
+};
 
 /** The classic jointed arms with two fingers and a thumb, moved unchanged from the legacy robot. */
 function grabber(kit: PartKit, limb: THREE.Material, shoulder: THREE.Group, s: number): Joints {
@@ -120,7 +199,7 @@ function grabber(kit: PartKit, limb: THREE.Material, shoulder: THREE.Group, s: n
   tt.position.y = -0.1;
   tt.scale.y = 1.3;
   thumb.add(tt);
-  return { elbow, wrist, fingers, thumb };
+  return { elbow, wrist, fingers, thumb, segments: [up, fore] };
 }
 
 /** Chunky arms ending in a two-jawed claw. */
@@ -175,17 +254,19 @@ function pincer(kit: PartKit, limb: THREE.Material, shoulder: THREE.Group, s: nu
   thumb.position.set(s * 0.12, -0.05, 0);
   wrist.add(thumb);
   thumb.add(mesh(Sph(0.025, 8, 6), M.metal, false));
-  return { elbow, wrist, fingers, thumb };
+  return { elbow, wrist, fingers, thumb, segments: [up, fore] };
 }
 
 /** Long, bendy hose arms with ball hands. */
 function noodle(kit: PartKit, limb: THREE.Material, shoulder: THREE.Group, _s: number): Joints {
   const { materials: M, mesh } = kit;
   shoulder.add(mesh(Sph(0.12, 18, 12), M.metal));
+  const segments: THREE.Mesh[] = [];
   const ribs = (parent: THREE.Group) => {
     const hose = mesh(Cyl(0.05, 0.05, 0.4, 10), limb);
     hose.position.y = -0.22;
     parent.add(hose);
+    segments.push(hose);
     for (let i = 0; i < 4; i++) {
       const rib = mesh(flatRing(0.055, 0.015, 14), M.dark);
       rib.position.y = -0.07 - i * 0.1;
@@ -210,5 +291,5 @@ function noodle(kit: PartKit, limb: THREE.Material, shoulder: THREE.Group, _s: n
   // ball hands: no fingers, and a thumb with nothing on it
   const thumb = new THREE.Group();
   wrist.add(thumb);
-  return { elbow, wrist, fingers: [], thumb };
+  return { elbow, wrist, fingers: [], thumb, segments };
 }
