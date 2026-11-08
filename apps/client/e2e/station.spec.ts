@@ -100,11 +100,12 @@ test('plays straight away as a guest: builds a robot from parts and rolls it out
   await expect(page.getByRole('heading', { name: 'Build your robot' })).toBeVisible();
   await expect(sheet.getByLabel('Name')).toHaveCount(0);
   const slot = (name: string) => page.locator(`[data-slot=${name}]`);
-  await expect(slot('mobility').locator('.chip')).toHaveText(['Single wheel']);
-  // One tap puts on all of Snatch, the sketchbook cat; any part can still be swapped after.
+  await expect(slot('mobility').locator('.chip')).toHaveText(['Single wheel', 'Small roller']);
+  await expect(slot('mobility').getByRole('radio', { name: 'Single wheel' })).toBeChecked();
+  // One tap puts on all of Snatch, the sketchbook cat, on its small roller; any part can still be swapped after.
   await sheet.getByRole('button', { name: 'Snatch' }).click();
   for (const s of ['body', 'head', 'arms']) await expect(slot(s).getByRole('radio', { name: 'Snatch' })).toBeChecked();
-  await expect(slot('mobility').getByRole('radio', { name: 'Single wheel' })).toBeChecked();
+  await expect(slot('mobility').getByRole('radio', { name: 'Small roller' })).toBeChecked();
   await slot('body').getByText('Barrel').click();
   await slot('body').locator('label[title="Sky"]').click();
   await slot('head').getByText('Visor').click();
@@ -115,7 +116,7 @@ test('plays straight away as a guest: builds a robot from parts and rolls it out
   await eventually(page, () => page.locator('#who').textContent()).toMatch(/^Guest · Bot \d+/);
   await expect(sheet).toBeHidden();
   const built = {
-    mobility: { part: 'wheel', paint: '#e8935a' },
+    mobility: { part: 'roller', paint: '#e8935a' },
     body: { part: 'barrel', paint: '#8fc4f2' },
     head: { part: 'visor', paint: '#ffffff' },
     arms: null,

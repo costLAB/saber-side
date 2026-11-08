@@ -2,7 +2,7 @@ import { classicBuild, type RobotBuild } from '@saber-side/shared';
 import * as THREE from 'three';
 import { makeCanvas } from '../render/textures';
 import { type BuiltArms, buildArms, type RobotArm } from './parts/arms';
-import { buildBody, buildMobility } from './parts/body';
+import { buildBody, buildMobility, CORE_Y, rideDrop } from './parts/body';
 import { buildHead } from './parts/head';
 import { bodyHatch, type Jaw, setJaw } from './parts/jaw';
 import { type BodyMounts, type CoatCure, type PartKit, partKit, type RobotKit } from './parts/kit';
@@ -27,6 +27,8 @@ export interface Robot {
   core: THREE.Group;
   /** The wheel's drive ball, which spins as the robot rolls. */
   drive: THREE.Mesh;
+  /** The drive ball's radius: it turns by distance rolled over this. */
+  driveRadius: number;
   /** Turned by the animation. Empty on a robot with no head. */
   head: THREE.Group;
   /** The body's blinking LED, if it has one. */
@@ -93,14 +95,20 @@ export function buildRobot(
   const spinner = new THREE.Group();
   squash.add(spinner);
   const core = new THREE.Group();
-  core.position.y = 0.95;
+  core.position.y = CORE_Y;
   spinner.add(core);
 
-  const drive = buildMobility(parts, core, build.mobility);
+  const wheel = buildMobility(parts, core, build.mobility);
+  const drive = wheel.drive;
   const body = buildBody(parts, core, build.body);
   const head = buildHead(parts, core, build.head, body.mounts.neckY, !!opts.eyeLight);
   const { arms, grip }: BuiltArms = buildArms(parts, core, build.arms, body.mounts);
   const jaw = head.jaw ?? hatch(parts, core, body.mounts.mouth);
+  // On a low mobility part (the small roller), everything but the roller sits down close to the ground.
+  if (wheel.low) {
+    const drop = rideDrop(body.mounts, !!build.arms);
+    for (const o of core.children) if (!wheel.meshes.includes(o)) o.position.y -= drop;
+  }
 
   // spin-attack swooshes ride on the spinner
   const sc = makeCanvas(256, 32);
@@ -166,6 +174,7 @@ export function buildRobot(
     spinner,
     core,
     drive,
+    driveRadius: wheel.radius,
     head: head.head,
     eyeCore: head.eyeCore,
     eyeGlow: head.eyeGlow,

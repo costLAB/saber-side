@@ -12,23 +12,34 @@ export interface Character {
   /** What the drawing was of. */
   word: string;
   parts: { body: PartId<'body'>; head: PartId<'head'>; arms: PartId<'arms'> };
+  /** What it rolls on when it's put on whole. */
+  mobility: PartId<'mobility'>;
 }
 
 export const CHARACTERS: readonly Character[] = [
-  { id: 'snatch', name: 'Snatch', word: 'Cat', parts: { body: 'cat', head: 'cat', arms: 'cat' } },
+  {
+    id: 'snatch',
+    name: 'Snatch',
+    word: 'Cat',
+    parts: { body: 'cat', head: 'cat', arms: 'cat' },
+    mobility: 'roller',
+  },
 ];
 
-/** A build wearing a character: its head, body, and arms, each in its original skin. The wheel stays as it was. */
+/**
+ * A build wearing a character: its head, body, and arms, each in its original skin, on the character's mobility part
+ * (in the paint the old one had).
+ */
 export function wearCharacter(build: RobotBuild, character: Character): RobotBuild {
   return {
-    mobility: build.mobility,
+    mobility: { part: character.mobility, paint: build.mobility.paint },
     body: { part: character.parts.body, paint: ORIGINAL_PAINT },
     head: { part: character.parts.head, paint: ORIGINAL_PAINT },
     arms: { part: character.parts.arms, paint: ORIGINAL_PAINT },
   };
 }
 
-/** The character a build is wearing all of, if any. */
+/** The character a build is wearing all of (whatever it rolls on), if any. */
 export function characterOf(build: RobotBuild): Character | undefined {
   return CHARACTERS.find(
     (c) => build.body?.part === c.parts.body && build.head?.part === c.parts.head && build.arms?.part === c.parts.arms,

@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | Started: Snatch is in the game (#46); next is `feature/sketchbook-astronaut` |
+| **Status** | Started: Snatch is in the game (#46); next is `feature/snatch-small-roller`, then `feature/sketchbook-astronaut` |
 | **Phase** | P3 (the characters), P5 (prices, with the [parts catalog](robot-parts-catalog.md)) |
 | **Started** | 2026-11-07 |
 | **Done when** | A kid walks into the Bot Maker, opens the Characters shelf, taps Snatch, and rolls out as a gray robot cat with huge yellow eyes, pointed ears, and a ringed tail. They swap its head for Patch's pumpkin, then reach out with the cat's tail, grab a saber off the floor two meters away, and pull it into their grabber, while a friend on an iPad sees exactly that robot. |
@@ -104,8 +104,9 @@ By the owner, 2026-11-07.
   its dome rides on a short neck above its body.
 - **The roller.** The characters don't sit on the giant drive sphere. Their mobility is a small drive roller hidden
   under the body, so they still roll. Spider Web stands on its claws, with its body off the floor; it rolls on the same
-  hidden roller, and its legs step as it goes. Until PR 2 adds the roller, Snatch sits on the drive ball like every
-  other body, its bell covering the ball's top.
+  hidden roller, and its legs step as it goes. PR 2 adds the roller (the `roller` mobility part):
+  a small drive ball on the floor, tucked up inside the body, so the body sits just off the ground. Putting a character
+  on whole puts it on its roller; any body can ride the roller, and any character can still ride the big wheel.
 - **Torsos keep the standard mounts** (the neck spot on top, shoulders, the hold point, a chest hatch), placed on each
   shape, so any head and any arms fit any torso, and a character's head and arms fit the old bodies too.
 - **The arms** are segmented: short capsules in two alternating colors, so the outline draws each joint. The hand on
@@ -188,14 +189,15 @@ merges.
 
 | # | Status | Branch | PR title | What it adds | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
-| 1 | **Done** (#46) | `feature/sketchbook-cat` | Turn the sketchbook cat into a robot | Snatch as parts: a `cat` head, body, and arms in each slot's list, and a **From the sketchbook** pick in the Bot Maker that puts all three on (`shared/content/characters.ts`). Cel-shaded on a stepped ramp, with inverted-hull outlines. Skins drawn in code as details over the fur, so paint covers the fur only. The head: the superellipsoid with the face, eyes laid on it, the nose, ears, cheek tufts, and a jaw. The body: a bell sitting on the drive ball (the small roller comes with PR 2), carrying the ringed tail in its rest pose. The arms: banded, with mitten paws. Screenshots face on, painted and not, and every classic baseline unchanged. | `PROTOCOL_VERSION` 13 |
-| 2 | | `feature/sketchbook-astronaut` | Turn the sketchbook astronaut into a robot | The cat's head and body made into the shared generators, with each character's shape numbers; the small drive roller as a mobility part; the Characters shelf, with a card and the drawing for each. Astro: the helmet and visor, the boxy body and chest panel, striped arms and grabbers, the antenna, ear discs, and backpack. A screenshot. | `PROTOCOL_VERSION` bump |
-| 3 | | `feature/sketchbook-pumpkin` | Turn the sketchbook pumpkin into a robot | Patch: the ribbed pumpkin head and body, glowing eyes, the stem, the chest panel, and hooked claws. A screenshot. | `PROTOCOL_VERSION` bump |
-| 4 | | `feature/sketchbook-spider` | Turn the sketchbook spider into a robot | Spider Web: the dark dome with glowing slit eyes, the box body on its neck, and four jointed legs with claw feet that step as it rolls. A screenshot. | `PROTOCOL_VERSION` bump |
-| 5 | | `feature/sketchbook-homemade` | Turn the sketchbook homemade robot into a robot | Homemade Web: the striped mushroom cap and bell, the peg, the stick bundle with rope, rings, and the red tag. A screenshot sheet of all five characters, and of a few mixed builds. | `PROTOCOL_VERSION` bump |
-| 6 | | `feature/cat-tail-grab` | Let the cat's tail grab and pull things | The tail as a third hand: whip out, grab a held item up to 2.5 m away, pull it in. A `tail` pose field, a second held slot, and the server checking the reach. Needs `foundation/server-held-items`. | `PROTOCOL_VERSION` bump |
+| 1 | **Done** (#46) | `feature/sketchbook-cat` | Turn the sketchbook cat into a robot | Snatch as parts: a `cat` head, body, and arms in each slot's list, and a **From the sketchbook** pick in the Bot Maker that puts all three on (`shared/content/characters.ts`). Cel-shaded on a stepped ramp, with inverted-hull outlines. Skins drawn in code as details over the fur, so paint covers the fur only. The head: the superellipsoid with the face, eyes laid on it, the nose, ears, cheek tufts, and a jaw. The body: a bell sitting on the drive ball (the small roller came with PR 2), carrying the ringed tail in its rest pose. The arms: banded, with mitten paws. Screenshots face on, painted and not, and every classic baseline unchanged. | `PROTOCOL_VERSION` 13 |
+| 2 | | `feature/snatch-small-roller` | Give Snatch a small roller so it sits close to the ground | The `roller` mobility part, **Small roller**: a little drive ball tucked up inside the body. On it, everything above sits down until the body's underside is just off the floor (each body says where its underside is), as long as the arms still hang clear. The drive ball spins by its own radius. Putting Snatch on whole puts it on the roller, in the old wheel's paint. Snatch's screenshots re-recorded. | `PROTOCOL_VERSION` 15 |
+| 3 | | `feature/sketchbook-astronaut` | Turn the sketchbook astronaut into a robot | The cat's head and body made into the shared generators, with each character's shape numbers; the Characters shelf, with a card and the drawing for each. Astro: the helmet and visor, the boxy body and chest panel, striped arms and grabbers, the antenna, ear discs, and backpack. A screenshot. | `PROTOCOL_VERSION` bump |
+| 4 | | `feature/sketchbook-pumpkin` | Turn the sketchbook pumpkin into a robot | Patch: the ribbed pumpkin head and body, glowing eyes, the stem, the chest panel, and hooked claws. A screenshot. | `PROTOCOL_VERSION` bump |
+| 5 | | `feature/sketchbook-spider` | Turn the sketchbook spider into a robot | Spider Web: the dark dome with glowing slit eyes, the box body on its neck, and four jointed legs with claw feet that step as it rolls. A screenshot. | `PROTOCOL_VERSION` bump |
+| 6 | | `feature/sketchbook-homemade` | Turn the sketchbook homemade robot into a robot | Homemade Web: the striped mushroom cap and bell, the peg, the stick bundle with rope, rings, and the red tag. A screenshot sheet of all five characters, and of a few mixed builds. | `PROTOCOL_VERSION` bump |
+| 7 | | `feature/cat-tail-grab` | Let the cat's tail grab and pull things | The tail as a third hand: whip out, grab a held item up to 2.5 m away, pull it in. A `tail` pose field, a second held slot, and the server checking the reach. Needs `foundation/server-held-items`. | `PROTOCOL_VERSION` bump |
 
-PRs 1 to 5 don't need anything else and can merge any time, in any order after PR 1. PR 6 needs the
+PRs 1 to 6 don't need anything else and can merge any time, in any order after PR 1. PR 7 needs the
 [inventory initiative](inventory.md)'s `foundation/server-held-items`. Prices come with the parts catalog's
 `feature/parts-catalog`, which lists the characters' parts with the rest.
 
@@ -230,6 +232,6 @@ PRs 1 to 5 don't need anything else and can merge any time, in any order after P
 
 - **The credit on the cards:** "Drawn by" whom? A first name, a nickname, or just "From the sketchbook"?
 - **Can the tail pull friends?** Towing a friend's robot (with their OK) is fun, but each player's client owns their own
-  robot (D7), so it needs a "let them pull you" step. Left out of PR 6.
+  robot (D7), so it needs a "let them pull you" step. Left out of PR 7.
 - **More characters later?** If the sketchbook keeps growing, a new character is a skin, some features, and a hand.
   Should kids be able to submit drawings from inside the game, or does the owner add them?
