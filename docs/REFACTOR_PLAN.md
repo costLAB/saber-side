@@ -67,39 +67,38 @@ merges, mark it done in its initiative's table and drop its line here if it isn'
 planned branch is missing from this list.
 
 1. `fix/ring-sprites` (#31): Draw dust, sparks and glows on the ring floor again
-2. `feature/snatch-small-roller`
-3. `feature/carrot-farmers`
-4. `feature/carrot-stand`
-5. `feature/carrot-farms`
-6. `feature/economy-tuning`
-7. `feature/jack-o-lantern-head`
-8. `feature/inventory`
-9. `feature/give-crystals`
-10. `foundation/server-held-items`
-11. `feature/give-items`
-12. `feature/sketchbook-astronaut`
-13. `feature/sketchbook-pumpkin`
-14. `feature/sketchbook-spider`
-15. `feature/sketchbook-homemade`
-16. `feature/cat-tail-grab`
-17. `feature/zero-g-swim-stroke`
-18. `feature/vr-swimming`
-19. `feature/spacewalks`
-20. `feature/more-paint-colors`
-21. `foundation/seven-part-slots`
-22. `feature/more-robot-parts`
-23. `feature/parts-catalog`
-24. `feature/robot-thrusters`
-25. `feature/robot-tires`
-26. `feature/ore-planet`
-27. `feature/refinery-ring`
-28. `feature/ore-hauler`
-29. `feature/ore-mining`
-30. `feature/ore-refining`
-31. `feature/refinery-ring-interior`
-32. `feature/refinery-ring-swimming`
-33. `feature/ore-economy-tuning`
-34. `feature/talking-robots`
+2. `feature/carrot-farmers`
+3. `feature/carrot-stand`
+4. `feature/carrot-farms`
+5. `feature/economy-tuning`
+6. `feature/jack-o-lantern-head`
+7. `feature/inventory`
+8. `feature/give-crystals`
+9. `foundation/server-held-items`
+10. `feature/give-items`
+11. `feature/sketchbook-astronaut`
+12. `feature/sketchbook-pumpkin`
+13. `feature/sketchbook-spider`
+14. `feature/sketchbook-homemade`
+15. `feature/cat-tail-grab`
+16. `feature/zero-g-swim-stroke`
+17. `feature/vr-swimming`
+18. `feature/spacewalks`
+19. `feature/more-paint-colors`
+20. `foundation/seven-part-slots`
+21. `feature/more-robot-parts`
+22. `feature/parts-catalog`
+23. `feature/robot-thrusters`
+24. `feature/robot-tires`
+25. `feature/ore-planet`
+26. `feature/refinery-ring`
+27. `feature/ore-hauler`
+28. `feature/ore-mining`
+29. `feature/ore-refining`
+30. `feature/refinery-ring-interior`
+31. `feature/refinery-ring-swimming`
+32. `feature/ore-economy-tuning`
+33. `feature/talking-robots`
 
 ### Not split into PRs yet
 
