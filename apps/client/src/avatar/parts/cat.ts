@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { CAT, CAT_SCALE, catLook, INK } from './cat-look';
 import { catSkins } from './cat-skins';
 import { buildCatTail } from './cat-tail';
-import { splitFaces, withFaces } from './jaw';
 import type { BodyMounts, PartKit } from './kit';
+import { ellipsoid, type HeadShape, headShape, superSurface } from './sketch-shapes';
 
 // Snatch, the sketchbook cat, as robot parts: a big round tabby head, a bell of a body that carries the tail, and
 // banded arms with mitten paws (docs/initiatives/sketchbook-characters.md). Each fits with any other part.
@@ -20,105 +20,13 @@ const HEAD_Y = 0.76;
 const HW = 128;
 const HH = 96;
 
-const taper = (y: number) => 1 - HEAD.taper * (y / HEAD.b);
-const pw = (v: number) => Math.abs(v) ** HEAD.p;
+const { surfaceAt, sideX, topY } = superSurface(HEAD);
 
-/** The head's surface in front: z at (x, y), and its normal. */
-function surfaceAt(x: number, y: number) {
-  const z = (yy: number, xx: number) =>
-    HEAD.c * Math.max(0, 1 - pw(xx / (HEAD.a * taper(yy))) - pw(yy / HEAD.b)) ** (1 / HEAD.p);
-  const e = 0.002;
-  const dzx = (z(y, x + e) - z(y, x - e)) / (2 * e);
-  const dzy = (z(y + e, x) - z(y - e, x)) / (2 * e);
-  return { p: new THREE.Vector3(x, y, z(y, x)), n: new THREE.Vector3(-dzx, -dzy, 1).normalize() };
-}
-
-/** Where the head's side is at height y (and depth z), on the side `s` (1 for +x). */
-function sideX(y: number, z: number, s: number) {
-  return s * HEAD.a * taper(y) * Math.max(0, 1 - pw(y / HEAD.b) - pw(z / HEAD.c)) ** (1 / HEAD.p);
-}
-
-/** How high the top of the head is above (x, z). */
-function topY(x: number, z: number) {
-  let lo = 0;
-  let hi: number = HEAD.b;
-  for (let i = 0; i < 40; i++) {
-    const y = (lo + hi) / 2;
-    if (pw(x / (HEAD.a * taper(y))) + pw(y / HEAD.b) + pw(z / HEAD.c) > 1) hi = y;
-    else lo = y;
-  }
-  return lo;
-}
-
-interface HeadShape {
-  /** The whole head, for its outline. */
-  full: THREE.SphereGeometry;
-  /** The head without its jaw, and the jaw. */
-  kept: THREE.BufferGeometry;
-  jaw: THREE.BufferGeometry;
-  /** Where the jaw hinges, and where the dark of the mouth sits behind it. */
-  hinge: THREE.Vector3;
-  mouth: THREE.Vector3;
-}
-
-let headShape: HeadShape | undefined;
-/**
- * The head, shaped from a sphere: every point pushed out to the superellipsoid along its own direction, then the
- * sides drawn in toward the top. Normals come from the shape itself, so they're smooth over the seams and poles. The
- * jaw is the lower front, along the sphere's own segment lines, as on every head (parts/jaw.ts).
- */
+let catShape: HeadShape | undefined;
+/** The head, with its jaw from just under the mouth's stem down to the chin, as wide as the frown and a bit more. */
 function catHeadShape(): HeadShape {
-  if (headShape) return headShape;
-  const full = new THREE.SphereGeometry(1, HW, HH);
-  const pos = full.attributes.position as THREE.BufferAttribute;
-  const nor = full.attributes.normal as THREE.BufferAttribute;
-  const v = new THREE.Vector3();
-  const n = new THREE.Vector3();
-  for (let i = 0; i < pos.count; i++) {
-    v.fromBufferAttribute(pos, i);
-    const k = (pw(v.x / HEAD.a) + pw(v.y / HEAD.b) + pw(v.z / HEAD.c)) ** (-1 / HEAD.p);
-    const y = v.y * k;
-    const t = taper(y);
-    const x = v.x * k * t;
-    const z = v.z * k;
-    pos.setXYZ(i, x, y, z);
-    // the gradient of |x/(a t)|^p + |y/b|^p + |z/c|^p, with t falling as y rises
-    const X = x / (HEAD.a * t);
-    const p = HEAD.p;
-    n.set(
-      (Math.sign(x) * p * Math.abs(X) ** (p - 1)) / (HEAD.a * t),
-      (Math.sign(y) * p * Math.abs(y / HEAD.b) ** (p - 1)) / HEAD.b +
-        (p * Math.abs(X) ** p * HEAD.taper) / (HEAD.b * t),
-      (Math.sign(z) * p * Math.abs(z / HEAD.c) ** (p - 1)) / HEAD.c,
-    ).normalize();
-    nor.setXYZ(i, n.x, n.y, n.z);
-  }
-  full.computeBoundingSphere();
-
-  // The jaw: from just under the mouth's stem down to the chin, as wide as the frown and a bit more.
-  const across = HW + 1;
-  const front = HW / 4;
-  const at = (row: number, col: number) => new THREE.Vector3().fromBufferAttribute(pos, row * across + col);
-  let r0 = 0;
-  while (at(r0, front).y > -0.36) r0++;
-  let r1 = r0;
-  while (at(r1, front).y > -0.68) r1++;
-  const mid = Math.round((r0 + r1) / 2);
-  let c0 = front;
-  while (Math.abs(at(mid, c0 - 1).x) <= 0.38) c0--;
-  let c1 = front;
-  while (Math.abs(at(mid, c1 + 1).x) <= 0.38) c1++;
-  const { kept, taken } = splitFaces(full, (row, col) => row >= r0 && row < r1 && col >= c0 && col < c1);
-  const corner = at(r0, c0);
-  const chin = at(r1, front);
-  headShape = {
-    full,
-    kept: withFaces(full, kept),
-    jaw: withFaces(full, taken),
-    hinge: new THREE.Vector3(0, corner.y, corner.z),
-    mouth: new THREE.Vector3(0, (corner.y + chin.y) / 2, chin.z * 0.55),
-  };
-  return headShape;
+  catShape ??= headShape(HEAD, { top: -0.36, bottom: -0.68, half: 0.38 }, HW, HH);
+  return catShape;
 }
 
 /** An eye: a disc laid onto the face and domed a little, so it wraps the head. In the head's frame. */
@@ -156,12 +64,6 @@ function eyeGeometry(side: 1 | -1): THREE.BufferGeometry {
   g.computeVertexNormals();
   return g;
 }
-
-const ellipsoid = (x: number, y: number, z: number, w = 28, h = 20) => {
-  const g = new THREE.SphereGeometry(1, w, h);
-  g.scale(x, y, z);
-  return g;
-};
 
 /** The ear: a broad cone, a little pinched along its sides. */
 function earGeometry(): THREE.LatheGeometry {

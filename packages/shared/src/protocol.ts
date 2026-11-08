@@ -16,8 +16,9 @@ import type { ShopStatus } from './sim/shops.ts';
 // 7 = the Cyber Crystal wallet; 8 = several robots per player; 9 = renaming your robot at the Bot Maker;
 // 10 = robots open their mouths to eat (the `jaw` pose field); 11 = paint that cures (each robot's `cure`, and the
 // station's `paintCure` setting); 12 = shops (leasing a spot, the station's `shops`); 13 = Snatch, the sketchbook
-// cat (the `cat` head, body, and arms); 14 = long arms in VR (the `arm0reach` and `arm1reach` pose fields).
-export const PROTOCOL_VERSION = 14;
+// cat (the `cat` head, body, and arms); 14 = long arms in VR (the `arm0reach` and `arm1reach` pose fields);
+// 15 = Astro, the sketchbook astronaut (the `astro` head, body, and arms).
+export const PROTOCOL_VERSION = 15;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';

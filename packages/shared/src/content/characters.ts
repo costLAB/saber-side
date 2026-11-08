@@ -16,6 +16,7 @@ export interface Character {
 
 export const CHARACTERS: readonly Character[] = [
   { id: 'snatch', name: 'Snatch', word: 'Cat', parts: { body: 'cat', head: 'cat', arms: 'cat' } },
+  { id: 'astro', name: 'Astro', word: 'Astronaut', parts: { body: 'astro', head: 'astro', arms: 'astro' } },
 ];
 
 /** A build wearing a character: its head, body, and arms, each in its original skin. The wheel stays as it was. */

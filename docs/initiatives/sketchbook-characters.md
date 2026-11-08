@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Status** | Started: Snatch is in the game (#46); next is `feature/sketchbook-astronaut` |
+| **Status** | Started: Snatch (#46) and Astro are in the game; next is `feature/sketchbook-pumpkin` |
 | **Phase** | P3 (the characters), P5 (prices, with the [parts catalog](robot-parts-catalog.md)) |
 | **Started** | 2026-11-07 |
 | **Done when** | A kid walks into the Bot Maker, opens the Characters shelf, taps Snatch, and rolls out as a gray robot cat with huge yellow eyes, pointed ears, and a ringed tail. They swap its head for Patch's pumpkin, then reach out with the cat's tail, grab a saber off the floor two meters away, and pull it into their grabber, while a friend on an iPad sees exactly that robot. |
@@ -17,6 +17,11 @@ The owner then made a close-up of Snatch. Where it differs from the sheet (a sma
 arms, mitten paws), the close-up wins.
 
 ![Snatch, close up](sketchbook/snatch.jpg)
+
+And one of Astro. It wins over the sheet too: the visor has a thin peach rim inside its outline, the arms are orange at
+the shoulder and elbow with cream between, and the C grabbers are fat and white.
+
+![Astro, close up](sketchbook/astro.jpg)
 
 They're chunky cartoon robots: big heads on small bodies, **cel-shaded with thick black outlines**, a little scuffed.
 Every head is built by **one shape generator** with the same layout (the same vertices, texture map, and feature
@@ -97,14 +102,15 @@ By the owner, 2026-11-07.
 ### The shared shapes
 
 - **One generator per part.** Heads are superellipsoids: a ball stretched wide or tall, made boxier, ribbed, dimpled at
-  the top, or flattened underneath, from a few numbers. Torsos are lathes from a profile, optionally ribbed. Every
-  head has the same vertices, texture map, and feature spots, and so does every torso, so skins and features work the
-  same on all of them. Each character's shape is built once and shared by every robot wearing it.
+  the top, or flattened underneath, from a few numbers. Torsos are lathes from a profile, optionally ribbed (Snatch's
+  bell), or the same superellipsoid made boxy (Astro's box). Every head has the same vertices, texture map, and
+  feature spots, and so does every torso, so skins and features work the same on all of them. Each character's shape
+  is built once and shared by every robot wearing it.
 - **Big heads, small bodies, no neck.** The head sits right on the torso, as on the sheet. Spider Web is the exception:
   its dome rides on a short neck above its body.
 - **The roller.** The characters don't sit on the giant drive sphere. Their mobility is a small drive roller hidden
   under the body, so they still roll. Spider Web stands on its claws, with its body off the floor; it rolls on the same
-  hidden roller, and its legs step as it goes. Until PR 2 adds the roller, Snatch sits on the drive ball like every
+  hidden roller, and its legs step as it goes. Until PR 7 adds the roller, Snatch and Astro sit on the drive ball like every
   other body, its bell covering the ball's top.
 - **Torsos keep the standard mounts** (the neck spot on top, shoulders, the hold point, a chest hatch), placed on each
   shape, so any head and any arms fit any torso, and a character's head and arms fit the old bodies too.
@@ -131,7 +137,7 @@ By the owner, 2026-11-07.
 | | Head | Body | Arms and hands | Features |
 | --- | --- | --- | --- | --- |
 | **Snatch**, the cat | Wide head, gray on top with cream tabby stripes, a gray V down to a pink nose, and a cream face; huge yellow eyes with big black pupils and white shines; a small closed cat mouth | A dark gray bell with a cream belly | Gray at the shoulder, then cream with an orange band; round cream mitten paws with curled fingers | Big pointed ears, pink inside with cream fluff; spiky gray fur tufts on the cheeks; a thick tail, gray with an orange ring, curling up behind its left paw |
-| **Astro**, the astronaut | A cream, round-cornered helmet with a big glossy navy visor and white shines | A small cream box with a slate chest panel of four lit orange squares | Cream-and-orange striped arms, round white C grabbers | Antenna with an orange ball, round ear discs with orange centers, a backpack |
+| **Astro**, the astronaut | A cream, round-cornered helmet with a big glossy navy visor: lighter streaks, white shines, and a thin peach rim | A small cream box with a slate chest panel of four lit orange squares | Orange at the shoulder and elbow, cream between; fat round white C grabbers | Antenna with an orange ball, round ear discs with orange centers, a gray backpack |
 | **Patch**, the pumpkin | A wide ribbed pumpkin with glowing yellow eyes in orange sockets and an open grin with a tongue | A ribbed orange bell with a small chest panel of four dark buttons | Long tan striped arms, dark gray hooked three-finger claws | A brown stem |
 | **Spider Web**, the spider | A wide dark dome with panel seams, and two glowing orange slit eyes at its lower front corners | A small dark rounded box with a glowing orange slit and a little grille, on a short neck | Four legs: two thin ones from under the dome to the body's sides, two big ones out and down to three-toed claw feet | Glowing eyes and chest slit |
 | **Homemade Web**, the homemade robot | A mushroom cap, cream with blue stripes and a dark underside, patched and chipped. No face | A cream bell with blue stripes | A bundle of sticks straight across, tied with rope | A wooden peg on top, brass rings hanging on the right, a red tag on the left |
@@ -188,14 +194,15 @@ merges.
 
 | # | Status | Branch | PR title | What it adds | Protocol / schema |
 | --- | --- | --- | --- | --- | --- |
-| 1 | **Done** (#46) | `feature/sketchbook-cat` | Turn the sketchbook cat into a robot | Snatch as parts: a `cat` head, body, and arms in each slot's list, and a **From the sketchbook** pick in the Bot Maker that puts all three on (`shared/content/characters.ts`). Cel-shaded on a stepped ramp, with inverted-hull outlines. Skins drawn in code as details over the fur, so paint covers the fur only. The head: the superellipsoid with the face, eyes laid on it, the nose, ears, cheek tufts, and a jaw. The body: a bell sitting on the drive ball (the small roller comes with PR 2), carrying the ringed tail in its rest pose. The arms: banded, with mitten paws. Screenshots face on, painted and not, and every classic baseline unchanged. | `PROTOCOL_VERSION` 13 |
-| 2 | | `feature/sketchbook-astronaut` | Turn the sketchbook astronaut into a robot | The cat's head and body made into the shared generators, with each character's shape numbers; the small drive roller as a mobility part; the Characters shelf, with a card and the drawing for each. Astro: the helmet and visor, the boxy body and chest panel, striped arms and grabbers, the antenna, ear discs, and backpack. A screenshot. | `PROTOCOL_VERSION` bump |
+| 1 | **Done** (#46) | `feature/sketchbook-cat` | Turn the sketchbook cat into a robot | Snatch as parts: a `cat` head, body, and arms in each slot's list, and a **From the sketchbook** pick in the Bot Maker that puts all three on (`shared/content/characters.ts`). Cel-shaded on a stepped ramp, with inverted-hull outlines. Skins drawn in code as details over the fur, so paint covers the fur only. The head: the superellipsoid with the face, eyes laid on it, the nose, ears, cheek tufts, and a jaw. The body: a bell sitting on the drive ball (the small roller comes with PR 7), carrying the ringed tail in its rest pose. The arms: banded, with mitten paws. Screenshots face on, painted and not, and every classic baseline unchanged. | `PROTOCOL_VERSION` 13 |
+| 2 | **Done** | `feature/sketchbook-astronaut` | Turn the sketchbook astronaut into a robot | Astro as parts: an `astro` head, body, and arms, and a second **From the sketchbook** pick. The cat's head made into the shared head generator (`avatar/parts/sketch-shapes.ts`: a superellipsoid from a few numbers, with the jaw cut the same way), which Astro's helmet uses with its own numbers; Snatch's screenshots unchanged. The helmet, with the visor laid on it as glass (streaks, shines, and a peach rim drawn in code), the antenna, and ear discs. The body: a soft box from the same generator, on the drive ball, with the chest panel's four unlit-glowing squares and the backpack. The arms: striped, with C grabbers in two halves that close on what they hold. Paint covers the cream shell only. Screenshots face on, painted and not. The roller and the Characters shelf moved to PR 7. | `PROTOCOL_VERSION` 15 |
 | 3 | | `feature/sketchbook-pumpkin` | Turn the sketchbook pumpkin into a robot | Patch: the ribbed pumpkin head and body, glowing eyes, the stem, the chest panel, and hooked claws. A screenshot. | `PROTOCOL_VERSION` bump |
 | 4 | | `feature/sketchbook-spider` | Turn the sketchbook spider into a robot | Spider Web: the dark dome with glowing slit eyes, the box body on its neck, and four jointed legs with claw feet that step as it rolls. A screenshot. | `PROTOCOL_VERSION` bump |
 | 5 | | `feature/sketchbook-homemade` | Turn the sketchbook homemade robot into a robot | Homemade Web: the striped mushroom cap and bell, the peg, the stick bundle with rope, rings, and the red tag. A screenshot sheet of all five characters, and of a few mixed builds. | `PROTOCOL_VERSION` bump |
 | 6 | | `feature/cat-tail-grab` | Let the cat's tail grab and pull things | The tail as a third hand: whip out, grab a held item up to 2.5 m away, pull it in. A `tail` pose field, a second held slot, and the server checking the reach. Needs `foundation/server-held-items`. | `PROTOCOL_VERSION` bump |
+| 7 | | `feature/sketchbook-shelf` | Give the sketchbook characters a shelf of their own | The Characters shelf, with a card for each character: its name, the drawing's word, a turntable, and the sketch it came from. The small drive roller as a mobility part, so the characters stop sitting on the giant drive ball. | `PROTOCOL_VERSION` bump |
 
-PRs 1 to 5 don't need anything else and can merge any time, in any order after PR 1. PR 6 needs the
+PRs 1 to 5 and 7 don't need anything else and can merge any time, in any order after PR 1. PR 6 needs the
 [inventory initiative](inventory.md)'s `foundation/server-held-items`. Prices come with the parts catalog's
 `feature/parts-catalog`, which lists the characters' parts with the rest.
 

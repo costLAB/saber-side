@@ -1,5 +1,6 @@
 import type { PartPick } from '@saber-side/shared';
 import * as THREE from 'three';
+import { astroBody } from './astro';
 import { catBody } from './cat';
 import { type BodyMounts, Cyl, flatRing, onDrum, onSphere, type PartKit, Sph, TAU, zCyl } from './kit';
 
@@ -59,6 +60,8 @@ export function buildBody(kit: PartKit, core: THREE.Group, pick: PartPick<'body'
       return crate(kit, core, pick.paint);
     case 'cat':
       return catBody(kit, core, pick.paint);
+    case 'astro':
+      return astroBody(kit, core, pick.paint);
   }
 }
 
