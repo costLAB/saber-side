@@ -19,7 +19,7 @@ export declare const legacy: {
   /** Ends the VR session, if there is one, so the flat page (and whatever sheet opens on it) can be seen. */
   leaveVr(): void;
   /** The scene, the player's own robot, and what it takes to build more robots. */
-  world: { scene: THREE.Scene; bot: Robot; kit: RobotKit; drawTex: DrawTexFn };
+  world: { scene: THREE.Scene; bot: Robot; kit: RobotKit; drawTex: DrawTexFn; wave(): void };
   /** The plaza's shop spots, whose signs show who leased them. */
   shopRow: ShopRowScene;
   /** Called every frame after the game updates and before it draws, with the frame time in seconds. */

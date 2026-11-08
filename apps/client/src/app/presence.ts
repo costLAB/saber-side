@@ -3,6 +3,7 @@ import {
   ARM_POSE,
   classicBuild,
   cleanRobotBuild,
+  firstMeetings,
   MESSAGE,
   POSE,
   POSE_HZ,
@@ -20,7 +21,8 @@ import { showCure } from './paint-cure';
 // Other players' robots: built from their parts when they come aboard, labeled with their name, and moved to
 // follow the poses the station passes on. Remote robots are drawn a little in the past (DELAY_MS) and blended between
 // the two poses either side of that moment, so they move smoothly even though poses arrive only a few times a second.
-// This device's own pose goes out at POSE_HZ.
+// This device's own pose goes out at POSE_HZ. The first time another robot comes near, this one waves hello
+// (sim/greeting.ts); the wave goes out with the pose like any other move.
 
 export interface PresenceWorld {
   scene: THREE.Scene;
@@ -28,6 +30,8 @@ export interface PresenceWorld {
   bot: Robot;
   kit: RobotKit;
   drawTex: DrawTexFn;
+  /** Makes this device's robot wave hello. */
+  wave(): void;
 }
 
 /** The parts of a joined Colyseus room presence uses. */
@@ -172,6 +176,8 @@ export function createPresence(world: PresenceWorld, now: () => number = () => p
   let room: PresenceRoom | undefined;
   let sinceSent = 0;
   let lastSent = '';
+  /** Players this robot has already waved to, this visit. */
+  const met = new Set<string>();
 
   function build(entry: AboardView): Remote {
     // Built from its own parts, each in its own paint (painted parts get their own copies of the materials). No eye
@@ -262,6 +268,15 @@ export function createPresence(world: PresenceWorld, now: () => number = () => p
       else applyPose(r.robot, blend(a.v, b.v, (target - a.t) / (b.t - a.t)));
     }
 
+    // Wave the first time another robot comes near (both have to be out and about).
+    if (world.bot.root.visible) {
+      world.bot.root.getWorldPosition(_p);
+      const near = [...remotes]
+        .filter(([, r]) => r.robot.root.visible)
+        .map(([id, r]) => [id, r.robot.root.position] as [string, THREE.Vector3]);
+      if (firstMeetings(_p, near, met).length) world.wave();
+    }
+
     if (!room) return;
     sinceSent += dt;
     if (sinceSent < 1 / POSE_HZ) return;
@@ -277,6 +292,7 @@ export function createPresence(world: PresenceWorld, now: () => number = () => p
     attach(next) {
       room = next;
       lastSent = '';
+      met.clear();
       if (!room) for (const id of [...remotes.keys()]) remove(id);
       else sync();
     },
