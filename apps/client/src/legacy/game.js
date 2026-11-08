@@ -148,7 +148,7 @@ legacy.robotKit = robotKit;
 const bot = buildRobot(robotKit, classicBuild(), { eyeLight: true });
 scene.add(bot.root);
 // what other modules need to add robots of their own (app/presence.ts)
-legacy.world = { scene, bot, kit: robotKit, drawTex };
+legacy.world = { scene, bot, kit: robotKit, drawTex, wave: () => { if (st.wave < 0) st.wave = 0; } };
 
 // ---------- habitat: Ring Seven ----------
 // Layout across the ring (x): promenade |x|<46 with shops facing it from 26..40, parks to 115, carrot farms to 161.
@@ -1107,11 +1107,11 @@ function update(dt, t) {
   if (trailSaber) bot.saberTrailMat.color.set(trailSaber.color);
   bot.swoosh.rotation.z = Math.sin(t * 9) * 0.06;
 
-  // idle / wave
+  // idle / wave (a wave plays only when another player comes near for the first time: legacy.world.wave)
   const moving = Math.abs(st.vel) > 0.3 || Math.abs(st.angVel) > 0.3 || !st.grounded || st.spin >= 0 || st.crouch > 0;
-  if (moving) { st.idle = 0; st.still = 0; st.wave = -1; } else { st.idle += dt; st.still += dt; }
-  if (st.wave < 0 && st.idle > 3.4) st.wave = 0;
-  if (st.wave >= 0) { st.wave += dt; if (st.wave > 2.5) { st.wave = -1; st.idle = -1.5 - fx() * 3; } }
+  if (moving) { st.idle = 0; st.still = 0; } else { st.idle += dt; st.still += dt; }
+  if (st.spin >= 0 || !st.grounded || st.crouch > 0) st.wave = -1;
+  if (st.wave >= 0) { st.wave += dt; if (st.wave > 2.5) st.wave = -1; }
 
   // ---- pose targets ----
   const sn = Math.min(Math.abs(st.vel) / MAX, 1), dirS = Math.sign(st.vel);

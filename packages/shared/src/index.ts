@@ -17,6 +17,7 @@ export * from './sim/arm-ik.ts';
 export * from './sim/arm-locomotion.ts';
 export * from './sim/eating.ts';
 export * from './sim/flight.ts';
+export * from './sim/greeting.ts';
 export * from './sim/harvest.ts';
 export * from './sim/lasers.ts';
 export * from './sim/light-pool.ts';

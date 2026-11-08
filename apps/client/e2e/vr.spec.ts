@@ -321,10 +321,12 @@ test('a Quest player’s hands move the robot’s arms, and the headset turns it
   await place(page, 'right', ahead.room);
   await advance(page, 200);
   const reached = await readBody(page);
-  // the robot's right hand is at yours (its grip sits a couple of centimeters toward its palm), and its arm swung forward (sw went down) to get it there
+  // the robot's right hand is at yours (its grip sits a couple of centimeters toward its palm), and its arm swung
+  // forward (sw below zero) to get it there. Not measured against the pose before: a hanging arm has more than one
+  // equal solution, and which one the solver starts from depends on what the arm was doing when VR began.
   expect(reached.misses[1]).toBeLessThan(0.05);
   expect(gap(reached.grips[1] as XYZ, ahead.world)).toBeLessThan(0.3);
-  expect(reached.arms[1]?.sw).toBeLessThan((before.arms[1]?.sw ?? 0) - 0.2);
+  expect(reached.arms[1]?.sw).toBeLessThan(-0.15);
 
   // up high, out to the side: the hand follows
   const high = await besideRobot(page, { x: -1.4, y: 0.9, z: 0.3 });
