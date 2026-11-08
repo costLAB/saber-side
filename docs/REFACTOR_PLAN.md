@@ -53,7 +53,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | **Done** (#29, #34, #36 to #38, #40 to #45): VR on a Quest, from entering it and getting about the way Gorilla Tag does to flying ships from the cockpit. The next frame-rate cuts are an open question |
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
-| [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Started: Snatch is in the game (#46); next `feature/sketchbook-astronaut` |
+| [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Started: Snatch (#46, on its small roller #50) and Astro are in the game; next `feature/sketchbook-pumpkin` |
 
 ### Build order
 
@@ -76,10 +76,10 @@ planned branch is missing from this list.
 8. `feature/give-crystals`
 9. `foundation/server-held-items`
 10. `feature/give-items`
-11. `feature/sketchbook-astronaut`
-12. `feature/sketchbook-pumpkin`
-13. `feature/sketchbook-spider`
-14. `feature/sketchbook-homemade`
+11. `feature/sketchbook-pumpkin`
+12. `feature/sketchbook-spider`
+13. `feature/sketchbook-homemade`
+14. `feature/sketchbook-shelf`
 15. `feature/cat-tail-grab`
 16. `feature/zero-g-swim-stroke`
 17. `feature/vr-swimming`

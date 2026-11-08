@@ -1,5 +1,6 @@
 import type { PartPick } from '@saber-side/shared';
 import * as THREE from 'three';
+import { ASTRO_GRIP, astroArm } from './astro';
 import { CAT_GRIP, catArm } from './cat';
 import { type BodyMounts, Cyl, flatRing, type PartKit, Sph } from './kit';
 
@@ -51,11 +52,12 @@ export function buildArms(kit: PartKit, core: THREE.Group, pick: PartPick<'arms'
     return { arms: [], grip };
   }
   const paint = pick.paint;
-  const arm =
-    pick.part === 'cat'
-      ? (k: PartKit, _limb: THREE.Material, shoulder: THREE.Group, s: number) => catArm(k, shoulder, s, paint)
-      : { grabber, pincer, noodle }[pick.part];
-  const limb = pick.part === 'cat' ? kit.materials.limb : kit.tint(kit.materials.limb, pick.paint);
+  // The sketchbook characters' arms are drawn in their own look, and take paint their own way.
+  const sketch = pick.part === 'cat' ? catArm : pick.part === 'astro' ? astroArm : undefined;
+  const arm = sketch
+    ? (k: PartKit, _limb: THREE.Material, shoulder: THREE.Group, s: number) => sketch(k, shoulder, s, paint)
+    : { grabber, pincer, noodle }[pick.part as 'grabber' | 'pincer' | 'noodle'];
+  const limb = sketch ? kit.materials.limb : kit.tint(kit.materials.limb, pick.paint);
   const arms = [1, -1].map((s) => {
     const cur = { ab: 0.35, sw: 0, el: 0.45, ez: 0, wr: 0, wz: 0, curl: 0.3 };
     const shoulder = new THREE.Group();
@@ -124,7 +126,13 @@ export function setArmReach(arm: RobotArm, reach: number) {
 }
 
 /** Where each kind of hand holds things, in its wrist's frame. */
-const GRIP = { grabber: [0, -0.24, 0.05], pincer: [0, -0.26, 0.05], noodle: [0, -0.12, 0.1], cat: CAT_GRIP } as const;
+const GRIP = {
+  grabber: [0, -0.24, 0.05],
+  pincer: [0, -0.26, 0.05],
+  noodle: [0, -0.12, 0.1],
+  cat: CAT_GRIP,
+  astro: ASTRO_GRIP,
+} as const;
 
 /**
  * What each kind of arm builds: its joints, and what stretches when the arm is lengthened: its bone segments, or the
