@@ -6,7 +6,7 @@ const SKY = '#8fc4f2';
 
 describe('characters', () => {
   it('are made of parts that exist, each in its own slot', () => {
-    expect(CHARACTERS.map((c) => c.name)).toEqual(['Snatch', 'Astro']);
+    expect(CHARACTERS.map((c) => c.name)).toEqual(['Snatch', 'Astro', 'Patch']);
     expect(new Set(CHARACTERS.map((c) => c.id)).size).toBe(CHARACTERS.length);
     for (const c of CHARACTERS) {
       expect(isPart('body', c.parts.body)).toBe(true);
@@ -54,5 +54,13 @@ describe('characters', () => {
     // Astro comes on the small roller too, in the paint the old wheel had.
     const onWheel = { ...classicBuild(), mobility: { part: 'wheel' as const, paint: SKY } };
     expect(wearCharacter(onWheel, astro).mobility).toEqual({ part: 'roller', paint: SKY });
+    // and Patch's pumpkin fits on Astro's body, with Snatch's paws
+    const patchAstro: RobotBuild = {
+      ...wearCharacter(classicBuild(), astro),
+      head: { part: 'patch', paint: ORIGINAL_PAINT },
+      arms: { part: 'cat', paint: SKY },
+    };
+    expect(cleanRobotBuild(patchAstro)).toEqual(patchAstro);
+    expect(characterOf(patchAstro)).toBeUndefined();
   });
 });

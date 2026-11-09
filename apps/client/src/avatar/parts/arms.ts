@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { ASTRO_GRIP, astroArm } from './astro';
 import { CAT_GRIP, catArm } from './cat';
 import { type BodyMounts, Cyl, flatRing, type PartKit, Sph } from './kit';
+import { PATCH_GRIP, patchArm } from './patch';
 
 // Arms. Every pair has the same joints (shoulder, elbow, wrist, fingers, thumb), so one animation poses them all.
 // What the robot holds goes in the left hand's grip; a robot without arms carries it in front of its body.
@@ -44,6 +45,14 @@ export interface BuiltArms {
   grip: THREE.Group;
 }
 
+/** The sketchbook characters' arms (cat.ts, astro.ts, patch.ts), each built in its own look. */
+type SketchArm = (kit: PartKit, shoulder: THREE.Group, s: number, paint: string) => Joints;
+const SKETCH_ARMS: Partial<Record<PartPick<'arms'>['part'], SketchArm>> = {
+  cat: catArm,
+  astro: astroArm,
+  patch: patchArm,
+};
+
 export function buildArms(kit: PartKit, core: THREE.Group, pick: PartPick<'arms'> | null, at: BodyMounts): BuiltArms {
   if (!pick) {
     const grip = new THREE.Group();
@@ -53,7 +62,7 @@ export function buildArms(kit: PartKit, core: THREE.Group, pick: PartPick<'arms'
   }
   const paint = pick.paint;
   // The sketchbook characters' arms are drawn in their own look, and take paint their own way.
-  const sketch = pick.part === 'cat' ? catArm : pick.part === 'astro' ? astroArm : undefined;
+  const sketch = SKETCH_ARMS[pick.part];
   const arm = sketch
     ? (k: PartKit, _limb: THREE.Material, shoulder: THREE.Group, s: number) => sketch(k, shoulder, s, paint)
     : { grabber, pincer, noodle }[pick.part as 'grabber' | 'pincer' | 'noodle'];
@@ -132,6 +141,7 @@ const GRIP = {
   noodle: [0, -0.12, 0.1],
   cat: CAT_GRIP,
   astro: ASTRO_GRIP,
+  patch: PATCH_GRIP,
 } as const;
 
 /**

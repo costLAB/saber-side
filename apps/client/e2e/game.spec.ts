@@ -388,6 +388,50 @@ test('Astro, the sketchbook astronaut: cel-shaded with outlines, and paint only 
   expect(errors).toEqual([]);
 });
 
+test('Patch, the sketchbook pumpkin: cel-shaded with outlines, and paint only on its skin', async ({
+  page,
+  errors,
+}, info) => {
+  test.skip(info.project.name === 'ipad', 'one profile is enough');
+  await page.goto('/?debug');
+  await page.evaluate(() => document.fonts.ready);
+  await advance(page, 300);
+  await page.addStyleTag({ content: '#hint, #prompt { display: none !important; }' });
+  // biome-ignore lint/suspicious/noExplicitAny: debug hook exposed by the legacy game
+  const saber = await page.evaluateHandle(() => (window as any).__saber);
+  const patch = CHARACTERS.find((c) => c.id === 'patch');
+  if (!patch) throw new Error('no Patch');
+  const build = wearCharacter(classicBuild(), patch);
+  await saber.evaluate((s, b) => s.legacy.setRobotBuild(b), build);
+  // Its pumpkin has a jaw under the grin to eat with, like every head.
+  expect(
+    await saber.evaluate((s) => {
+      let o = s.bot.jaw.hinge;
+      while (o && o !== s.bot.head) o = o.parent;
+      return { inHead: o === s.bot.head, open: s.bot.jaw.open };
+    }),
+  ).toEqual({ inHead: true, open: 0.45 });
+
+  // Face on, through the Selfie, a step back so the stem fits.
+  await page.locator('#selfie').click();
+  await advance(page, 2000);
+  await page.locator('#stage canvas').click();
+  await hold(page, '-', 450);
+  await advance(page, 500);
+  await snap(page, 'patch.png', CAT);
+  // Painted Grape: the orange skin and the peach bands take it; the eyes, grin, stem, panel, and claws don't.
+  const grape = '#b39cf2';
+  await saber.evaluate((s, b) => s.legacy.setRobotBuild(b), {
+    ...build,
+    body: { part: 'patch', paint: grape },
+    head: { part: 'patch', paint: grape },
+    arms: { part: 'patch', paint: grape },
+  });
+  await advance(page, 300);
+  await snap(page, 'patch-grape.png', CAT);
+  expect(errors).toEqual([]);
+});
+
 test('spinning in a carrot bed kicks carrots up, to grab and eat', async ({ page, errors }, info) => {
   test.skip(info.project.name === 'ipad', 'keyboard actions are covered on the MacBook profile');
   const bed = CARROT_BEDS[0];
