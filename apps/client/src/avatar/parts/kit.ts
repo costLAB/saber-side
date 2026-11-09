@@ -150,6 +150,8 @@ export const flatRing = (r: number, tube: number, seg = 48) => {
 export interface BodyMounts {
   /** Height of the neck. */
   neckY: number;
+  /** Height of the body's underside: on the small roller, the robot sits down until this is just off the ground. */
+  bottom: number;
   /** The right shoulder (+x); the left one mirrors it. */
   shoulder: readonly [number, number, number];
   /** Where a robot with no arms carries what it holds. */

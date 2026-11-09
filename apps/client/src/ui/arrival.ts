@@ -678,7 +678,7 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
         ),
       };
     });
-    // One tap puts on a whole character from the sketchbook (its head, body, and arms, unpainted). Each part stays in
+    // One tap puts on a whole character from the sketchbook (its head, body, and arms, unpainted, on its roller). Each part stays in
     // its slot's list, so any of them can be swapped afterwards.
     const wear = (c: Character) => {
       for (const slot of ['body', 'head', 'arms'] as const) {
@@ -687,6 +687,9 @@ export function createArrival(handlers: ArrivalHandlers): ArrivalSheet {
         const plain = node.querySelector<HTMLInputElement>(`input[name="paint-${slot}"][value="${ORIGINAL_PAINT}"]`);
         if (plain) plain.checked = true;
       }
+      // and its own mobility part, keeping the paint
+      const roll = node.querySelector<HTMLInputElement>(`input[name="part-mobility"][value="${c.mobility}"]`);
+      if (roll) roll.checked = true;
       update();
     };
     const characters = h(

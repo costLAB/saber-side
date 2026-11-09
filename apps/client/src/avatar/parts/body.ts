@@ -12,6 +12,7 @@ import { type BodyMounts, Cyl, flatRing, onDrum, onSphere, type PartKit, Sph, TA
 /** Mounts on a bare wheel, for a robot built without a body. */
 const BARE_WHEEL: BodyMounts = {
   neckY: 0.86,
+  bottom: 0.86,
   shoulder: [0.97, 0.12, 0],
   hold: [0, 0.35, 1.05],
   mouth: onSphereSpot(0.97, 0.9, 0),
@@ -31,15 +32,62 @@ function onDrumSpot(r: number, y: number, lon: number): BodyMounts['mouth'] {
   return { position: [r * Math.sin(lon), y, r * Math.cos(lon)], lat: 0, lon };
 }
 
-/** The wheel: a drive ball that rolls, peeking out of a fixed band. Returns the ball (the animation spins it). */
-export function buildMobility(kit: PartKit, core: THREE.Group, pick: PartPick<'mobility'>): THREE.Mesh {
+/** How far the core's middle (the big wheel's center) sits above the ground. */
+export const CORE_Y = 0.95;
+/** The small roller's radius. */
+const ROLLER_R = 0.2;
+/** How far a body on the small roller hovers over the ground. */
+const ROLLER_CLEARANCE = 0.08;
+/** How far below its shoulders a body on the small roller keeps the ground, so hanging arms stay out of the floor. */
+const ARM_HANG = 0.9;
+
+export interface BuiltMobility {
+  /** The ball that rolls (the animation spins it). */
+  drive: THREE.Mesh;
+  /** The drive ball's radius, for how fast it spins as the robot rolls. */
+  radius: number;
+  /** The meshes that make up the mobility part, which stay put when the rest of the robot sits lower. */
+  meshes: THREE.Object3D[];
+  /** Whether everything above it sits down low, close to the ground (`rideDrop`). */
+  low: boolean;
+}
+
+/**
+ * Mobility: what a robot rolls on, in the core's frame.
+ * - The wheel: the giant drive ball, peeking out of a fixed band. Bodies sit on top of it.
+ * - The small roller: a little drive ball on the ground, tucked up under the body, so the body sits just off the
+ *   floor (`rideDrop` says how far it comes down).
+ */
+export function buildMobility(kit: PartKit, core: THREE.Group, pick: PartPick<'mobility'>): BuiltMobility {
   const { materials: M, mesh, tint } = kit;
+  if (pick.part === 'roller') {
+    const drive = mesh(new THREE.SphereGeometry(ROLLER_R, 24, 16), tint(M.drive, pick.paint));
+    drive.position.y = ROLLER_R - CORE_Y;
+    core.add(drive);
+    const band = mesh(new THREE.SphereGeometry(ROLLER_R * 1.06, 32, 6, 0, TAU, 0.25, 0.75), tint(M.band, pick.paint));
+    band.position.y = drive.position.y;
+    core.add(band);
+    return { drive, radius: ROLLER_R, meshes: [drive, band], low: true };
+  }
   // rolling drive ball
   const drive = mesh(new THREE.SphereGeometry(0.95, 40, 28), tint(M.drive, pick.paint));
   core.add(drive);
   // the fixed band it rolls in
-  core.add(mesh(new THREE.SphereGeometry(0.985, 64, 12, 0, TAU, 2.12, 0.5), tint(M.band, pick.paint)));
-  return drive;
+  const band = mesh(new THREE.SphereGeometry(0.985, 64, 12, 0, TAU, 2.12, 0.5), tint(M.band, pick.paint));
+  core.add(band);
+  return { drive, radius: 0.95, meshes: [drive, band], low: false };
+}
+
+/**
+ * How far a robot on the small roller sits lower than on the wheel: its body comes down to just off the ground, as
+ * long as its arms (if it has any) still hang clear of the floor. A bare roller keeps its parts' heights but for the
+ * arms' allowance.
+ */
+export function rideDrop(mounts: BodyMounts, hasArms: boolean): number {
+  const ground = -CORE_Y;
+  let drop = mounts.bottom - (ground + ROLLER_CLEARANCE);
+  if (hasArms) drop = Math.min(drop, mounts.shoulder[1] - ground - ARM_HANG);
+  return Math.max(0, drop);
 }
 
 export interface BuiltBody {
@@ -187,7 +235,13 @@ function ball(kit: PartKit, core: THREE.Group, paint: string): BuiltBody {
 
   return {
     // the mouth hatch, for a robot with no head, sits above the chest panel
-    mounts: { neckY: 0.9, shoulder: [0.93, 0.22, 0.03], hold: [0, 0.3, 1.1], mouth: onSphereSpot(0.985, 0.62, 0) },
+    mounts: {
+      neckY: 0.9,
+      bottom: -0.86,
+      shoulder: [0.93, 0.22, 0.03],
+      hold: [0, 0.3, 1.1],
+      mouth: onSphereSpot(0.985, 0.62, 0),
+    },
     ledGlow,
   };
 }
@@ -244,7 +298,13 @@ function barrel(kit: PartKit, core: THREE.Group, paint: string): BuiltBody {
   }
   return {
     // the mouth hatch, for a robot with no head, mirrors the LED panel
-    mounts: { neckY: 1.14, shoulder: [0.98, 0.62, 0], hold: [0, 0.6, 1.2], mouth: onDrumSpot(0.94, 0.75, -0.3) },
+    mounts: {
+      neckY: 1.14,
+      bottom: -0.22,
+      shoulder: [0.98, 0.62, 0],
+      hold: [0, 0.6, 1.2],
+      mouth: onDrumSpot(0.94, 0.75, -0.3),
+    },
     ledGlow,
   };
 }
@@ -331,6 +391,7 @@ function crate(kit: PartKit, core: THREE.Group, paint: string): BuiltBody {
   return {
     mounts: {
       neckY: Y + H / 2 + 0.02,
+      bottom: Y - H / 2 - 0.08,
       shoulder: [W / 2 + 0.06, 1.3, 0],
       hold: [0, 1.0, D / 2 + 0.3],
       // the mouth hatch, for a robot with no head, sits under the screen

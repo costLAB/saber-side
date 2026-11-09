@@ -287,7 +287,8 @@ export function catHead(kit: PartKit, core: THREE.Group, paint: string, neckY: n
 
 // ---------- the body: a bell on the drive ball, with the tail ----------
 
-/** Where the bell's bottom sits, above the wheel's middle: on the drive ball, covering its top. */
+/** Where the bell's bottom sits, above the wheel's middle: on the drive ball, covering its top. On the small roller,
+ * the whole robot sits lower, so the bell comes down to just off the ground with the roller tucked up inside it. */
 const BODY_Y = 0.55;
 /** How deep the bell is, front to back, for its width. */
 const BODY_DEPTH = 0.95;
@@ -340,6 +341,7 @@ export function catBody(kit: PartKit, core: THREE.Group, paint: string): BuiltCa
   return {
     mounts: {
       neckY: BODY_Y + 1.06 * CAT_SCALE,
+      bottom: BODY_Y,
       shoulder: onBody(0.64, 0.95, 0.06),
       hold: onBody(0, 0.5, 1.15),
       mouth: { position: onBody(0, mouthY, 0.67 * BODY_DEPTH), lat: 0.45, lon: 0, w: 0.3, h: 0.2 },

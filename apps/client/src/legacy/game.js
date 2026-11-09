@@ -1218,7 +1218,7 @@ function update(dt, t) {
   bot.squash.scale.set(sx, st.sy, sx);
 
   // rolling drive ball
-  if (st.grounded) bot.drive.rotation.x += st.vel * dt / 0.95;
+  if (st.grounded) bot.drive.rotation.x += st.vel * dt / bot.driveRadius;
 
   // head: leads turns, glances around while idle, tilts while waving
   if (!moving && st.wave < 0) {
