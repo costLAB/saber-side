@@ -53,7 +53,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | **Done** (#29, #34, #36 to #38, #40 to #45): VR on a Quest, from entering it and getting about the way Gorilla Tag does to flying ships from the cockpit. The next frame-rate cuts are an open question |
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
-| [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Started: Snatch (#46, on its small roller #50) and Astro (#52) are in the game; next `feature/sketchbook-pumpkin` |
+| [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Started: Snatch (#46, on its small roller #50), Astro (#52), and Patch are in the game; next `feature/sketchbook-spider` |
 
 ### Build order
 
@@ -76,29 +76,28 @@ planned branch is missing from this list.
 8. `feature/give-crystals`
 9. `foundation/server-held-items`
 10. `feature/give-items`
-11. `feature/sketchbook-pumpkin`
-12. `feature/sketchbook-spider`
-13. `feature/sketchbook-homemade`
-14. `feature/sketchbook-shelf`
-15. `feature/cat-tail-grab`
-16. `feature/zero-g-swim-stroke`
-17. `feature/vr-swimming`
-18. `feature/spacewalks`
-19. `feature/more-paint-colors`
-20. `foundation/seven-part-slots`
-21. `feature/more-robot-parts`
-22. `feature/parts-catalog`
-23. `feature/robot-thrusters`
-24. `feature/robot-tires`
-25. `feature/ore-planet`
-26. `feature/refinery-ring`
-27. `feature/ore-hauler`
-28. `feature/ore-mining`
-29. `feature/ore-refining`
-30. `feature/refinery-ring-interior`
-31. `feature/refinery-ring-swimming`
-32. `feature/ore-economy-tuning`
-33. `feature/talking-robots`
+11. `feature/sketchbook-spider`
+12. `feature/sketchbook-homemade`
+13. `feature/sketchbook-shelf`
+14. `feature/cat-tail-grab`
+15. `feature/zero-g-swim-stroke`
+16. `feature/vr-swimming`
+17. `feature/spacewalks`
+18. `feature/more-paint-colors`
+19. `foundation/seven-part-slots`
+20. `feature/more-robot-parts`
+21. `feature/parts-catalog`
+22. `feature/robot-thrusters`
+23. `feature/robot-tires`
+24. `feature/ore-planet`
+25. `feature/refinery-ring`
+26. `feature/ore-hauler`
+27. `feature/ore-mining`
+28. `feature/ore-refining`
+29. `feature/refinery-ring-interior`
+30. `feature/refinery-ring-swimming`
+31. `feature/ore-economy-tuning`
+32. `feature/talking-robots`
 
 ### Not split into PRs yet
 

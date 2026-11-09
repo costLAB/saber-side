@@ -4,6 +4,7 @@ import { astroHead } from './astro';
 import { catHead } from './cat';
 import { cutJaw, type Jaw } from './jaw';
 import { Cyl, flatRing, onSphere, type PartKit, Sph, TAU, zCyl } from './kit';
+import { patchHead } from './patch';
 
 // Heads. Each sits on a neck at the body's neck mount, inside a `head` group the animation turns and bobs. Heads with
 // an eye hand back its glowing parts, so the animation can pulse them and make the eye glance about. Every head has a
@@ -39,6 +40,8 @@ export function buildHead(
       return catHead(kit, core, pick.paint, neckY);
     case 'astro':
       return astroHead(kit, core, pick.paint, neckY);
+    case 'patch':
+      return patchHead(kit, core, pick.paint, neckY);
   }
 }
 

@@ -18,8 +18,8 @@ import type { ShopStatus } from './sim/shops.ts';
 // station's `paintCure` setting); 12 = shops (leasing a spot, the station's `shops`); 13 = Snatch, the sketchbook
 // cat (the `cat` head, body, and arms); 14 = long arms in VR (the `arm0reach` and `arm1reach` pose fields);
 // 15 = the small roller (the `roller` mobility part); 16 = Astro, the sketchbook astronaut (the `astro` head, body,
-// and arms).
-export const PROTOCOL_VERSION = 16;
+// and arms); 17 = Patch, the sketchbook pumpkin (the `patch` head, body, and arms).
+export const PROTOCOL_VERSION = 17;
 
 /** The one room. The whole friend group shares a single station. */
 export const STATION_ROOM = 'station';

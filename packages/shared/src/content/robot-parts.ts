@@ -10,7 +10,7 @@ export type PartSlot = (typeof PART_SLOTS)[number];
 
 /**
  * Every part there is, by slot. The client draws each id (apps/client/src/avatar/parts). The `cat` parts are Snatch,
- * and the `astro` parts Astro, from the sketchbook (content/characters.ts puts all three on at once, on the small
+ * the `astro` parts Astro, and the `patch` parts Patch, from the sketchbook (content/characters.ts puts all three on at once, on the small
  * roller). The small roller tucks up under a body, so the body sits just off the ground instead of on top of the giant
  * wheel.
  */
@@ -25,6 +25,7 @@ export const ROBOT_PARTS = {
     { id: 'crate', name: 'Crate' },
     { id: 'cat', name: 'Snatch' },
     { id: 'astro', name: 'Astro' },
+    { id: 'patch', name: 'Patch' },
   ],
   head: [
     { id: 'dome', name: 'Big eye' },
@@ -32,6 +33,7 @@ export const ROBOT_PARTS = {
     { id: 'stalk', name: 'Stalk eye' },
     { id: 'cat', name: 'Snatch' },
     { id: 'astro', name: 'Astro' },
+    { id: 'patch', name: 'Patch' },
   ],
   arms: [
     { id: 'grabber', name: 'Grabbers' },
@@ -39,6 +41,7 @@ export const ROBOT_PARTS = {
     { id: 'noodle', name: 'Noodles' },
     { id: 'cat', name: 'Snatch' },
     { id: 'astro', name: 'Astro' },
+    { id: 'patch', name: 'Patch' },
   ],
 } as const;
 

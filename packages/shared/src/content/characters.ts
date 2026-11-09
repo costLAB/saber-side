@@ -31,6 +31,13 @@ export const CHARACTERS: readonly Character[] = [
     parts: { body: 'astro', head: 'astro', arms: 'astro' },
     mobility: 'roller',
   },
+  {
+    id: 'patch',
+    name: 'Patch',
+    word: 'Pumpkin',
+    parts: { body: 'patch', head: 'patch', arms: 'patch' },
+    mobility: 'roller',
+  },
 ];
 
 /**

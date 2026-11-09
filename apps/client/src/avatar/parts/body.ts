@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { astroBody } from './astro';
 import { catBody } from './cat';
 import { type BodyMounts, Cyl, flatRing, onDrum, onSphere, type PartKit, Sph, TAU, zCyl } from './kit';
+import { patchBody } from './patch';
 
 // Mobility and bodies. The wheel is the one part every robot has: a drive ball in a fixed mount. Bodies sit on it and
 // say where the head and arms go.
@@ -110,6 +111,8 @@ export function buildBody(kit: PartKit, core: THREE.Group, pick: PartPick<'body'
       return catBody(kit, core, pick.paint);
     case 'astro':
       return astroBody(kit, core, pick.paint);
+    case 'patch':
+      return patchBody(kit, core, pick.paint);
   }
 }
 
