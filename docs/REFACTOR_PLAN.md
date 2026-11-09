@@ -53,7 +53,7 @@ Work that takes a series of PRs gets its own doc in [`docs/initiatives/`](initia
 | [Playing Saber Side in VR on Meta Quest](initiatives/quest-vr.md) | P4 | **Done** (#29, #34, #36 to #38, #40 to #45): VR on a Quest, from entering it and getting about the way Gorilla Tag does to flying ships from the cockpit. The next frame-rate cuts are an open question |
 | [Swimming in zero gravity](initiatives/zero-g-swimming.md) | P4, P3 | Planned: next `feature/zero-g-swim-stroke` |
 | [Inventory v1: what you own, and giving to friends](initiatives/inventory.md) | P3, P5 | Planned: next the parts initiative's `feature/jack-o-lantern-head`, then `feature/inventory` |
-| [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Started: Snatch (#46, on its small roller #50), Astro (#52), and Patch are in the game; next `feature/sketchbook-spider` |
+| [Sketchbook characters](initiatives/sketchbook-characters.md) | P3, P5 | Started: Snatch (#46, on its small roller #50), Astro (#52), and Patch (#53) are in the game; next `feature/sketchbook-spider` |
 
 ### Build order
 
