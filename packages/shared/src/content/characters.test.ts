@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { CHARACTERS, characterOf, wearCharacter } from './characters.ts';
-import { classicBuild, cleanRobotBuild, isPart, ORIGINAL_PAINT } from './robot-parts.ts';
+import { classicBuild, cleanRobotBuild, isPart, ORIGINAL_PAINT, type RobotBuild } from './robot-parts.ts';
 
 const SKY = '#8fc4f2';
 
 describe('characters', () => {
   it('are made of parts that exist, each in its own slot', () => {
-    expect(CHARACTERS.map((c) => c.name)).toContain('Snatch');
+    expect(CHARACTERS.map((c) => c.name)).toEqual(['Snatch', 'Astro']);
+    expect(new Set(CHARACTERS.map((c) => c.id)).size).toBe(CHARACTERS.length);
     for (const c of CHARACTERS) {
       expect(isPart('body', c.parts.body)).toBe(true);
       expect(isPart('head', c.parts.head)).toBe(true);
@@ -41,5 +42,17 @@ describe('characters', () => {
     expect(cleanRobotBuild(mixed)).toEqual(mixed);
     const catOnBall = { ...classicBuild(), body: { part: 'cat', paint: ORIGINAL_PAINT }, arms: null };
     expect(cleanRobotBuild(catOnBall)).toEqual(catOnBall);
+  });
+
+  it('mix with each other: any head on any body', () => {
+    const astro = CHARACTERS.find((c) => c.id === 'astro');
+    if (!astro) throw new Error('no Astro');
+    const astroCat: RobotBuild = { ...wearCharacter(classicBuild(), astro), head: { part: 'cat', paint: SKY } };
+    expect(cleanRobotBuild(astroCat)).toEqual(astroCat);
+    expect(characterOf(astroCat)).toBeUndefined();
+    expect(characterOf(wearCharacter(astroCat, astro))).toBe(astro);
+    // Astro comes on the small roller too, in the paint the old wheel had.
+    const onWheel = { ...classicBuild(), mobility: { part: 'wheel' as const, paint: SKY } };
+    expect(wearCharacter(onWheel, astro).mobility).toEqual({ part: 'roller', paint: SKY });
   });
 });
